@@ -1,0 +1,9 @@
+{
+  "name": "Zee Builder--Imagine app and images",
+  "description": "A next-generation AI-powered application builder and asset studio. Build web and mobile apps with integrated GenAI tools for code, images, video, and voice.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ]
+}
