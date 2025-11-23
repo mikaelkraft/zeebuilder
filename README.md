@@ -1,12 +1,20 @@
 <div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+
 </div>
 
-# Run and deploy your AI Studio app
+# Build and deploy your web/native apps
+
+# Generate, Edit, Create and Animate your images
+
+# Audio interactive sessions, Text to Speech, and Audio transcription 
+
+# Generate high quality videos with Veo and Veo 3.1
+
+# Work with our API and test out live in an interactive Terminal...
+
+-- All in one app
 
 This contains everything you need to run your app locally.
-
-View your app in AI Studio: https://ai.studio/apps/drive/1lpGPQfJRWA2h_et9Vg2_ZHLWaDi6XxuJ
 
 ## Run Locally
 
