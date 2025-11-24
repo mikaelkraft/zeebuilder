@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { createChatSession } from '../services/geminiService';
+import { createChatSession, transcribeAudio, blobToBase64, ensureApiKey } from '../services/geminiService';
 import { ChatMessage, ModelType, ChatSession, FileAttachment } from '../types';
 import { 
     Send, 
@@ -18,9 +18,10 @@ import {
     Clock,
     Paperclip,
     FileText,
-    BrainCircuit
+    BrainCircuit,
+    Mic,
+    MicOff
 } from 'lucide-react';
-import { blobToBase64 } from '../services/geminiService';
 
 const MarkdownRenderer = ({ content }: { content: string }) => {
     if (!content) return null;
@@ -95,6 +96,12 @@ const ChatInterface: React.FC = () => {
     const [isThinking, setIsThinking] = useState(false);
     const [useMaps, setUseMaps] = useState(false);
     const [useSearch, setUseSearch] = useState(false);
+
+    // Audio Recording
+    const [isRecording, setIsRecording] = useState(false);
+    const [isTranscribingAudio, setIsTranscribingAudio] = useState(false);
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const audioChunksRef = useRef<Blob[]>([]);
 
     const chatSessionRef = useRef<any>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -232,6 +239,55 @@ const ChatInterface: React.FC = () => {
         } finally { setIsLoading(false); }
     };
 
+    // Audio Recording Logic
+    const toggleRecording = async () => {
+        if (isRecording) {
+            if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+                mediaRecorderRef.current.stop();
+                setIsRecording(false);
+                setIsTranscribingAudio(true);
+            }
+        } else {
+            try {
+                await ensureApiKey();
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                const mediaRecorder = new MediaRecorder(stream);
+                mediaRecorderRef.current = mediaRecorder;
+                audioChunksRef.current = [];
+
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        audioChunksRef.current.push(event.data);
+                    }
+                };
+
+                mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+                    stream.getTracks().forEach(track => track.stop());
+
+                    try {
+                        const base64 = await blobToBase64(audioBlob);
+                        const transcript = await transcribeAudio(base64, 'audio/webm');
+                        if (transcript) {
+                            setInput(prev => prev + (prev ? ' ' : '') + transcript);
+                        }
+                    } catch (error) {
+                        console.error("Transcription failed:", error);
+                        alert("Failed to transcribe audio.");
+                    } finally {
+                        setIsTranscribingAudio(false);
+                    }
+                };
+
+                mediaRecorder.start();
+                setIsRecording(true);
+            } catch (error) {
+                console.error("Error accessing microphone:", error);
+                alert("Could not access microphone. Please check permissions.");
+            }
+        }
+    };
+
     return (
         <div className="h-[calc(100vh-10rem)] flex gap-4 p-0 overflow-hidden">
             <div className={`flex-shrink-0 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-xl transition-all duration-300 flex flex-col ${isHistoryOpen ? 'w-64' : 'w-0 opacity-0 pointer-events-none'} overflow-hidden absolute z-20 h-full md:static`}>
@@ -336,10 +392,21 @@ const ChatInterface: React.FC = () => {
 
                 <div className="p-4 bg-white dark:bg-slate-900 border-t border-gray-200 dark:border-slate-800 relative">
                     {attachment && <div className="absolute bottom-full left-4 bg-slate-800 text-white text-xs px-3 py-1 rounded-t-lg flex items-center"><Paperclip className="w-3 h-3 mr-2"/>{attachment.name}<button onClick={()=>setAttachment(null)} className="ml-2 text-red-400"><X className="w-3 h-3"/></button></div>}
-                    <div className="relative">
-                        <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSend())} placeholder="Type a message..." className="w-full bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-xl pl-10 pr-12 py-3 min-h-[50px] text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 resize-none text-sm" rows={1} />
-                        <label className="absolute left-3 bottom-3 cursor-pointer text-slate-400 hover:text-blue-500 transition-colors"><Paperclip className="w-5 h-5" /><input type="file" className="hidden" onChange={handleFileUpload}/></label>
-                        <button onClick={() => handleSend()} disabled={isLoading || (!input && !attachment)} className="absolute right-2 bottom-2 p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 disabled:opacity-50 transition-colors"><Send className="w-4 h-4" /></button>
+                    <div className="relative flex items-center bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-xl overflow-hidden focus-within:border-blue-600 transition-colors">
+                        <button 
+                            onClick={toggleRecording} 
+                            className={`p-3 transition-colors ${isRecording ? 'text-red-500 animate-pulse bg-red-950/20' : 'text-slate-500 hover:text-blue-500 hover:bg-slate-900'} border-r border-gray-200 dark:border-slate-800`}
+                            title={isRecording ? "Stop Recording" : "Record Audio"}
+                            disabled={isTranscribingAudio}
+                        >
+                            {isTranscribingAudio ? <Loader2 className="w-4 h-4 animate-spin" /> : (isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />)}
+                        </button>
+                        <label className="p-3 cursor-pointer text-slate-500 hover:text-blue-500 hover:bg-slate-900 transition-colors border-r border-gray-200 dark:border-slate-800">
+                            <Paperclip className="w-4 h-4" />
+                            <input type="file" className="hidden" onChange={handleFileUpload}/>
+                        </label>
+                        <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSend())} placeholder="Type a message..." className="flex-1 bg-transparent px-4 py-3 text-slate-900 dark:text-white focus:outline-none resize-none text-sm min-h-[50px]" rows={1} />
+                        <button onClick={() => handleSend()} disabled={isLoading || (!input && !attachment)} className="p-3 text-blue-600 dark:text-blue-500 hover:bg-blue-50 dark:hover:bg-slate-800 disabled:opacity-50 transition-colors"><Send className="w-4 h-4" /></button>
                     </div>
                 </div>
             </div>

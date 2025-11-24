@@ -6,7 +6,6 @@ import {
   Code, 
   MessageSquare, 
   Image as ImageIcon, 
-  Video, 
   Mic, 
   Menu, 
   X,
@@ -25,7 +24,6 @@ import Home from './components/Home';
 import Builder from './components/Builder';
 import ChatInterface from './components/ChatInterface';
 import ImageStudio from './components/ImageStudio';
-import VideoStudio from './components/VideoStudio';
 import AudioStudio from './components/AudioStudio';
 import TaskBoard from './components/TaskBoard';
 import AuthModal from './components/AuthModal';
@@ -105,7 +103,17 @@ const App: React.FC = () => {
   };
 
   const handleNavigation = (view: View) => {
-      const protectedViews = [View.DASHBOARD, View.BUILDER, View.TASKS, View.PROFILE, View.DEVELOPERS];
+      const protectedViews = [
+          View.DASHBOARD, 
+          View.BUILDER, 
+          View.TASKS, 
+          View.PROFILE, 
+          View.DEVELOPERS,
+          View.CHAT,
+          View.IMAGE_STUDIO,
+          View.AUDIO_STUDIO
+      ];
+
       if (protectedViews.includes(view) && !user) {
           setPendingView(view);
           setShowAuth(true);
@@ -137,7 +145,7 @@ const App: React.FC = () => {
   );
 
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-slate-950 text-slate-900 dark:text-slate-200 overflow-hidden font-sans selection:bg-blue-500/30 transition-colors duration-300">
+    <div className="flex min-h-screen bg-gray-50 dark:bg-slate-950 text-slate-900 dark:text-slate-200 overflow-hidden font-sans selection:bg-blue-500/30 transition-colors duration-300">
       
       {showAuth && (
         <AuthModal 
@@ -192,7 +200,6 @@ const App: React.FC = () => {
             <NavCategory label="AI Studios" />
             <NavItem view={View.CHAT} icon={MessageSquare} label="AI Assistant" />
             <NavItem view={View.IMAGE_STUDIO} icon={ImageIcon} label="Image Studio" />
-            <NavItem view={View.VIDEO_STUDIO} icon={Video} label="Video Studio" />
             <NavItem view={View.AUDIO_STUDIO} icon={Mic} label="Voice & Audio" />
         </nav>
 
@@ -242,7 +249,30 @@ const App: React.FC = () => {
         </div>
       </aside>
 
-      <main className="flex-1 flex flex-col h-screen overflow-hidden relative bg-gray-50 dark:bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] dark:from-slate-900 dark:via-slate-950 dark:to-slate-950">
+      <main className="flex-1 flex flex-col min-h-screen overflow-hidden relative bg-gray-50 dark:bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] dark:from-slate-900 dark:via-slate-950 dark:to-slate-950">
+        {/* Desktop Header */}
+        <div className="hidden lg:flex items-center justify-between px-8 py-4 border-b border-gray-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm z-20 shrink-0">
+            <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView(View.HOME)}>
+                <ZeeLogo />
+                <span className="text-lg font-black tracking-tight text-slate-900 dark:text-white">Zee<span className="text-blue-600">Builder</span></span>
+            </div>
+            <div className="flex items-center gap-4">
+                <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 rounded-lg text-slate-500 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors">
+                    {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                </button>
+                {user ? (
+                    <div className="flex items-center gap-3">
+                        <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Hi, {user.username}</span>
+                        <img src={user.avatar} alt="Profile" className="w-8 h-8 rounded-full border border-slate-300 dark:border-slate-700" />
+                    </div>
+                ) : (
+                    <button onClick={() => setShowAuth(true)} className="px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-sm font-bold rounded-lg hover:opacity-90 transition-opacity">
+                        Get Started
+                    </button>
+                )}
+            </div>
+        </div>
+
         {/* Mobile Header */}
         <header className="lg:hidden h-16 bg-white/80 dark:bg-slate-900/80 backdrop-blur border-b border-gray-200 dark:border-slate-800 flex items-center justify-between px-4 z-30 shrink-0">
             <button onClick={() => setIsSidebarOpen(true)} className="text-slate-900 dark:text-white p-2">
@@ -261,29 +291,26 @@ const App: React.FC = () => {
         </header>
 
         {/* View Content & Footer Wrapper */}
-        <div className="flex-1 overflow-y-auto scroll-smooth flex flex-col">
-            <div className="flex-1 p-4 lg:p-8">
-                <div className="max-w-7xl mx-auto h-full">
-                    {currentView === View.HOME && <Home onNavigate={handleNavigation} />}
-                    {currentView === View.DASHBOARD && <Dashboard user={user} onNavigate={handleNavigation} />}
-                    {currentView === View.BUILDER && <Builder user={user} />}
-                    {currentView === View.TASKS && <TaskBoard />}
-                    {currentView === View.CHAT && <ChatInterface />}
-                    {currentView === View.IMAGE_STUDIO && <ImageStudio />}
-                    {currentView === View.VIDEO_STUDIO && <VideoStudio />}
-                    {currentView === View.AUDIO_STUDIO && <AudioStudio />}
-                    {currentView === View.PROFILE && <Profile user={user} onUpdateUser={setUser} />}
-                    {currentView === View.DEVELOPERS && <Developers user={user} />}
-                    {(currentView === View.POLICY || currentView === View.TERMS || currentView === View.DOCS) && (
-                        <LegalDocs view={currentView} onNavigate={handleNavigation} />
-                    )}
-                </div>
+        <div className="flex-1 overflow-y-auto flex flex-col w-full relative scroll-smooth">
+            <div className="flex-1 p-4 lg:p-8 w-full max-w-7xl mx-auto min-h-full">
+                {currentView === View.HOME && <Home onNavigate={handleNavigation} />}
+                {currentView === View.DASHBOARD && <Dashboard user={user} onNavigate={handleNavigation} />}
+                {currentView === View.BUILDER && <Builder user={user} />}
+                {currentView === View.TASKS && <TaskBoard />}
+                {currentView === View.CHAT && <ChatInterface />}
+                {currentView === View.IMAGE_STUDIO && <ImageStudio />}
+                {currentView === View.AUDIO_STUDIO && <AudioStudio onNavigate={handleNavigation} />}
+                {currentView === View.PROFILE && <Profile user={user} onUpdateUser={setUser} />}
+                {currentView === View.DEVELOPERS && <Developers user={user} />}
+                {(currentView === View.POLICY || currentView === View.TERMS || currentView === View.DOCS) && (
+                    <LegalDocs view={currentView} onNavigate={handleNavigation} />
+                )}
             </div>
 
             {/* Global Footer */}
-            <footer className="bg-white dark:bg-slate-950 border-t border-gray-200 dark:border-slate-800 py-12 px-6 text-center text-xs text-slate-500 relative overflow-hidden shrink-0 mt-auto">
+            <footer className="bg-white dark:bg-slate-950 border-t border-gray-200 dark:border-slate-800 py-12 px-6 text-center text-xs text-slate-500 relative shrink-0 z-10 mt-auto">
                  {/* Neural Flow Background */}
-                 <div className="absolute inset-0 opacity-10 pointer-events-none">
+                 <div className="absolute inset-0 opacity-10 pointer-events-none overflow-hidden">
                      <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
                          <defs>
                              <pattern id="neural-pattern" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">

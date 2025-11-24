@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
-import { generateProject, blobToBase64 } from '../services/geminiService';
+import { generateProject, blobToBase64, generateImage, transcribeAudio, ensureApiKey } from '../services/geminiService';
 import { githubService } from '../services/githubService';
 import { DatabaseConfig, User, ModelType, ProjectFile, Stack, BuilderChatMessage, SavedProject, FileAttachment } from '../types';
 import { 
@@ -8,7 +8,8 @@ import {
     File, RefreshCw, Terminal as TerminalIcon, X, Sidebar,
     RotateCcw, Image, FileCode, ChevronRight, ChevronDown, Database, Package as PackageIcon,
     Smartphone, Layers, Globe, Paperclip, MonitorPlay,
-    Undo2, Redo2, Play, FileType, Eye, ArrowLeftRight, Check, AlertCircle, Maximize2, Minimize2, MessageSquare
+    Undo2, Redo2, Play, FileType, Eye, ArrowLeftRight, Check, AlertCircle, Maximize2, Minimize2, MessageSquare,
+    Mic, MicOff
 } from 'lucide-react';
 import JSZip from 'jszip';
 
@@ -132,6 +133,7 @@ const FileTreeNode: React.FC<{ node: TreeNode; level: number; activeFile: string
                         node.name.endsWith('.css') ? <CodeIcon className="w-3.5 h-3.5 text-blue-400" /> :
                         node.name.match(/\.(ts|tsx)$/) ? <FileType className="w-3.5 h-3.5 text-blue-300" /> :
                         node.name.endsWith('.json') ? <Database className="w-3.5 h-3.5 text-yellow-500" /> :
+                        node.name.match(/\.(png|jpg|jpeg|svg|gif)$/) ? <Image className="w-3.5 h-3.5 text-purple-400" /> :
                         <File className="w-3.5 h-3.5" />
                     ) : (isOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />)}
                 </span>
@@ -174,6 +176,12 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
     const [model, setModel] = useState(ModelType.PRO_PREVIEW);
     const [useSearch, setUseSearch] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+
+    // Audio Recording
+    const [isRecording, setIsRecording] = useState(false);
+    const [isTranscribingAudio, setIsTranscribingAudio] = useState(false);
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const audioChunksRef = useRef<Blob[]>([]);
 
     // Tools
     const [ghToken, setGhToken] = useState('');
@@ -358,7 +366,36 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
             const snapshot = [...files]; 
             const result = await generateProject([...messages, userMsg], stack, model, files, dbConfigs, useSearch);
             
-            if (result.files && result.files.length > 0) {
+            // Handle Image/Logo Tool Calls
+            if (result.toolCall === 'generateLogo' || result.toolCall === 'generateImage') {
+                setGenerationStatus('Generating asset...');
+                const imgPrompt = result.explanation || userMsg.text;
+                const response = await generateImage(imgPrompt, '1:1', '1K', ModelType.PRO_IMAGE);
+                const parts = response?.candidates?.[0]?.content?.parts;
+                
+                if (parts && parts.length > 0 && parts[0].inlineData) {
+                    const base64 = parts[0].inlineData.data;
+                    const fileName = `src/assets/${result.toolCall === 'generateLogo' ? 'logo' : 'image'}-${Date.now()}.png`;
+                    
+                    const imageFile: ProjectFile = {
+                        name: fileName,
+                        content: `data:image/png;base64,${base64}`,
+                        language: 'image'
+                    };
+                    
+                    const newFiles = [...files, imageFile];
+                    setFiles(newFiles);
+                    setMessages(prev => [...prev, { 
+                        id: Date.now().toString(), 
+                        role: 'model', 
+                        text: `Generated ${result.toolCall === 'generateLogo' ? 'logo' : 'image'} and saved to ${fileName}.`,
+                        attachment: { name: fileName, mimeType: 'image/png', data: base64 },
+                        timestamp: Date.now() 
+                    }]);
+                } else {
+                    setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: "Failed to generate image.", timestamp: Date.now() }]);
+                }
+            } else if (result.files && result.files.length > 0) {
                 setHistoryStack(prev => [...prev, snapshot]); 
                 setRedoStack([]);
                 
@@ -377,6 +414,60 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
             setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: `Error: ${e.message}`, timestamp: Date.now() }]);
         } finally {
             setIsGenerating(false);
+        }
+    };
+
+    // Audio Recording Logic
+    const toggleRecording = async () => {
+        if (isRecording) {
+            // Stop recording
+            if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+                mediaRecorderRef.current.stop();
+                setIsRecording(false);
+                setIsTranscribingAudio(true);
+            }
+        } else {
+            // Start recording
+            try {
+                await ensureApiKey();
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                const mediaRecorder = new MediaRecorder(stream);
+                mediaRecorderRef.current = mediaRecorder;
+                audioChunksRef.current = [];
+
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        audioChunksRef.current.push(event.data);
+                    }
+                };
+
+                mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+                    
+                    // Stop stream tracks
+                    stream.getTracks().forEach(track => track.stop());
+
+                    try {
+                        const base64 = await blobToBase64(audioBlob);
+                        // Use Flash model for quick transcription
+                        const transcript = await transcribeAudio(base64, 'audio/webm');
+                        if (transcript) {
+                            setChatInput(prev => prev + (prev ? ' ' : '') + transcript);
+                        }
+                    } catch (error) {
+                        console.error("Transcription failed:", error);
+                        alert("Failed to transcribe audio.");
+                    } finally {
+                        setIsTranscribingAudio(false);
+                    }
+                };
+
+                mediaRecorder.start();
+                setIsRecording(true);
+            } catch (error) {
+                console.error("Error accessing microphone:", error);
+                alert("Could not access microphone. Please check permissions.");
+            }
         }
     };
 
@@ -416,8 +507,13 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
         files.forEach(f => {
             const isJs = f.name.match(/\.(js|jsx|ts|tsx)$/);
             const isCss = f.name.endsWith('.css');
+            const isImage = f.name.match(/\.(png|jpg|jpeg|svg|gif)$/);
+
             if (isJs || isCss) {
                 blobs[f.name] = URL.createObjectURL(new Blob([f.content], { type: isCss ? 'text/css' : 'application/javascript' }));
+            } else if (isImage) {
+                const jsModuleContent = `export default "${f.content}";`;
+                blobs[f.name] = URL.createObjectURL(new Blob([jsModuleContent], { type: 'application/javascript' }));
             }
         });
 
@@ -428,7 +524,20 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                 let content = f.content;
                 content = content.replace(/from\s+['"](\..*?)['"]/g, (match, path) => {
                     const cleanPath = path.replace(/^\.\//, 'src/').replace(/\.(js|jsx|ts|tsx)$/, '');
-                    const found = files.find(x => x.name.startsWith(cleanPath) || x.name === cleanPath);
+                    
+                    // Try finding JS match
+                    let found = files.find(x => x.name.startsWith(cleanPath) || x.name === cleanPath);
+                    
+                    // If not found, try extensions for images/css
+                    if (!found) {
+                        const extensions = ['.png', '.jpg', '.jpeg', '.svg', '.css'];
+                        for (const ext of extensions) {
+                            const trialPath = cleanPath.endsWith(ext) ? cleanPath : cleanPath + ext;
+                            found = files.find(x => x.name.endsWith(trialPath.replace('src/', '')));
+                            if (found) break;
+                        }
+                    }
+
                     return found && blobs[found.name] ? `from "${blobs[found.name]}"` : match;
                 });
                 processedBlobs[f.name] = URL.createObjectURL(new Blob([content], { type: 'application/javascript' }));
@@ -569,6 +678,9 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                     <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                         <div className={`max-w-[90%] p-3 rounded-xl text-xs ${m.role === 'user' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300'}`}>
                             {m.attachment && <div className="mb-2 text-xs bg-black/20 p-1 rounded flex items-center"><Paperclip className="w-3 h-3 mr-1" />{m.attachment.name}</div>}
+                            {m.attachment && m.attachment.mimeType.startsWith('image') && (
+                                <img src={`data:${m.attachment.mimeType};base64,${m.attachment.data}`} alt="Attached" className="max-w-full h-auto rounded mb-2 border border-slate-700" />
+                            )}
                             <div className="whitespace-pre-wrap">{m.text}</div>
                             {m.role === 'model' && m.text.includes('Updated') && historyStack.length > 0 && (
                                 <div className="mt-2 pt-2 border-t border-slate-700">
@@ -584,6 +696,14 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
             </div>
             <div className="p-3 border-t border-slate-800 shrink-0 bg-slate-900">
                 <div className="relative flex items-center bg-slate-950 border border-slate-800 rounded-xl overflow-hidden focus-within:border-blue-600 transition-colors">
+                    <button 
+                        onClick={toggleRecording} 
+                        className={`p-3 transition-colors ${isRecording ? 'text-red-500 animate-pulse bg-red-950/20' : 'text-slate-500 hover:text-blue-500 hover:bg-slate-900'} border-r border-slate-800`}
+                        title={isRecording ? "Stop Recording" : "Record Audio"}
+                        disabled={isTranscribingAudio}
+                    >
+                        {isTranscribingAudio ? <Loader2 className="w-4 h-4 animate-spin" /> : (isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />)}
+                    </button>
                     <label className="p-3 cursor-pointer text-slate-500 hover:text-blue-500 hover:bg-slate-900 transition-colors border-r border-slate-800">
                         <Paperclip className="w-4 h-4" />
                         <input type="file" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) blobToBase64(f).then(d => setChatAttachment({ name: f.name, mimeType: f.type, data: d })) }} />
@@ -718,7 +838,6 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                     </div>
                 </div>
 
-                {/* Center Panel: Code & Terminal */}
                 <div className="flex-1 flex flex-col min-w-0 border-r border-slate-800 bg-[#0f172a]">
                     <textarea 
                         value={files.find(f=>f.name===activeFile)?.content || ''} 
@@ -740,9 +859,7 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                     </div>
                 </div>
 
-                {/* Right Panel: Tabs for Preview / Chat */}
                 <div className="w-full md:w-[400px] lg:w-[450px] bg-slate-900 border-l border-slate-800 flex flex-col shrink-0">
-                    {/* Right Panel Tabs */}
                     <div className="flex border-b border-slate-800 bg-slate-950">
                         <button 
                             onClick={() => setRightPanelTab('chat')} 
@@ -757,30 +874,11 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                             <Play className="w-3.5 h-3.5 mr-2"/> Preview
                         </button>
                     </div>
-
-                    {/* Content */}
-                    <div className="flex-1 relative overflow-hidden">
+                    <div className="flex-1 overflow-hidden relative">
                         {rightPanelTab === 'chat' ? <ChatPanel /> : <PreviewPanel />}
                     </div>
                 </div>
             </div>
-
-            {showProjectModal && (
-                <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 backdrop-blur-sm">
-                    <div className="bg-slate-900 rounded-xl p-6 w-full max-w-md border border-slate-800">
-                        <h3 className="text-lg font-bold text-white mb-4">Switch Project</h3>
-                        <div className="space-y-2 max-h-60 overflow-y-auto">
-                            {savedProjects.map(p => (
-                                <div key={p.id} onClick={() => loadProject(p)} className="p-3 hover:bg-slate-800 rounded-lg cursor-pointer border border-slate-800 flex justify-between items-center">
-                                    <span className="text-sm text-slate-200 font-medium">{p.name}</span>
-                                    <span className="text-[10px] text-slate-500 uppercase bg-slate-950 px-2 py-1 rounded">{p.stack}</span>
-                                </div>
-                            ))}
-                        </div>
-                        <button onClick={() => setShowProjectModal(false)} className="mt-4 w-full py-2 bg-slate-800 text-slate-300 rounded hover:bg-slate-700 transition-colors">Close</button>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };

@@ -1,11 +1,11 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { generateImage, editImage, generateVideo } from '../services/geminiService';
-import { Image, Wand2, Film, Loader2, Upload, ZoomIn, ZoomOut, RefreshCcw, Move, Download, Stamp } from 'lucide-react';
-import { ModelType } from '../types';
+import { generateImage, editImage } from '../services/geminiService';
+import { Image, Wand2, Loader2, Upload, ZoomIn, ZoomOut, RefreshCcw, Download, Stamp, FolderPlus, Check } from 'lucide-react';
+import { ModelType, SavedProject } from '../types';
 
 const ImageStudio: React.FC = () => {
-    const [mode, setMode] = useState<'generate' | 'edit' | 'animate' | 'logo'>('generate');
+    const [mode, setMode] = useState<'generate' | 'edit' | 'logo'>('generate');
     const [prompt, setPrompt] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [resultUrl, setResultUrl] = useState<string | null>(null);
@@ -15,7 +15,6 @@ const ImageStudio: React.FC = () => {
     const [aspectRatio, setAspectRatio] = useState('1:1');
     const [imageSize, setImageSize] = useState('1K');
     const [selectedModel, setSelectedModel] = useState(ModelType.PRO_IMAGE);
-    const [videoModel, setVideoModel] = useState(ModelType.VEO_FAST);
 
     // Logo Specifics
     const [appName, setAppName] = useState('');
@@ -27,11 +26,15 @@ const ImageStudio: React.FC = () => {
     const [isDragging, setIsDragging] = useState(false);
     const startPan = useRef({ x: 0, y: 0 });
     const containerRef = useRef<HTMLDivElement>(null);
+    
+    // Project Integration State
+    const [saveStatus, setSaveStatus] = useState<'idle' | 'saved'>('idle');
 
     // Reset view when result changes
     useEffect(() => {
         setZoom(1);
         setPan({ x: 0, y: 0 });
+        setSaveStatus('idle');
     }, [resultUrl, mode]);
 
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -52,9 +55,8 @@ const ImageStudio: React.FC = () => {
 
     const handleAction = async () => {
         setIsLoading(true);
-        // We don't clear resultUrl immediately for edit/animate to prevent flashing if it's just an overlay update, 
-        // but for generate we want a fresh start visual.
         if (mode === 'generate' || mode === 'logo') setResultUrl(null);
+        setSaveStatus('idle');
         
         try {
             if (mode === 'generate') {
@@ -68,7 +70,7 @@ const ImageStudio: React.FC = () => {
                         }
                     }
                 } else {
-                    alert("Generation produced no content. The model might be overloaded or blocked the prompt.");
+                    alert("Generation produced no content.");
                 }
             } else if (mode === 'logo') {
                 const logoPrompt = `Design a ${logoStyle.toLowerCase()} logo for an application named "${appName}". Context/Description: ${prompt}. The logo should be high-quality, professional, iconic, and suitable for an app icon. Ensure a clean background.`;
@@ -83,7 +85,7 @@ const ImageStudio: React.FC = () => {
                         }
                     }
                 } else {
-                    alert("Logo generation failed. Please try a different prompt.");
+                    alert("Logo generation failed.");
                 }
             } else if (mode === 'edit') {
                 if (!uploadedImage) return;
@@ -97,22 +99,48 @@ const ImageStudio: React.FC = () => {
                         }
                     }
                 } else {
-                    alert("Editing failed. The model may not support this transformation.");
-                }
-            } else if (mode === 'animate') {
-                if (!uploadedImage) return;
-                const url = await generateVideo(prompt, "16:9", uploadedImage, videoModel);
-                if (url) {
-                    setResultUrl(url);
-                } else {
-                    alert("Video generation initiated but returned no URL. Please try again.");
+                    alert("Editing failed.");
                 }
             }
         } catch (error) {
             console.error(error);
-            alert("Error generating content. Please check if the selected model is available and try again.");
+            alert("Error generating content.");
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const handleAddToProject = () => {
+        if (!resultUrl) return;
+
+        const activeId = localStorage.getItem('zee_active_project_id');
+        if (!activeId) {
+            alert("No active project found. Please open a project in the Builder first.");
+            return;
+        }
+
+        const storedProjects = localStorage.getItem('zee_projects');
+        if (storedProjects) {
+            const projects: SavedProject[] = JSON.parse(storedProjects);
+            const projectIndex = projects.findIndex(p => p.id === activeId);
+            
+            if (projectIndex >= 0) {
+                const project = projects[projectIndex];
+                const fileName = `src/assets/${mode === 'logo' ? 'logo' : 'generated'}-${Date.now()}.png`;
+                
+                project.files.push({
+                    name: fileName,
+                    content: resultUrl, // Storing Data URL directly
+                    language: 'image'
+                });
+                
+                project.lastModified = Date.now();
+                projects[projectIndex] = project;
+                
+                localStorage.setItem('zee_projects', JSON.stringify(projects));
+                setSaveStatus('saved');
+                setTimeout(() => setSaveStatus('idle'), 3000);
+            }
         }
     };
 
@@ -167,16 +195,10 @@ const ImageStudio: React.FC = () => {
                         >
                             <Wand2 className="w-4 h-4" /> Edit
                         </button>
-                        <button 
-                            onClick={() => { setMode('animate'); }}
-                            className={`p-2 rounded-lg text-xs font-medium flex flex-col items-center justify-center gap-1 transition-colors ${mode === 'animate' ? 'bg-orange-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
-                        >
-                            <Film className="w-4 h-4" /> Animate
-                        </button>
                     </div>
                 </div>
 
-                {(mode === 'edit' || mode === 'animate') && (
+                {(mode === 'edit') && (
                     <div className="p-4 border border-dashed border-slate-700 rounded-lg bg-slate-950/50 text-center">
                          <label className="cursor-pointer block">
                             <Upload className="w-8 h-8 text-slate-500 mx-auto mb-2" />
@@ -261,20 +283,6 @@ const ImageStudio: React.FC = () => {
                         </div>
                     </div>
                 )}
-
-                {mode === 'animate' && (
-                     <div>
-                        <label className="text-xs text-slate-400 uppercase font-bold mb-2 block">Model</label>
-                        <select 
-                            value={videoModel} 
-                            onChange={(e) => setVideoModel(e.target.value as ModelType)}
-                            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white text-sm"
-                        >
-                            <option value={ModelType.VEO_FAST}>Veo Fast (Preview)</option>
-                            {/* Standard Veo could be added here if configured in types */}
-                        </select>
-                    </div>
-                )}
                 
                 <div className="p-4 bg-slate-800/30 rounded-lg border border-slate-800">
                      <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Instructions</h4>
@@ -320,9 +328,16 @@ const ImageStudio: React.FC = () => {
                         <div className="w-px h-4 bg-slate-700 mx-1"></div>
                         <button onClick={() => { setZoom(1); setPan({x:0,y:0}); }} className="p-2 hover:bg-slate-700 rounded text-slate-300" title="Reset View"><RefreshCcw className="w-4 h-4" /></button>
                         <div className="w-px h-4 bg-slate-700 mx-1"></div>
+                        <button 
+                            onClick={handleAddToProject}
+                            className="p-2 hover:bg-slate-700 rounded text-green-400 hover:text-green-300 flex items-center"
+                            title="Add to Active Project"
+                        >
+                            {saveStatus === 'saved' ? <Check className="w-4 h-4" /> : <FolderPlus className="w-4 h-4" />}
+                        </button>
                         <a 
                             href={resultUrl} 
-                            download={`zee-gen-${Date.now()}.${mode === 'animate' ? 'mp4' : 'png'}`} 
+                            download={`zee-gen-${Date.now()}.png`} 
                             className="p-2 hover:bg-slate-700 rounded text-blue-400 hover:text-blue-300"
                             title="Download"
                         >
@@ -344,7 +359,6 @@ const ImageStudio: React.FC = () => {
                         <div className="text-center pointer-events-none">
                             <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
                             <p className="text-slate-400 animate-pulse">Creating Magic with Zee...</p>
-                            {mode === 'animate' && <p className="text-xs text-slate-600 mt-2">Veo videos may take a minute.</p>}
                         </div>
                     ) : resultUrl ? (
                         <div 
@@ -354,11 +368,7 @@ const ImageStudio: React.FC = () => {
                             }}
                             className="relative will-change-transform"
                         >
-                            {mode === 'animate' ? (
-                                <video src={resultUrl} controls autoPlay loop className="max-w-none rounded-lg shadow-2xl" style={{ maxHeight: '80vh' }} />
-                            ) : (
-                                <img src={resultUrl} alt="Generated" className="max-w-none rounded-lg shadow-2xl pointer-events-none" style={{ maxHeight: '80vh' }} />
-                            )}
+                            <img src={resultUrl} alt="Generated" className="max-w-none rounded-lg shadow-2xl pointer-events-none" style={{ maxHeight: '80vh' }} />
                         </div>
                     ) : (
                         <div className="text-center text-slate-600 pointer-events-none">

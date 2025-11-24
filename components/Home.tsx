@@ -5,7 +5,6 @@ import {
     Code, 
     MessageSquare, 
     Image, 
-    Video, 
     Mic, 
     Zap, 
     BrainCircuit,
@@ -106,7 +105,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
              </h1>
              
              <p className="text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto leading-relaxed mb-10">
-                The ultimate platform for creators and developers. Generate code, images, videos, and voice interactions in one unified studio powered by Zee AI.
+                The ultimate platform for creators and developers. Generate code, images, and voice interactions in one unified studio powered by Zee AI.
              </p>
 
              <div className="flex justify-center gap-4 mb-8">
@@ -166,13 +165,6 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                 onClick={() => onNavigate(View.IMAGE_STUDIO)}
             />
             <FeatureCard 
-                title="Veo Video Gen" 
-                description="Create high-fidelity 1080p videos from text prompts with Veo 3.1."
-                icon={Video}
-                color="bg-orange-600"
-                onClick={() => onNavigate(View.VIDEO_STUDIO)}
-            />
-            <FeatureCard 
                 title="Voice & Live API" 
                 description="Real-time conversational audio and neural Text-to-Speech."
                 icon={Mic}
@@ -219,12 +211,11 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                          Backend & AI
                      </h3>
                      <p className="text-slate-600 dark:text-slate-400 leading-relaxed mb-4">
-                         Powered by Zee AI Intelligence. Utilizing Zee Pro for reasoning, Veo for video, and Zee Image models for assets.
+                         Powered by Zee AI Intelligence. Utilizing Zee Pro for reasoning and Zee Image models for assets.
                          Real-time audio streaming via WebSocket Live API.
                      </p>
                      <div className="flex flex-wrap gap-2">
                          <span className="px-3 py-1 bg-gray-100 dark:bg-slate-900 rounded-full text-xs text-orange-600 dark:text-orange-400 border border-gray-200 dark:border-slate-800">Zee Pro</span>
-                         <span className="px-3 py-1 bg-gray-100 dark:bg-slate-900 rounded-full text-xs text-red-600 dark:text-red-400 border border-gray-200 dark:border-slate-800">Veo</span>
                          <span className="px-3 py-1 bg-gray-100 dark:bg-slate-900 rounded-full text-xs text-green-600 dark:text-green-400 border border-gray-200 dark:border-slate-800">Live API</span>
                      </div>
                  </div>

@@ -3,7 +3,7 @@ import { GoogleGenAI, Type, Modality, FunctionDeclaration } from "@google/genai"
 import { ModelType, ProjectFile, Stack, BuilderChatMessage, DatabaseConfig } from "../types";
 
 // Helper to handle API Key selection for paid models
-const ensureApiKey = async () => {
+export const ensureApiKey = async () => {
   if (window.aistudio && window.aistudio.hasSelectedApiKey && window.aistudio.openSelectKey) {
     const hasKey = await window.aistudio.hasSelectedApiKey();
     if (!hasKey) {
@@ -34,6 +34,14 @@ const withAuthRetry = async <T>(operation: () => Promise<T>, retries = 1): Promi
              }
         }
 
+        if (msg.includes("500") || msg.includes("internal server error")) {
+             if (retries > 0) {
+                 console.warn("Server Error 500, retrying...", error);
+                 await new Promise(resolve => setTimeout(resolve, 3000));
+                 return withAuthRetry(operation, retries - 1);
+             }
+        }
+
         if (msg.includes("503") || msg.includes("unavailable") || msg.includes("overloaded") || msg.includes("fetch failed")) {
             if (retries > 0) {
                 console.warn("Service unavailable, retrying...", error);
@@ -42,10 +50,12 @@ const withAuthRetry = async <T>(operation: () => Promise<T>, retries = 1): Promi
             }
         }
 
+        // Handle 400 API_KEY_INVALID specifically along with other auth errors
         if (msg.includes("404") || msg.includes("requested entity was not found") || 
-            msg.includes("403") || msg.includes("permission denied") || msg.includes("permission")) {
+            msg.includes("403") || msg.includes("permission denied") || msg.includes("permission") ||
+            (msg.includes("400") && (msg.includes("api key") || msg.includes("api_key_invalid")))) {
             
-            console.warn("Auth error detected, prompting for key selection retry:", error);
+            console.warn("Auth/API Key error detected, prompting for key selection retry:", error);
             
             if (window.aistudio && window.aistudio.openSelectKey) {
                 try {
@@ -89,15 +99,11 @@ export const createChatSession = async (
         const ai = getClient();
         
         const tools: any[] = [];
-        
-        // Lite models usually don't support complex tools robustly or at all in some environments
         const supportsTools = model !== ModelType.FLASH_LITE;
 
         if (!isThinking && supportsTools) {
             if (useSearch) tools.push({ googleSearch: {} });
-            if (useMaps) {
-                tools.push({ googleMaps: {} });
-            }
+            if (useMaps) tools.push({ googleMaps: {} });
             tools.push({ functionDeclarations: [createTaskFunction] });
         }
 
@@ -107,20 +113,15 @@ You are helpful, creative, and concise. Identify yourself as Zee AI.
 
 CAPABILITIES OF THIS APP (ZEE BUILDER):
 1. **App Builder**: Full IDE to build React, Vue, Flutter, and HTML apps. Supports real Preview, Terminal, and Git.
-2. **Image Studio**: Generate, Edit, and Animate images using Zee Pro Image and Veo.
-3. **Video Studio**: Generate high-quality videos from text using Veo models.
-4. **Audio Studio**: Live Voice conversations, TTS generation, and Audio Transcription.
-5. **Task Board**: Kanban style project management.
-6. **Developer API**: Generate API keys to use Zee models in external apps.
+2. **Image Studio**: Generate, Edit, and Animate images using Zee Pro Image.
+3. **Audio Studio**: Live Voice conversations, TTS generation, and Audio Transcription.
+4. **Task Board**: Kanban style project management.
+5. **Developer API**: Generate API keys to use Zee models in external apps.
 `;
 
-        const config: any = {
-            systemInstruction,
-        };
+        const config: any = { systemInstruction };
 
         if (isThinking) {
-            // Thinking requires Pro model primarily, but can work with Flash 2.0 thinking if available.
-            // Using budget for 3.0 Pro
             config.thinkingConfig = { thinkingBudget: 16000 }; 
         }
 
@@ -155,11 +156,8 @@ export const generateProject = async (
             if (msg.attachment) {
                 parts.push({ inlineData: { data: msg.attachment.data, mimeType: msg.attachment.mimeType } });
             }
-            parts.push({ text: msg.text });
-            return {
-                role: msg.role,
-                parts
-            };
+            parts.push({ text: msg.text || (msg.attachment ? "Analyze this file." : ".") });
+            return { role: msg.role, parts };
         });
 
         const lastMsg = chatHistory.pop(); 
@@ -169,7 +167,7 @@ export const generateProject = async (
         const dbContext = dbConfigs.length > 0 
             ? `ACTIVE DATABASE CREDENTIALS (MUST be used if backend logic is requested):
 ${JSON.stringify(dbConfigs, null, 2)}
-IMPORTANT: When writing connection code (e.g. firebase.initializeApp), use these EXACT values from the JSON above. Do NOT use placeholders like "YOUR_API_KEY".`
+IMPORTANT: When writing connection code, use these EXACT values.`
             : "No active database connections configured.";
 
         const isTs = stack === 'react-ts';
@@ -190,47 +188,32 @@ IMPORTANT: When writing connection code (e.g. firebase.initializeApp), use these
 
         INSTRUCTIONS:
         1. **Analyze the User Request**:
-           - If the user asks to "build", "create", "add", "fix", or "update" something, YOU MUST GENERATE CODE.
-           - If the user is just saying "hi" or asking a general question, return an empty "files" array and an explanation.
+           - If the user asks to "build", "create", "add", "fix", or "update", GENERATE CODE.
+           - If the user asks a question, explain it.
         
         2. **Code Generation Rules**:
-           - For Web (React/Vue/HTML), you MUST use Tailwind CSS for styling.
-           - For React, use 'export default function App() {}' or similar.
-           - If Stack is 'react-ts', use TypeScript (.tsx/.ts) files and interfaces.
-           - Ensure 'package.json' is present and valid. Include 'dependencies' and 'devDependencies'.
-           - Organize components in 'src/components/'.
-           - **DATABASE**: If 'dbConfigs' are provided and relevant, WRITE THE ACTUAL CONNECTION CODE using the provided credentials.
+           - Web: Use Tailwind CSS.
+           - React: 'export default function App() {}'.
+           - TypeScript: Use .tsx/.ts.
+           - Ensure 'package.json' is valid.
         
         3. **Response Format**:
-           Return ONLY a valid JSON object. Do not wrap it in markdown if possible, but if you do, use \`\`\`json.
-           IMPORTANT: Ensure the JSON is valid and parseable.
-        
+           Return ONLY a valid JSON object. You may wrap it in \`\`\`json blocks.
+           
         JSON STRUCTURE:
         {
           "files": [
             { "name": "src/App.${ext}", "content": "code here...", "language": "${isTs ? 'typescript' : 'javascript'}" }
           ],
-          "explanation": "Brief summary of changes or answer to the user",
-          "toolCall": "connectDB" | "generateLogo" | null
+          "explanation": "Brief summary",
+          "toolCall": null
         }
         `;
 
-        const config: any = {
-             responseMimeType: "application/json",
-        };
+        const config: any = {};
         
-        // Config logic: 
-        // 1. Search tool is NOT compatible with responseMimeType: "application/json"
-        // 2. Search is not available on Lite models or Thinking mode
         if (useSearch && !model.includes('thinking') && model !== ModelType.FLASH_LITE) {
              config.tools = [{ googleSearch: {} }];
-             // Remove responseMimeType to prevent "Request contains an invalid argument" error
-             delete config.responseMimeType;
-        }
-
-        // If tool call is forced via tools config, we must remove responseMimeType as well
-        if (config.tools && config.tools.length > 0) {
-            delete config.responseMimeType;
         }
 
         const result = await ai.models.generateContent({
@@ -241,15 +224,10 @@ IMPORTANT: When writing connection code (e.g. firebase.initializeApp), use these
 
         let text = result.text || "{}";
         
-        // Robust JSON extraction
         try {
-            // Try direct parse first
             return JSON.parse(text);
         } catch (e) {
-            // Try cleaning markdown
             text = text.replace(/```json/g, '').replace(/```/g, '').trim();
-            
-            // Try extracting object
             const firstOpen = text.indexOf('{');
             const lastClose = text.lastIndexOf('}');
             
@@ -258,24 +236,22 @@ IMPORTANT: When writing connection code (e.g. firebase.initializeApp), use these
                 try {
                     return JSON.parse(jsonStr);
                 } catch (e2) {
-                    console.error("JSON Parse Error (Extracted):", jsonStr);
-                    throw new Error("Failed to parse generated project code.");
+                    throw new Error("Failed to parse generated code. Please try again.");
                 }
             } else {
-                console.error("No JSON found in response:", text);
-                throw new Error("AI response was not valid JSON.");
+                return { files: [], explanation: text, toolCall: null };
             }
         }
     });
 };
 
-// --- Image & Video ---
+// --- Image ---
 
 export const generateImage = async (prompt: string, aspectRatio: string, size: string, model: ModelType) => {
     return withAuthRetry(async () => {
         await ensureApiKey();
         const ai = getClient();
-        const config: any = { imageConfig: { aspectRatio } };
+        const config: any = { imageConfig: { aspectRatio: aspectRatio || '1:1' } };
         return ai.models.generateContent({
             model: model,
             contents: { parts: [{ text: prompt }] },
@@ -300,64 +276,22 @@ export const editImage = async (base64Image: string, mimeType: string, prompt: s
     });
 };
 
-export const generateVideo = async (prompt: string, aspectRatio: string, image?: {data: string, mimeType: string}, model: ModelType = ModelType.VEO_FAST) => {
-    return withAuthRetry(async () => {
-        await ensureApiKey();
-        const ai = getClient();
-        
-        const req: any = {
-            model,
-            prompt,
-            config: {
-                numberOfVideos: 1,
-                aspectRatio: aspectRatio as any,
-                resolution: '1080p'
-            }
-        };
-
-        if (image) {
-            req.image = { imageBytes: image.data, mimeType: image.mimeType };
-        }
-
-        let operation = await ai.models.generateVideos(req);
-        
-        let attempts = 0;
-        while (!operation.done && attempts < 30) { 
-             await new Promise(r => setTimeout(r, 10000));
-             try {
-                operation = await ai.operations.getVideosOperation({ operation });
-             } catch (e: any) {
-                 if (e.message && e.message.includes("Deadline")) {
-                     // keep waiting
-                 } else {
-                     throw e;
-                 }
-             }
-             attempts++;
-        }
-
-        const videoUri = operation.response?.generatedVideos?.[0]?.video?.uri;
-        if (videoUri) {
-             const key = process.env.API_KEY; 
-             return `${videoUri}&key=${key}`;
-        }
-        return null;
-    });
-};
-
 // --- Audio ---
 
-export const generateSpeech = async (text: string) => {
+export const generateSpeech = async (text: string, voiceName: string = 'Kore') => {
     return withAuthRetry(async () => {
         await ensureApiKey();
         const ai = getClient();
+        
+        const finalVoice = voiceName === 'Zee' ? 'Zephyr' : voiceName;
+
         const response = await ai.models.generateContent({
             model: ModelType.TTS,
             contents: { parts: [{ text }] },
             config: {
                 responseModalities: [Modality.AUDIO],
                 speechConfig: {
-                    voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } }
+                    voiceConfig: { prebuiltVoiceConfig: { voiceName: finalVoice } }
                 }
             }
         });
@@ -409,27 +343,37 @@ export const decodeAudio = (base64: string) => {
     return bytes;
 };
 
+// FIXED: Strict ArrayBuffer handling to prevent DataView errors
 export const arrayBufferToAudioBuffer = async (
   chunk: ArrayBuffer | Uint8Array,
   audioContext: AudioContext
 ): Promise<AudioBuffer> => {
-  // Fix: DataView requires pure ArrayBuffer, not Uint8Array
-  const arrayBuffer = chunk instanceof Uint8Array 
-    ? chunk.buffer.slice(chunk.byteOffset, chunk.byteOffset + chunk.byteLength) 
-    : chunk;
+  let buffer: ArrayBuffer;
+
+  if (chunk instanceof Uint8Array) {
+      // Copy to new ArrayBuffer to avoid view/offset issues
+      const copy = new Uint8Array(chunk.length);
+      copy.set(chunk);
+      buffer = copy.buffer;
+  } else if (chunk instanceof ArrayBuffer) {
+      buffer = chunk;
+  } else {
+      throw new Error("Invalid input type for audio buffer");
+  }
 
   try {
-      return await audioContext.decodeAudioData(arrayBuffer.slice(0)); 
+      // Attempt native decoding first
+      return await audioContext.decodeAudioData(buffer.slice(0)); 
   } catch (e) {
       // Manual PCM16 Decoding Fallback
-      const dataView = new DataView(arrayBuffer);
-      const numSamples = arrayBuffer.byteLength / 2;
-      const buffer = audioContext.createBuffer(1, numSamples, 24000);
-      const channel = buffer.getChannelData(0);
+      const dataView = new DataView(buffer);
+      const numSamples = buffer.byteLength / 2;
+      const audioBuf = audioContext.createBuffer(1, numSamples, 24000);
+      const channel = audioBuf.getChannelData(0);
       for (let i = 0; i < numSamples; i++) {
           channel[i] = dataView.getInt16(i * 2, true) / 32768.0;
       }
-      return buffer;
+      return audioBuf;
   }
 };
 

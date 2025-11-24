@@ -6,7 +6,6 @@ export enum View {
   TASKS = 'TASKS',
   CHAT = 'CHAT',
   IMAGE_STUDIO = 'IMAGE_STUDIO',
-  VIDEO_STUDIO = 'VIDEO_STUDIO',
   AUDIO_STUDIO = 'AUDIO_STUDIO',
   PROFILE = 'PROFILE',
   POLICY = 'POLICY',
@@ -21,8 +20,6 @@ export enum ModelType {
   PRO_PREVIEW = 'gemini-3-pro-preview',
   PRO_IMAGE = 'gemini-3-pro-image-preview',
   FLASH_IMAGE = 'gemini-2.5-flash-image',
-  VEO_FAST = 'veo-3.1-fast-generate-preview',
-  VEO = 'veo-3.1-generate-preview',
   TTS = 'gemini-2.5-flash-preview-tts',
   AUDIO_PREVIEW = 'gemini-2.5-flash-native-audio-preview-09-2025'
 }
@@ -59,13 +56,13 @@ export interface BuilderChatMessage {
   image?: string; // Deprecated, use attachment
   attachment?: FileAttachment; 
   timestamp: number;
-  toolCall?: 'connectDB' | 'generateLogo'; 
+  toolCall?: 'connectDB' | 'generateLogo' | 'generateImage'; 
 }
 
 export interface ProjectFile {
   name: string;
   content: string;
-  language: 'javascript' | 'typescript' | 'html' | 'css' | 'json' | 'dart' | 'vue';
+  language: 'javascript' | 'typescript' | 'html' | 'css' | 'json' | 'dart' | 'vue' | 'image';
 }
 
 export type Stack = 'react' | 'react-ts' | 'flutter' | 'html' | 'vue';
