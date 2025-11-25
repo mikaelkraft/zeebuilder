@@ -20,8 +20,7 @@ export enum ModelType {
   PRO_PREVIEW = 'gemini-3-pro-preview',
   PRO_IMAGE = 'gemini-3-pro-image-preview',
   FLASH_IMAGE = 'gemini-2.5-flash-image',
-  TTS = 'gemini-2.5-flash-preview-tts',
-  AUDIO_PREVIEW = 'gemini-2.5-flash-native-audio-preview-09-2025'
+  TTS = 'gemini-2.5-flash-preview-tts'
 }
 
 export interface FileAttachment {

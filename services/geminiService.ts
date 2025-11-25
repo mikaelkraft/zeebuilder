@@ -102,9 +102,21 @@ export const createChatSession = async (
         const supportsTools = model !== ModelType.FLASH_LITE;
 
         if (!isThinking && supportsTools) {
-            if (useSearch) tools.push({ googleSearch: {} });
-            if (useMaps) tools.push({ googleMaps: {} });
-            tools.push({ functionDeclarations: [createTaskFunction] });
+            // FIX: Mutual exclusion for Tools.
+            // If Grounding (Search/Maps) is enabled, do NOT add Function Declarations.
+            // This prevents "Tool use with function calling is unsupported" (400) error.
+            if (useSearch) {
+                tools.push({ googleSearch: {} });
+            } 
+            
+            if (useMaps) {
+                tools.push({ googleMaps: {} });
+            }
+
+            // Only add functions if NO grounding tools are active
+            if (!useSearch && !useMaps) {
+                tools.push({ functionDeclarations: [createTaskFunction] });
+            }
         }
 
         const systemInstruction = `
@@ -114,7 +126,7 @@ You are helpful, creative, and concise. Identify yourself as Zee AI.
 CAPABILITIES OF THIS APP (ZEE BUILDER):
 1. **App Builder**: Full IDE to build React, Vue, Flutter, and HTML apps. Supports real Preview, Terminal, and Git.
 2. **Image Studio**: Generate, Edit, and Animate images using Zee Pro Image.
-3. **Audio Studio**: Live Voice conversations, TTS generation, and Audio Transcription.
+3. **Audio Studio**: Text-to-Speech generation and Audio Transcription.
 4. **Task Board**: Kanban style project management.
 5. **Developer API**: Generate API keys to use Zee models in external apps.
 `;
@@ -189,7 +201,7 @@ IMPORTANT: When writing connection code, use these EXACT values.`
         INSTRUCTIONS:
         1. **Analyze the User Request**:
            - If the user asks to "build", "create", "add", "fix", or "update", GENERATE CODE.
-           - If the user asks a question, explain it.
+           - If the user asks a general question (e.g. "What is the date?", "Who won the game?", "Explain hooks"), USE SEARCH (if enabled) to answer in the "explanation" field. Do NOT generate code yet. Ask if the user wants to use this info in the app.
         
         2. **Code Generation Rules**:
            - Web: Use Tailwind CSS.
@@ -205,7 +217,7 @@ IMPORTANT: When writing connection code, use these EXACT values.`
           "files": [
             { "name": "src/App.${ext}", "content": "code here...", "language": "${isTs ? 'typescript' : 'javascript'}" }
           ],
-          "explanation": "Brief summary",
+          "explanation": "Brief summary or answer to question",
           "toolCall": null
         }
         `;
@@ -227,6 +239,7 @@ IMPORTANT: When writing connection code, use these EXACT values.`
         try {
             return JSON.parse(text);
         } catch (e) {
+            // Cleanup markdown
             text = text.replace(/```json/g, '').replace(/```/g, '').trim();
             const firstOpen = text.indexOf('{');
             const lastClose = text.lastIndexOf('}');
@@ -343,7 +356,6 @@ export const decodeAudio = (base64: string) => {
     return bytes;
 };
 
-// FIXED: Strict ArrayBuffer handling to prevent DataView errors
 export const arrayBufferToAudioBuffer = async (
   chunk: ArrayBuffer | Uint8Array,
   audioContext: AudioContext
@@ -351,7 +363,6 @@ export const arrayBufferToAudioBuffer = async (
   let buffer: ArrayBuffer;
 
   if (chunk instanceof Uint8Array) {
-      // Copy to new ArrayBuffer to avoid view/offset issues
       const copy = new Uint8Array(chunk.length);
       copy.set(chunk);
       buffer = copy.buffer;
@@ -362,10 +373,8 @@ export const arrayBufferToAudioBuffer = async (
   }
 
   try {
-      // Attempt native decoding first
       return await audioContext.decodeAudioData(buffer.slice(0)); 
   } catch (e) {
-      // Manual PCM16 Decoding Fallback
       const dataView = new DataView(buffer);
       const numSamples = buffer.byteLength / 2;
       const audioBuf = audioContext.createBuffer(1, numSamples, 24000);
@@ -375,15 +384,6 @@ export const arrayBufferToAudioBuffer = async (
       }
       return audioBuf;
   }
-};
-
-export const pcmToBlob = (pcmData: Float32Array): Blob => {
-  const l = pcmData.length;
-  const int16 = new Int16Array(l);
-  for (let i = 0; i < l; i++) {
-    int16[i] = pcmData[i] * 32768;
-  }
-  return new Blob([int16], { type: 'audio/pcm' }); 
 };
 
 export const pcm16ToWavBlob = (pcm16: Uint8Array, sampleRate = 24000): Blob => {

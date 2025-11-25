@@ -2,15 +2,16 @@
 
 </div>
 
-# Build and deploy your web/native apps
+# Imagine, Build, and Create...
 
-# Generate, Edit, Create and Animate your images
+-- Build and deploy your web/native apps
 
-# Audio interactive sessions, Text to Speech, and Audio transcription 
+-- Generate, Edit, Create and Animate your images
 
-# Generate high quality videos with Veo and Veo 3.1
+-- Text to Speech, and Audio transcription 
 
-# Work with our API and test out live in an interactive Terminal...
+
+-- Work with our API and test out live in an interactive Terminal...
 
 -- All in one app
 

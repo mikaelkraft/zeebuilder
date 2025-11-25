@@ -9,7 +9,7 @@ import {
     RotateCcw, Image, FileCode, ChevronRight, ChevronDown, Database, Package as PackageIcon,
     Smartphone, Layers, Globe, Paperclip, MonitorPlay,
     Undo2, Redo2, Play, FileType, Eye, ArrowLeftRight, Check, AlertCircle, Maximize2, Minimize2, MessageSquare,
-    Mic, MicOff
+    Mic, MicOff, UploadCloud
 } from 'lucide-react';
 import JSZip from 'jszip';
 
@@ -498,6 +498,67 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
         updateWebPreview();
     };
 
+    // --- Project Import Logic ---
+    const handleImportProject = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        try {
+            const zip = new JSZip();
+            const contents = await zip.loadAsync(file);
+            const newFiles: ProjectFile[] = [];
+            
+            const entries = Object.keys(contents.files);
+            
+            // Check for package.json to guess stack, default to html
+            let detectedStack: Stack = 'html';
+            if (entries.some(e => e.endsWith('package.json'))) detectedStack = 'react'; // simplified assumption
+
+            for (const filename of entries) {
+                const fileData = contents.files[filename];
+                if (fileData.dir) continue;
+
+                // Filter supported extensions
+                if (filename.match(/\.(js|jsx|ts|tsx|html|css|json|md)$/i)) {
+                    const content = await fileData.async('string');
+                    // Determine language
+                    let lang: ProjectFile['language'] = 'javascript';
+                    if (filename.endsWith('.html')) lang = 'html';
+                    else if (filename.endsWith('.css')) lang = 'css';
+                    else if (filename.endsWith('.json')) lang = 'json';
+                    else if (filename.match(/\.tsx?$/)) lang = 'typescript';
+
+                    newFiles.push({ name: filename, content, language: lang });
+                }
+            }
+
+            if (newFiles.length > 0) {
+                setFiles(newFiles);
+                setStack(detectedStack);
+                setProjectName(file.name.replace(/\.zip$/i, ''));
+                const newId = Date.now().toString();
+                setCurrentProjectId(newId);
+                setHistoryStack([]);
+                setRedoStack([]);
+                setMessages([{ id: 'import', role: 'model', text: `Imported project: ${file.name}`, timestamp: Date.now() }]);
+                
+                // Try to find a good active file
+                const entry = newFiles.find(f => f.name.match(/src\/(App|main)\./) || f.name === 'index.html');
+                if (entry) setActiveFile(entry.name);
+                else setActiveFile(newFiles[0].name);
+
+                updateWebPreview();
+                alert("Project imported successfully!");
+            } else {
+                alert("No supported files found in the ZIP.");
+            }
+
+        } catch (error: any) {
+            console.error("Import failed:", error);
+            alert("Failed to import project: " + error.message);
+        }
+    };
+
     const updateWebPreview = () => {
         if (stack === 'flutter') return;
         setIsRefreshing(true);
@@ -621,7 +682,8 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
         return root.children || [];
     };
 
-    const PreviewPanel = ({ fullScreen = false }) => (
+    // Inlined Panels to prevent re-renders on input change
+    const renderPreviewPanel = (fullScreen = false) => (
         <div className={`flex flex-col bg-white h-full relative ${fullScreen ? 'fixed inset-0 z-50' : ''}`}>
             <div className="h-10 bg-slate-100 border-b border-slate-200 flex items-center justify-between px-4 shrink-0">
                 <span className="text-xs text-slate-500 flex items-center font-bold">
@@ -649,7 +711,7 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
         </div>
     );
 
-    const ChatPanel = () => (
+    const renderChatPanel = () => (
         <div className="flex flex-col h-full bg-slate-900">
             <div className="p-3 border-b border-slate-800 flex justify-between items-center shrink-0 bg-slate-900">
                 <div className="flex items-center">
@@ -708,7 +770,7 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                         <Paperclip className="w-4 h-4" />
                         <input type="file" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) blobToBase64(f).then(d => setChatAttachment({ name: f.name, mimeType: f.type, data: d })) }} />
                     </label>
-                    <input value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSendMessage()} placeholder="Ask Zee to build..." className="flex-1 bg-transparent px-3 py-3 text-xs text-white focus:outline-none" />
+                    <textarea value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => { if (window.innerWidth < 768) return; if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); }}} placeholder="Ask Zee to build..." className="flex-1 bg-transparent px-3 py-3 text-xs text-white focus:outline-none resize-none text-sm min-h-[50px]" rows={1} />
                     <button onClick={handleSendMessage} disabled={isGenerating} className="p-3 text-blue-500 hover:text-white hover:bg-blue-600 transition-colors">
                         <Send className="w-4 h-4" />
                     </button>
@@ -764,7 +826,7 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
         <div className="h-[calc(100vh-5rem)] flex flex-col bg-slate-950 border border-slate-800 rounded-xl overflow-hidden shadow-2xl relative">
             
             {/* Full Screen Preview Overlay */}
-            {isFullScreenPreview && <PreviewPanel fullScreen={true} />}
+            {isFullScreenPreview && renderPreviewPanel(true)}
 
             {/* Header */}
             <header className="h-14 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-4 shrink-0">
@@ -782,6 +844,12 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                     </div>
                     
                     <div className="h-6 w-px bg-slate-800 hidden md:block"></div>
+
+                    {/* Import Project Button */}
+                    <label className="p-2 bg-slate-800 hover:bg-slate-700 rounded text-slate-300 hover:text-white transition-colors cursor-pointer" title="Import ZIP Project">
+                        <UploadCloud className="w-4 h-4" />
+                        <input type="file" accept=".zip" className="hidden" onChange={handleImportProject} />
+                    </label>
 
                     <button onClick={handleDownload} className="p-2 bg-slate-800 hover:bg-slate-700 rounded text-slate-300 transition-colors" title="Export">
                         <Download className="w-4 h-4" />
@@ -875,7 +943,7 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                         </button>
                     </div>
                     <div className="flex-1 overflow-hidden relative">
-                        {rightPanelTab === 'chat' ? <ChatPanel /> : <PreviewPanel />}
+                        {rightPanelTab === 'chat' ? renderChatPanel() : renderPreviewPanel()}
                     </div>
                 </div>
             </div>

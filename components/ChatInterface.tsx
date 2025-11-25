@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { createChatSession, transcribeAudio, blobToBase64, ensureApiKey } from '../services/geminiService';
-import { ChatMessage, ModelType, ChatSession, FileAttachment } from '../types';
+import { ChatMessage, ModelType, ChatSession, FileAttachment, Task } from '../types';
 import { 
     Send, 
     Map, 
@@ -20,7 +20,8 @@ import {
     FileText,
     BrainCircuit,
     Mic,
-    MicOff
+    MicOff,
+    CheckCircle2
 } from 'lucide-react';
 
 const MarkdownRenderer = ({ content }: { content: string }) => {
@@ -214,6 +215,55 @@ const ChatInterface: React.FC = () => {
         setAttachment(null);
         setIsLoading(true);
 
+        // --- HANDLE @TASK COMMAND ---
+        // Format: @task Title | Description | Priority
+        if (textToSend.trim().toLowerCase().startsWith('@task')) {
+            setTimeout(() => {
+                try {
+                    const content = textToSend.replace(/^@task\s*/i, '');
+                    const parts = content.split('|').map(p => p.trim());
+                    
+                    if (parts.length === 0 || !parts[0]) throw new Error("Task title is required.");
+
+                    const title = parts[0];
+                    const description = parts[1] || "No description provided.";
+                    // Simple fuzzy match for priority
+                    const pInput = (parts[2] || 'medium').toLowerCase();
+                    const priority: 'low'|'medium'|'high' = pInput.includes('high') ? 'high' : pInput.includes('low') ? 'low' : 'medium';
+
+                    const newTask: Task = {
+                        id: Date.now().toString(),
+                        title,
+                        description,
+                        status: 'todo',
+                        priority,
+                        createdAt: Date.now()
+                    };
+
+                    // Save to local storage (TaskBoard sync)
+                    const existingTasksStr = localStorage.getItem('zee_tasks');
+                    const existingTasks: Task[] = existingTasksStr ? JSON.parse(existingTasksStr) : [];
+                    localStorage.setItem('zee_tasks', JSON.stringify([...existingTasks, newTask]));
+
+                    const botMsg: ChatMessage = { 
+                        id: (Date.now() + 1).toString(), 
+                        role: 'model', 
+                        text: `✅ **Task Created Successfully!**\n\n**Title:** ${title}\n**Description:** ${description}\n**Priority:** ${priority.toUpperCase()}\n\nI've added this to your Task Board.` 
+                    };
+                    setMessages(prev => [...prev, botMsg]);
+                } catch (e: any) {
+                    setMessages(prev => [...prev, { 
+                        id: (Date.now() + 1).toString(), 
+                        role: 'model', 
+                        text: `❌ **Could not create task.**\n\nPlease use the format: \`@task Title | Description | Priority\`\nExample: \`@task Fix Login | Auth bug on mobile | High\`` 
+                    }]);
+                } finally {
+                    setIsLoading(false);
+                }
+            }, 600); // Simulate processing delay
+            return;
+        }
+
         try {
             const performSend = async (text: string, retry = false): Promise<any> => {
                 try {
@@ -363,6 +413,9 @@ const ChatInterface: React.FC = () => {
                             <div className="w-16 h-16 bg-blue-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center mb-4"><MessageSquare className="w-8 h-8 text-blue-500" /></div>
                             <h3 className="text-lg font-bold text-slate-900 dark:text-white">Hello, I'm Zee AI.</h3>
                             <p className="text-sm text-slate-500 max-w-xs mx-auto mt-2">I can help you analyze code, answer questions, or guide you through the App Builder.</p>
+                            <div className="mt-4 text-xs text-slate-400 bg-slate-100 dark:bg-slate-900/50 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800">
+                                Tip: Type <code className="text-blue-500 bg-blue-50 dark:bg-blue-900/20 px-1 rounded">@task</code> to add to your task board.
+                            </div>
                         </div>
                     ) : (
                         messages.map((msg) => (
@@ -392,7 +445,7 @@ const ChatInterface: React.FC = () => {
 
                 <div className="p-4 bg-white dark:bg-slate-900 border-t border-gray-200 dark:border-slate-800 relative">
                     {attachment && <div className="absolute bottom-full left-4 bg-slate-800 text-white text-xs px-3 py-1 rounded-t-lg flex items-center"><Paperclip className="w-3 h-3 mr-2"/>{attachment.name}<button onClick={()=>setAttachment(null)} className="ml-2 text-red-400"><X className="w-3 h-3"/></button></div>}
-                    <div className="relative flex items-center bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-xl overflow-hidden focus-within:border-blue-600 transition-colors">
+                    <div className="relative flex items-center bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl overflow-hidden focus-within:border-blue-600 transition-colors">
                         <button 
                             onClick={toggleRecording} 
                             className={`p-3 transition-colors ${isRecording ? 'text-red-500 animate-pulse bg-red-950/20' : 'text-slate-500 hover:text-blue-500 hover:bg-slate-900'} border-r border-gray-200 dark:border-slate-800`}
@@ -405,7 +458,26 @@ const ChatInterface: React.FC = () => {
                             <Paperclip className="w-4 h-4" />
                             <input type="file" className="hidden" onChange={handleFileUpload}/>
                         </label>
-                        <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSend())} placeholder="Type a message..." className="flex-1 bg-transparent px-4 py-3 text-slate-900 dark:text-white focus:outline-none resize-none text-sm min-h-[50px]" rows={1} />
+                        <textarea 
+                            value={input} 
+                            onChange={(e) => setInput(e.target.value)} 
+                            onKeyDown={(e) => {
+                                // Fix: Mobile enter usually means "Go", but users want "New Line".
+                                // Desktop enter means "Send".
+                                if (window.innerWidth < 768) {
+                                    // On mobile, let Enter be a new line naturally. Do nothing to preventDefault.
+                                    return;
+                                }
+                                // On Desktop
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                    e.preventDefault();
+                                    handleSend();
+                                }
+                            }} 
+                            placeholder="Type a message... (@task Title | Desc | Priority)" 
+                            className="flex-1 bg-transparent px-4 py-3 text-slate-900 dark:text-white focus:outline-none resize-none text-sm min-h-[50px]" 
+                            rows={1} 
+                        />
                         <button onClick={() => handleSend()} disabled={isLoading || (!input && !attachment)} className="p-3 text-blue-600 dark:text-blue-500 hover:bg-blue-50 dark:hover:bg-slate-800 disabled:opacity-50 transition-colors"><Send className="w-4 h-4" /></button>
                     </div>
                 </div>
