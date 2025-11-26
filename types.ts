@@ -2,6 +2,7 @@
 export enum View {
   HOME = 'HOME',
   DASHBOARD = 'DASHBOARD',
+  PROJECTS = 'PROJECTS',
   BUILDER = 'BUILDER',
   TASKS = 'TASKS',
   CHAT = 'CHAT',
@@ -61,10 +62,17 @@ export interface BuilderChatMessage {
 export interface ProjectFile {
   name: string;
   content: string;
-  language: 'javascript' | 'typescript' | 'html' | 'css' | 'json' | 'dart' | 'vue' | 'image';
+  language: 'javascript' | 'typescript' | 'html' | 'css' | 'json' | 'dart' | 'vue' | 'image' | 'python';
 }
 
-export type Stack = 'react' | 'react-ts' | 'flutter' | 'html' | 'vue';
+export type Stack = 'react' | 'react-ts' | 'flutter' | 'html' | 'vue' | 'node' | 'python' | 'svelte';
+
+export interface Snapshot {
+    id: string;
+    name: string;
+    timestamp: number;
+    files: ProjectFile[];
+}
 
 export interface SavedProject {
   id: string;
@@ -74,6 +82,7 @@ export interface SavedProject {
   lastModified: number;
   dbConfigs: DatabaseConfig[];
   messages: BuilderChatMessage[];
+  snapshots?: Snapshot[];
 }
 
 export interface User {

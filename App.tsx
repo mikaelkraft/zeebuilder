@@ -16,7 +16,8 @@ import {
   Moon,
   Home as HomeIcon,
   Settings,
-  Terminal
+  Terminal,
+  FolderOpen
 } from 'lucide-react';
 
 // Components
@@ -31,9 +32,10 @@ import Dashboard from './components/Dashboard';
 import Profile from './components/Profile';
 import LegalDocs from './components/LegalDocs';
 import Developers from './components/Developers';
+import Projects from './components/Projects';
 import { usageService } from './services/usageService';
 
-// Zee Logo Component (The "Zen Z")
+// Zee Logo Component
 const ZeeLogo = () => (
   <svg viewBox="0 0 100 100" className="w-10 h-10 text-slate-900 dark:text-white transition-colors duration-300" fill="none" xmlns="http://www.w3.org/2000/svg">
     <defs>
@@ -103,17 +105,7 @@ const App: React.FC = () => {
   };
 
   const handleNavigation = (view: View) => {
-      const protectedViews = [
-          View.DASHBOARD, 
-          View.BUILDER, 
-          View.TASKS, 
-          View.PROFILE, 
-          View.DEVELOPERS,
-          View.CHAT,
-          View.IMAGE_STUDIO,
-          View.AUDIO_STUDIO
-      ];
-
+      const protectedViews = [View.DASHBOARD, View.BUILDER, View.TASKS, View.PROFILE, View.DEVELOPERS, View.PROJECTS];
       if (protectedViews.includes(view) && !user) {
           setPendingView(view);
           setShowAuth(true);
@@ -195,6 +187,7 @@ const App: React.FC = () => {
             <NavItem view={View.DASHBOARD} icon={LayoutDashboard} label="Dashboard" />
             <NavCategory label="Development" />
             <NavItem view={View.BUILDER} icon={Code} label="App Builder" />
+            <NavItem view={View.PROJECTS} icon={FolderOpen} label="My Projects" />
             <NavItem view={View.TASKS} icon={Kanban} label="Task Board" />
             <NavItem view={View.DEVELOPERS} icon={Terminal} label="API & Developers" />
             <NavCategory label="AI Studios" />
@@ -296,6 +289,16 @@ const App: React.FC = () => {
                 {currentView === View.HOME && <Home onNavigate={handleNavigation} />}
                 {currentView === View.DASHBOARD && <Dashboard user={user} onNavigate={handleNavigation} />}
                 {currentView === View.BUILDER && <Builder user={user} />}
+                {currentView === View.PROJECTS && (
+                    <Projects 
+                        onNavigate={handleNavigation} 
+                        setActiveProject={(id) => {
+                            // Force update if switching to Builder
+                            // Since Builder manages its own load on mount, setting localStorage is key.
+                            // The navigation will unmount Projects and mount Builder.
+                        }} 
+                    />
+                )}
                 {currentView === View.TASKS && <TaskBoard />}
                 {currentView === View.CHAT && <ChatInterface />}
                 {currentView === View.IMAGE_STUDIO && <ImageStudio />}

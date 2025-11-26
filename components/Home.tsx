@@ -12,7 +12,8 @@ import {
     Database,
     LayoutDashboard,
     Send,
-    Sparkles
+    Sparkles,
+    History
 } from 'lucide-react';
 
 interface HomeProps {
@@ -60,7 +61,7 @@ const EngagementChat = ({ onNavigate }: { onNavigate: (view: View) => void }) =>
                             type="text" 
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
-                            placeholder="e.g., Build a React task manager with dark mode..." 
+                            placeholder="e.g., Build a Python script to scrape data..." 
                             className="w-full bg-transparent border-none px-4 py-3 text-sm text-slate-900 dark:text-white focus:ring-0 placeholder:text-slate-400"
                             autoFocus={false}
                         />
@@ -82,6 +83,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
     const [currentWordIndex, setCurrentWordIndex] = useState(0);
     const heroWords = [
         "Build Apps (React, Vue, Flutter, HTML)",
+        "Write Python Scripts & Node.js",
         "Images (Logos, Edits)",
         "Audio (Transcripts, Text-To-Speech)",
         "Tasks on your board",
@@ -169,9 +171,16 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                 />
                 <FeatureCard 
                     title="App Builder IDE" 
-                    description="Full-featured drag-and-drop builder. Export Clean Code for Web & Flutter."
+                    description="Full-featured drag-and-drop builder. Export Clean Code for Web, Python & Flutter."
                     icon={Code}
                     color="bg-blue-600"
+                    onClick={() => onNavigate(View.BUILDER)}
+                />
+                <FeatureCard 
+                    title="Smart Checkpoints" 
+                    description="Version control for your AI generations. Rollback changes instantly."
+                    icon={History}
+                    color="bg-orange-500"
                     onClick={() => onNavigate(View.BUILDER)}
                 />
                 <FeatureCard 

@@ -102,21 +102,9 @@ export const createChatSession = async (
         const supportsTools = model !== ModelType.FLASH_LITE;
 
         if (!isThinking && supportsTools) {
-            // FIX: Mutual exclusion for Tools.
-            // If Grounding (Search/Maps) is enabled, do NOT add Function Declarations.
-            // This prevents "Tool use with function calling is unsupported" (400) error.
-            if (useSearch) {
-                tools.push({ googleSearch: {} });
-            } 
-            
-            if (useMaps) {
-                tools.push({ googleMaps: {} });
-            }
-
-            // Only add functions if NO grounding tools are active
-            if (!useSearch && !useMaps) {
-                tools.push({ functionDeclarations: [createTaskFunction] });
-            }
+            if (useSearch) tools.push({ googleSearch: {} });
+            if (useMaps) tools.push({ googleMaps: {} });
+            tools.push({ functionDeclarations: [createTaskFunction] });
         }
 
         const systemInstruction = `
@@ -124,7 +112,7 @@ You are Zee AI, an intelligent assistant created by Mikael Kraft.
 You are helpful, creative, and concise. Identify yourself as Zee AI.
 
 CAPABILITIES OF THIS APP (ZEE BUILDER):
-1. **App Builder**: Full IDE to build React, Vue, Flutter, and HTML apps. Supports real Preview, Terminal, and Git.
+1. **App Builder**: Full IDE to build React, Vue, Python, Flutter, and HTML apps. Supports real Preview, Terminal, and Git.
 2. **Image Studio**: Generate, Edit, and Animate images using Zee Pro Image.
 3. **Audio Studio**: Text-to-Speech generation and Audio Transcription.
 4. **Task Board**: Kanban style project management.
@@ -201,13 +189,15 @@ IMPORTANT: When writing connection code, use these EXACT values.`
         INSTRUCTIONS:
         1. **Analyze the User Request**:
            - If the user asks to "build", "create", "add", "fix", or "update", GENERATE CODE.
-           - If the user asks a general question (e.g. "What is the date?", "Who won the game?", "Explain hooks"), USE SEARCH (if enabled) to answer in the "explanation" field. Do NOT generate code yet. Ask if the user wants to use this info in the app.
+           - If the user asks a question, explain it.
         
         2. **Code Generation Rules**:
-           - Web: Use Tailwind CSS.
-           - React: 'export default function App() {}'.
+           - Web (React): Use Tailwind CSS. 'export default function App() {}'.
+           - Vue: Use CDN structure (<script src="...vue.global.js">). Use options API or Composition API in <script>.
+           - Node: Provide package.json and index.js.
+           - Python: Provide main.py and requirements.txt. Use standard library where possible.
            - TypeScript: Use .tsx/.ts.
-           - Ensure 'package.json' is valid.
+           - Ensure 'package.json' is valid for JS/Node projects.
         
         3. **Response Format**:
            Return ONLY a valid JSON object. You may wrap it in \`\`\`json blocks.
@@ -217,7 +207,7 @@ IMPORTANT: When writing connection code, use these EXACT values.`
           "files": [
             { "name": "src/App.${ext}", "content": "code here...", "language": "${isTs ? 'typescript' : 'javascript'}" }
           ],
-          "explanation": "Brief summary or answer to question",
+          "explanation": "Brief summary",
           "toolCall": null
         }
         `;
@@ -239,7 +229,6 @@ IMPORTANT: When writing connection code, use these EXACT values.`
         try {
             return JSON.parse(text);
         } catch (e) {
-            // Cleanup markdown
             text = text.replace(/```json/g, '').replace(/```/g, '').trim();
             const firstOpen = text.indexOf('{');
             const lastClose = text.lastIndexOf('}');
@@ -356,6 +345,7 @@ export const decodeAudio = (base64: string) => {
     return bytes;
 };
 
+// FIXED: DataView constructor must be an ArrayBuffer
 export const arrayBufferToAudioBuffer = async (
   chunk: ArrayBuffer | Uint8Array,
   audioContext: AudioContext
@@ -369,7 +359,7 @@ export const arrayBufferToAudioBuffer = async (
   } else if (chunk instanceof ArrayBuffer) {
       buffer = chunk;
   } else {
-      throw new Error("Invalid input type for audio buffer");
+      throw new Error("Invalid input type for arrayBufferToAudioBuffer");
   }
 
   try {

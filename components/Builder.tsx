@@ -2,14 +2,14 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { generateProject, blobToBase64, generateImage, transcribeAudio, ensureApiKey } from '../services/geminiService';
 import { githubService } from '../services/githubService';
-import { DatabaseConfig, User, ModelType, ProjectFile, Stack, BuilderChatMessage, SavedProject, FileAttachment } from '../types';
+import { DatabaseConfig, User, ModelType, ProjectFile, Stack, BuilderChatMessage, SavedProject, FileAttachment, Snapshot } from '../types';
 import { 
     Code as CodeIcon, Download, Plus, Trash2, Github, Bot, Send, Loader2,
     File, RefreshCw, Terminal as TerminalIcon, X, Sidebar,
     RotateCcw, Image, FileCode, ChevronRight, ChevronDown, Database, Package as PackageIcon,
     Smartphone, Layers, Globe, Paperclip, MonitorPlay,
     Undo2, Redo2, Play, FileType, Eye, ArrowLeftRight, Check, AlertCircle, Maximize2, Minimize2, MessageSquare,
-    Mic, MicOff, UploadCloud
+    Mic, MicOff, UploadCloud, Copy, Save, History
 } from 'lucide-react';
 import JSZip from 'jszip';
 
@@ -24,7 +24,65 @@ interface TreeNode {
     children?: TreeNode[];
 }
 
-// --- Diff View ---
+const MarkdownRenderer = ({ content }: { content: string }) => {
+    if (!content) return null;
+    const parts = content.split(/(```[\w-]*\n[\s\S]*?```)/g);
+
+    return (
+        <div className="space-y-2 text-xs leading-relaxed font-sans">
+            {parts.map((part, index) => {
+                if (part.startsWith('```') && part.endsWith('```')) {
+                    const match = part.match(/^```([\w-]*)\n([\s\S]*?)```$/);
+                    const lang = match ? match[1] : '';
+                    const code = match ? match[2] : part.slice(3, -3);
+
+                    return (
+                        <div key={index} className="my-2 bg-black/50 rounded-lg border border-slate-800 overflow-hidden group relative">
+                            <div className="bg-slate-900/50 px-3 py-1 flex items-center justify-between border-b border-slate-800">
+                                <span className="text-[10px] font-mono text-slate-500">{lang}</span>
+                                <button 
+                                    onClick={() => navigator.clipboard.writeText(code)}
+                                    className="text-slate-500 hover:text-white transition-colors"
+                                    title="Copy"
+                                >
+                                    <Copy className="w-3 h-3" />
+                                </button>
+                            </div>
+                            <div className="p-3 overflow-x-auto custom-scrollbar">
+                                <pre className="font-mono text-[10px] text-blue-100 whitespace-pre">{code}</pre>
+                            </div>
+                        </div>
+                    );
+                } else {
+                    return (
+                        <div key={index} className="whitespace-pre-wrap">
+                            {part.split('\n').map((line, lineIdx) => {
+                                const isBullet = line.trim().startsWith('- ') || line.trim().startsWith('* ');
+                                const cleanLine = isBullet ? line.trim().substring(2) : line;
+                                const formatText = (text: string) => {
+                                    const parts = text.split(/(\*\*.*?\*\*|\*.*?\*|`.*?`)/g);
+                                    return parts.map((p, i) => {
+                                        if (p.startsWith('**') && p.endsWith('**')) return <strong key={i} className="font-bold text-blue-200">{p.slice(2, -2)}</strong>;
+                                        if (p.startsWith('*') && p.endsWith('*')) return <em key={i} className="italic text-slate-400">{p.slice(1, -1)}</em>;
+                                        if (p.startsWith('`') && p.endsWith('`')) return <code key={i} className="bg-slate-800 px-1 py-0.5 rounded text-[10px] font-mono text-yellow-300">{p.slice(1, -1)}</code>;
+                                        return p;
+                                    });
+                                };
+                                return (
+                                    <div key={lineIdx} className={`${isBullet ? 'flex items-start ml-2 mb-1' : 'mb-1'}`}>
+                                        {isBullet && <span className="mr-2 text-slate-500 mt-1">•</span>}
+                                        <span>{formatText(cleanLine)}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    );
+                }
+            })}
+        </div>
+    );
+};
+
 const DiffView: React.FC<{ files: ProjectFile[]; oldFiles: ProjectFile[] }> = ({ files, oldFiles }) => {
     const changes = files.filter(f => {
         const old = oldFiles.find(of => of.name === f.name);
@@ -53,7 +111,6 @@ const DiffView: React.FC<{ files: ProjectFile[]; oldFiles: ProjectFile[] }> = ({
     );
 };
 
-// --- Shell Emulator ---
 class Shell {
     private cwd = '/';
     constructor(
@@ -106,7 +163,11 @@ class Shell {
                      this.term.writeln(`Executing ${args[0]}... (Logs will appear in console)`);
                  }
                  break;
-            case 'help': this.term.writeln('Commands: ls, cat, npm install <pkg>, node, clear'); break;
+            case 'python':
+                 this.term.writeln(`\x1b[33mPython Runtime (Simulated)...\x1b[0m`);
+                 if (args[0]) this.term.writeln(`Executing ${args[0]}...`);
+                 break;
+            case 'help': this.term.writeln('Commands: ls, cat, npm install <pkg>, node, python, clear'); break;
             case '': break;
             default: this.term.writeln(`bash: ${command}: command not found`);
         }
@@ -133,6 +194,7 @@ const FileTreeNode: React.FC<{ node: TreeNode; level: number; activeFile: string
                         node.name.endsWith('.css') ? <CodeIcon className="w-3.5 h-3.5 text-blue-400" /> :
                         node.name.match(/\.(ts|tsx)$/) ? <FileType className="w-3.5 h-3.5 text-blue-300" /> :
                         node.name.endsWith('.json') ? <Database className="w-3.5 h-3.5 text-yellow-500" /> :
+                        node.name.endsWith('.py') ? <TerminalIcon className="w-3.5 h-3.5 text-yellow-400" /> :
                         node.name.match(/\.(png|jpg|jpeg|svg|gif)$/) ? <Image className="w-3.5 h-3.5 text-purple-400" /> :
                         <File className="w-3.5 h-3.5" />
                     ) : (isOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />)}
@@ -145,17 +207,14 @@ const FileTreeNode: React.FC<{ node: TreeNode; level: number; activeFile: string
 };
 
 const Builder: React.FC<BuilderProps> = ({ user }) => {
-    // --- State ---
     const [stack, setStack] = useState<Stack>('react');
     const [isWizardOpen, setIsWizardOpen] = useState(true);
     
-    // Layout State
-    const [sidebarTab, setSidebarTab] = useState<'files' | 'git' | 'db' | 'pkg'>('files');
+    const [sidebarTab, setSidebarTab] = useState<'files' | 'git' | 'db' | 'pkg' | 'snaps'>('files');
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [rightPanelTab, setRightPanelTab] = useState<'chat' | 'preview'>('chat');
     const [isFullScreenPreview, setIsFullScreenPreview] = useState(false);
     
-    // Project
     const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
     const [savedProjects, setSavedProjects] = useState<SavedProject[]>([]);
     const [files, setFiles] = useState<ProjectFile[]>([]);
@@ -163,11 +222,10 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
     const [projectName, setProjectName] = useState('Untitled Project');
     const [showProjectModal, setShowProjectModal] = useState(false);
     
-    // History
     const [historyStack, setHistoryStack] = useState<ProjectFile[][]>([]);
     const [redoStack, setRedoStack] = useState<ProjectFile[][]>([]);
+    const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
 
-    // Chat
     const [messages, setMessages] = useState<BuilderChatMessage[]>([]);
     const [chatInput, setChatInput] = useState('');
     const [chatAttachment, setChatAttachment] = useState<FileAttachment | null>(null);
@@ -177,13 +235,11 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
     const [useSearch, setUseSearch] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
-    // Audio Recording
     const [isRecording, setIsRecording] = useState(false);
     const [isTranscribingAudio, setIsTranscribingAudio] = useState(false);
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const audioChunksRef = useRef<Blob[]>([]);
 
-    // Tools
     const [ghToken, setGhToken] = useState('');
     const [ghUser, setGhUser] = useState<any>(null);
     const [dependencies, setDependencies] = useState<{[key: string]: string}>({});
@@ -192,7 +248,6 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
     const [newDbConfig, setNewDbConfig] = useState<any>({});
     const [newPackage, setNewPackage] = useState('');
 
-    // Preview & Terminal
     const [iframeSrc, setIframeSrc] = useState('');
     const [previewKey, setPreviewKey] = useState(0);
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -202,8 +257,6 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
     const xtermRef = useRef<any>(null);
     const shellRef = useRef<Shell | null>(null);
     const fitAddonRef = useRef<any>(null);
-
-    // --- Initialization ---
 
     useEffect(() => {
         const storedProjects = localStorage.getItem('zee_projects');
@@ -221,7 +274,7 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
     useEffect(() => {
         if (currentProjectId) {
             const p: SavedProject = {
-                id: currentProjectId, name: projectName, stack, files, lastModified: Date.now(), dbConfigs, messages
+                id: currentProjectId, name: projectName, stack, files, lastModified: Date.now(), dbConfigs, messages, snapshots
             };
             setSavedProjects(prev => {
                 const idx = prev.findIndex(sp => sp.id === currentProjectId);
@@ -239,9 +292,8 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                 try { setDependencies(JSON.parse(pkg.content).dependencies || {}); } catch(e) {}
             }
         }
-    }, [files, messages, dbConfigs, projectName, stack, currentProjectId]);
+    }, [files, messages, dbConfigs, projectName, stack, currentProjectId, snapshots]);
 
-    // Terminal Init
     useLayoutEffect(() => {
         const initTimer = setTimeout(() => {
             if (terminalRef.current && !xtermRef.current) {
@@ -273,19 +325,15 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                         } else { (shell as any)['buffer'] = ((shell as any)['buffer']||"") + key; term.write(key); }
                     });
 
-                    term.write('Welcome to Zee Terminal. Type "help" for commands.\r\n');
+                    term.write('Welcome to Zee Terminal.\r\n');
                     shell.prompt();
-                    
-                    try {
-                        fitAddon.fit();
-                    } catch (e) {}
+                    try { fitAddon.fit(); } catch (e) {}
                 }
             }
         }, 100);
         return () => clearTimeout(initTimer);
     }, []);
 
-    // Terminal Resize Trigger
     useEffect(() => {
         const t = setTimeout(() => {
             if (fitAddonRef.current && isTerminalOpen && terminalRef.current) {
@@ -295,7 +343,6 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
         return () => clearTimeout(t);
     }, [isTerminalOpen, isSidebarCollapsed, window.innerWidth]);
 
-    // Auto Preview Refresh
     useEffect(() => {
         if (files.length > 0 && (rightPanelTab === 'preview' || isFullScreenPreview)) {
             const t = setTimeout(updateWebPreview, 800);
@@ -304,8 +351,6 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
     }, [files, rightPanelTab, isFullScreenPreview]);
 
     useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
-
-    // --- Logic ---
 
     const initProject = (type: Stack) => {
         setStack(type);
@@ -330,6 +375,21 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
         } else if (type === 'flutter') {
              initialFiles = [{ name: 'lib/main.dart', content: `import 'package:flutter/material.dart';\nvoid main() => runApp(const MyApp());\nclass MyApp extends StatelessWidget {\n  const MyApp({super.key});\n  @override\n  Widget build(BuildContext context) {\n    return MaterialApp(\n      home: Scaffold(\n        appBar: AppBar(title: const Text('Zee Flutter')),\n        body: const Center(child: Text('Hello World')),\n      ),\n    );\n  }\n}`, language: 'dart' }];
              setActiveFile('lib/main.dart');
+        } else if (type === 'vue') {
+            initialFiles = [{ name: 'index.html', content: `<!DOCTYPE html><html><head><script src="https://unpkg.com/vue@3/dist/vue.global.js"></script></head><body><div id="app">{{ message }}</div><script>const { createApp } = Vue; createApp({ data() { return { message: 'Hello Vue!' } } }).mount('#app')</script></body></html>`, language: 'html' }];
+            setActiveFile('index.html');
+        } else if (type === 'node') {
+             initialFiles = [
+                 { name: 'package.json', content: JSON.stringify({ name: "node-app", version: "1.0.0", main: "index.js" }, null, 2), language: 'json' },
+                 { name: 'index.js', content: `console.log("Hello Node.js");`, language: 'javascript' }
+             ];
+             setActiveFile('index.js');
+        } else if (type === 'python') {
+             initialFiles = [
+                 { name: 'main.py', content: `print("Hello from Python!")`, language: 'python' },
+                 { name: 'requirements.txt', content: ``, language: 'html' }
+             ];
+             setActiveFile('main.py');
         } else {
             initialFiles = [{ name: 'index.html', content: '<html><body><h1>Hello World</h1></body></html>', language: 'html'}];
             setActiveFile('index.html');
@@ -338,6 +398,7 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
         setFiles(initialFiles);
         setHistoryStack([]);
         setRedoStack([]);
+        setSnapshots([]);
         setIsWizardOpen(false);
     };
 
@@ -348,9 +409,43 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
         setFiles(p.files);
         setDbConfigs(p.dbConfigs || []);
         setMessages(p.messages || []);
+        setSnapshots(p.snapshots || []);
         setActiveFile(p.files[0]?.name || '');
         setIsWizardOpen(false);
         setShowProjectModal(false);
+    };
+
+    const deleteProject = (id: string) => {
+        if (confirm("Are you sure you want to delete this project?")) {
+            const newProjects = savedProjects.filter(p => p.id !== id);
+            setSavedProjects(newProjects);
+            localStorage.setItem('zee_projects', JSON.stringify(newProjects));
+            if (currentProjectId === id) {
+                setCurrentProjectId(null);
+                setIsWizardOpen(true);
+            }
+        }
+    };
+
+    const createSnapshot = () => {
+        const name = prompt("Name this checkpoint:", `Snapshot ${snapshots.length + 1}`);
+        if (!name) return;
+        const newSnapshot: Snapshot = {
+            id: Date.now().toString(),
+            name,
+            timestamp: Date.now(),
+            files: JSON.parse(JSON.stringify(files)) // Deep copy
+        };
+        setSnapshots([...snapshots, newSnapshot]);
+        setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: `📍 Checkpoint created: **${name}**`, timestamp: Date.now() }]);
+    };
+
+    const restoreSnapshot = (snapshot: Snapshot) => {
+        if (confirm(`Restore to checkpoint "${snapshot.name}"? Current unsaved changes will be lost.`)) {
+            setHistoryStack(prev => [...prev, files]); // Save current before restoring
+            setFiles(JSON.parse(JSON.stringify(snapshot.files)));
+            setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: `↺ Restored checkpoint: **${snapshot.name}**`, timestamp: Date.now() }]);
+        }
     };
 
     const handleSendMessage = async () => {
@@ -363,47 +458,31 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
         setGenerationStatus('Thinking...');
         
         try {
-            const snapshot = [...files]; 
+            const snapshot = JSON.parse(JSON.stringify(files));
             const result = await generateProject([...messages, userMsg], stack, model, files, dbConfigs, useSearch);
             
-            // Handle Image/Logo Tool Calls
             if (result.toolCall === 'generateLogo' || result.toolCall === 'generateImage') {
                 setGenerationStatus('Generating asset...');
                 const imgPrompt = result.explanation || userMsg.text;
                 const response = await generateImage(imgPrompt, '1:1', '1K', ModelType.PRO_IMAGE);
                 const parts = response?.candidates?.[0]?.content?.parts;
-                
-                if (parts && parts.length > 0 && parts[0].inlineData) {
+                if (parts && parts[0].inlineData) {
                     const base64 = parts[0].inlineData.data;
                     const fileName = `src/assets/${result.toolCall === 'generateLogo' ? 'logo' : 'image'}-${Date.now()}.png`;
-                    
-                    const imageFile: ProjectFile = {
-                        name: fileName,
-                        content: `data:image/png;base64,${base64}`,
-                        language: 'image'
-                    };
-                    
-                    const newFiles = [...files, imageFile];
-                    setFiles(newFiles);
+                    const imageFile: ProjectFile = { name: fileName, content: `data:image/png;base64,${base64}`, language: 'image' };
+                    setFiles([...files, imageFile]);
                     setMessages(prev => [...prev, { 
-                        id: Date.now().toString(), 
-                        role: 'model', 
-                        text: `Generated ${result.toolCall === 'generateLogo' ? 'logo' : 'image'} and saved to ${fileName}.`,
-                        attachment: { name: fileName, mimeType: 'image/png', data: base64 },
-                        timestamp: Date.now() 
+                        id: Date.now().toString(), role: 'model', text: `Generated asset: ${fileName}.`,
+                        attachment: { name: fileName, mimeType: 'image/png', data: base64 }, timestamp: Date.now() 
                     }]);
-                } else {
-                    setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: "Failed to generate image.", timestamp: Date.now() }]);
                 }
             } else if (result.files && result.files.length > 0) {
                 setHistoryStack(prev => [...prev, snapshot]); 
                 setRedoStack([]);
-                
                 const newFiles = [...files];
                 result.files.forEach((rf: ProjectFile) => {
                     const idx = newFiles.findIndex(f => f.name === rf.name);
-                    if (idx >= 0) newFiles[idx] = rf;
-                    else newFiles.push(rf);
+                    if (idx >= 0) newFiles[idx] = rf; else newFiles.push(rf);
                 });
                 setFiles(newFiles);
                 setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: result.explanation || "Updated code.", timestamp: Date.now() }]);
@@ -417,57 +496,33 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
         }
     };
 
-    // Audio Recording Logic
     const toggleRecording = async () => {
         if (isRecording) {
-            // Stop recording
             if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
                 mediaRecorderRef.current.stop();
                 setIsRecording(false);
                 setIsTranscribingAudio(true);
             }
         } else {
-            // Start recording
             try {
                 await ensureApiKey();
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 const mediaRecorder = new MediaRecorder(stream);
                 mediaRecorderRef.current = mediaRecorder;
                 audioChunksRef.current = [];
-
-                mediaRecorder.ondataavailable = (event) => {
-                    if (event.data.size > 0) {
-                        audioChunksRef.current.push(event.data);
-                    }
-                };
-
+                mediaRecorder.ondataavailable = (event) => { if (event.data.size > 0) audioChunksRef.current.push(event.data); };
                 mediaRecorder.onstop = async () => {
                     const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-                    
-                    // Stop stream tracks
                     stream.getTracks().forEach(track => track.stop());
-
                     try {
                         const base64 = await blobToBase64(audioBlob);
-                        // Use Flash model for quick transcription
                         const transcript = await transcribeAudio(base64, 'audio/webm');
-                        if (transcript) {
-                            setChatInput(prev => prev + (prev ? ' ' : '') + transcript);
-                        }
-                    } catch (error) {
-                        console.error("Transcription failed:", error);
-                        alert("Failed to transcribe audio.");
-                    } finally {
-                        setIsTranscribingAudio(false);
-                    }
+                        if (transcript) setChatInput(prev => prev + (prev ? ' ' : '') + transcript);
+                    } catch (error) { console.error(error); } finally { setIsTranscribingAudio(false); }
                 };
-
                 mediaRecorder.start();
                 setIsRecording(true);
-            } catch (error) {
-                console.error("Error accessing microphone:", error);
-                alert("Could not access microphone. Please check permissions.");
-            }
+            } catch (error) { alert("Microphone access denied."); }
         }
     };
 
@@ -477,7 +532,6 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
         setRedoStack([...redoStack, files]);
         setFiles(prev);
         setHistoryStack(historyStack.slice(0, -1));
-        if (shellRef.current) shellRef.current.log('\x1b[33mRestored previous state.\x1b[0m');
     };
 
     const handleAddPackage = (pkgName: string) => {
@@ -498,36 +552,29 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
         updateWebPreview();
     };
 
-    // --- Project Import Logic ---
     const handleImportProject = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
-
         try {
             const zip = new JSZip();
             const contents = await zip.loadAsync(file);
             const newFiles: ProjectFile[] = [];
-            
             const entries = Object.keys(contents.files);
-            
-            // Check for package.json to guess stack, default to html
             let detectedStack: Stack = 'html';
-            if (entries.some(e => e.endsWith('package.json'))) detectedStack = 'react'; // simplified assumption
+            if (entries.some(e => e.endsWith('package.json'))) detectedStack = 'react';
+            if (entries.some(e => e.endsWith('main.py'))) detectedStack = 'python';
 
             for (const filename of entries) {
                 const fileData = contents.files[filename];
                 if (fileData.dir) continue;
-
-                // Filter supported extensions
-                if (filename.match(/\.(js|jsx|ts|tsx|html|css|json|md)$/i)) {
+                if (filename.match(/\.(js|jsx|ts|tsx|html|css|json|md|py|txt)$/i)) {
                     const content = await fileData.async('string');
-                    // Determine language
                     let lang: ProjectFile['language'] = 'javascript';
                     if (filename.endsWith('.html')) lang = 'html';
                     else if (filename.endsWith('.css')) lang = 'css';
                     else if (filename.endsWith('.json')) lang = 'json';
                     else if (filename.match(/\.tsx?$/)) lang = 'typescript';
-
+                    else if (filename.endsWith('.py')) lang = 'python';
                     newFiles.push({ name: filename, content, language: lang });
                 }
             }
@@ -538,38 +585,24 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                 setProjectName(file.name.replace(/\.zip$/i, ''));
                 const newId = Date.now().toString();
                 setCurrentProjectId(newId);
-                setHistoryStack([]);
-                setRedoStack([]);
+                setHistoryStack([]); setRedoStack([]); setSnapshots([]);
                 setMessages([{ id: 'import', role: 'model', text: `Imported project: ${file.name}`, timestamp: Date.now() }]);
-                
-                // Try to find a good active file
-                const entry = newFiles.find(f => f.name.match(/src\/(App|main)\./) || f.name === 'index.html');
-                if (entry) setActiveFile(entry.name);
-                else setActiveFile(newFiles[0].name);
-
+                const entry = newFiles.find(f => f.name.match(/src\/(App|main)\./) || f.name === 'index.html' || f.name === 'main.py');
+                if (entry) setActiveFile(entry.name); else setActiveFile(newFiles[0].name);
                 updateWebPreview();
-                alert("Project imported successfully!");
-            } else {
-                alert("No supported files found in the ZIP.");
             }
-
-        } catch (error: any) {
-            console.error("Import failed:", error);
-            alert("Failed to import project: " + error.message);
-        }
+        } catch (error: any) { alert("Failed to import: " + error.message); }
     };
 
     const updateWebPreview = () => {
-        if (stack === 'flutter') return;
+        if (stack === 'flutter' || stack === 'python') return;
         setIsRefreshing(true);
         
-        // 1. Blobs
         const blobs: Record<string, string> = {};
         files.forEach(f => {
             const isJs = f.name.match(/\.(js|jsx|ts|tsx)$/);
             const isCss = f.name.endsWith('.css');
             const isImage = f.name.match(/\.(png|jpg|jpeg|svg|gif)$/);
-
             if (isJs || isCss) {
                 blobs[f.name] = URL.createObjectURL(new Blob([f.content], { type: isCss ? 'text/css' : 'application/javascript' }));
             } else if (isImage) {
@@ -578,18 +611,13 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
             }
         });
 
-        // 2. Resolvers
         const processedBlobs: Record<string, string> = {};
         files.forEach(f => {
             if (f.name.match(/\.(js|jsx|ts|tsx)$/)) {
                 let content = f.content;
                 content = content.replace(/from\s+['"](\..*?)['"]/g, (match, path) => {
                     const cleanPath = path.replace(/^\.\//, 'src/').replace(/\.(js|jsx|ts|tsx)$/, '');
-                    
-                    // Try finding JS match
                     let found = files.find(x => x.name.startsWith(cleanPath) || x.name === cleanPath);
-                    
-                    // If not found, try extensions for images/css
                     if (!found) {
                         const extensions = ['.png', '.jpg', '.jpeg', '.svg', '.css'];
                         for (const ext of extensions) {
@@ -598,18 +626,17 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                             if (found) break;
                         }
                     }
-
                     return found && blobs[found.name] ? `from "${blobs[found.name]}"` : match;
                 });
                 processedBlobs[f.name] = URL.createObjectURL(new Blob([content], { type: 'application/javascript' }));
             }
         });
 
-        // 3. Import Map
         const importMap = {
             imports: {
                 "react": "https://esm.sh/react@18.2.0",
                 "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+                "vue": "https://esm.sh/vue@3.3.4",
                 ...Object.keys(dependencies).reduce((acc, key) => ({ ...acc, [key]: `https://esm.sh/${key}` }), {})
             }
         };
@@ -628,12 +655,14 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
         </head>
         <body>
             <div id="root"></div>
+            <div id="app"></div>
             <script>
                 window.onerror = function(msg, url, line) {
                     document.body.innerHTML = '<div style="color:red;padding:20px;font-family:monospace">RUNTIME ERROR: ' + msg + '<br>Line: ' + line + '</div>';
                 };
             </script>
             <script type="text/babel" data-type="module" data-presets="react,typescript">
+                ${stack === 'vue' ? '' : `
                 import React from 'react';
                 import { createRoot } from 'react-dom/client';
                 import App from '${entryUrl}';
@@ -641,8 +670,9 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                     const root = createRoot(document.getElementById('root'));
                     root.render(<App />);
                 } catch (e) {
-                    document.body.innerHTML = '<div style="color:red;padding:20px;">RENDER ERROR: ' + e.message + '</div>';
+                    console.error(e);
                 }
+                `}
             </script>
         </body>
         </html>`;
@@ -682,7 +712,7 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
         return root.children || [];
     };
 
-    // Inlined Panels to prevent re-renders on input change
+    // Inlined Panels
     const renderPreviewPanel = (fullScreen = false) => (
         <div className={`flex flex-col bg-white h-full relative ${fullScreen ? 'fixed inset-0 z-50' : ''}`}>
             <div className="h-10 bg-slate-100 border-b border-slate-200 flex items-center justify-between px-4 shrink-0">
@@ -699,11 +729,11 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                     </button>
                 </div>
             </div>
-            {stack === 'flutter' ? (
+            {stack === 'flutter' || stack === 'python' ? (
                 <div className="flex-1 flex flex-col items-center justify-center bg-slate-50 text-slate-500">
                     <Smartphone className="w-16 h-16 mb-4 opacity-20" />
-                    <p className="text-sm mb-4">Flutter Preview requires Zapp!</p>
-                    <a href="https://zapp.run" target="_blank" rel="noreferrer" className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold shadow-lg hover:bg-blue-500">Open Compiler</a>
+                    <p className="text-sm mb-4">{stack === 'python' ? 'Python Runtime (Console Only)' : 'Flutter Preview requires Zapp!'}</p>
+                    {stack === 'flutter' && <a href="https://zapp.run" target="_blank" rel="noreferrer" className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold shadow-lg hover:bg-blue-500">Open Compiler</a>}
                 </div>
             ) : (
                 <iframe key={previewKey} src={iframeSrc} className="flex-1 w-full border-none bg-white" title="Preview" />
@@ -719,6 +749,9 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                     <span className="text-xs font-bold text-white">Zee Builder</span>
                 </div>
                 <div className="flex items-center space-x-1">
+                    <button onClick={createSnapshot} className="p-1.5 rounded hover:bg-slate-800 text-slate-400 hover:text-green-400" title="Create Checkpoint">
+                        <Save className="w-3.5 h-3.5" />
+                    </button>
                     <select value={model} onChange={e => setModel(e.target.value as ModelType)} className="bg-slate-950 text-xs text-slate-400 border border-slate-800 rounded py-1 px-2 max-w-[100px] focus:outline-none">
                         <option value={ModelType.PRO_PREVIEW}>Pro</option>
                         <option value={ModelType.FLASH}>Flash</option>
@@ -743,7 +776,7 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                             {m.attachment && m.attachment.mimeType.startsWith('image') && (
                                 <img src={`data:${m.attachment.mimeType};base64,${m.attachment.data}`} alt="Attached" className="max-w-full h-auto rounded mb-2 border border-slate-700" />
                             )}
-                            <div className="whitespace-pre-wrap">{m.text}</div>
+                            {m.role === 'model' ? <MarkdownRenderer content={m.text} /> : <div className="whitespace-pre-wrap">{m.text}</div>}
                             {m.role === 'model' && m.text.includes('Updated') && historyStack.length > 0 && (
                                 <div className="mt-2 pt-2 border-t border-slate-700">
                                     <DiffView files={files} oldFiles={historyStack[historyStack.length - 1]} />
@@ -770,10 +803,18 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                         <Paperclip className="w-4 h-4" />
                         <input type="file" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) blobToBase64(f).then(d => setChatAttachment({ name: f.name, mimeType: f.type, data: d })) }} />
                     </label>
-                    <textarea value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => { if (window.innerWidth < 768) return; if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); }}} placeholder="Ask Zee to build..." className="flex-1 bg-transparent px-3 py-3 text-xs text-white focus:outline-none resize-none text-sm min-h-[50px]" rows={1} />
-                    <button onClick={handleSendMessage} disabled={isGenerating} className="p-3 text-blue-500 hover:text-white hover:bg-blue-600 transition-colors">
-                        <Send className="w-4 h-4" />
-                    </button>
+                    <textarea 
+                        value={chatInput} 
+                        onChange={(e) => setChatInput(e.target.value)} 
+                        onKeyDown={(e) => {
+                            if (window.innerWidth < 768) { return; }
+                            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); }
+                        }} 
+                        placeholder="Ask Zee to build..." 
+                        className="flex-1 bg-transparent px-4 py-3 text-slate-900 dark:text-white focus:outline-none resize-none text-sm min-h-[50px]" 
+                        rows={1} 
+                    />
+                    <button onClick={() => handleSendMessage()} disabled={isGenerating} className="p-3 text-blue-600 dark:text-blue-500 hover:bg-blue-50 dark:hover:bg-slate-800 disabled:opacity-50 transition-colors"><Send className="w-4 h-4" /></button>
                 </div>
                 {chatAttachment && <div className="mt-1 text-[10px] text-slate-500 flex items-center justify-between px-1"><span>Attached: {chatAttachment.name}</span><button onClick={() => setChatAttachment(null)} className="text-red-500 hover:underline">Remove</button></div>}
             </div>
@@ -796,8 +837,11 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                         {[
                             { id: 'react', label: 'React', icon: CodeIcon, color: 'text-blue-500' },
                             { id: 'react-ts', label: 'React TS', icon: FileType, color: 'text-blue-400' },
+                            { id: 'vue', label: 'Vue.js', icon: Layers, color: 'text-green-500' },
                             { id: 'flutter', label: 'Flutter', icon: Smartphone, color: 'text-cyan-500' },
+                            { id: 'python', label: 'Python', icon: TerminalIcon, color: 'text-yellow-500' },
                             { id: 'html', label: 'HTML/JS', icon: Globe, color: 'text-orange-500' },
+                            { id: 'node', label: 'Node.js', icon: TerminalIcon, color: 'text-green-600' },
                         ].map((s) => (
                             <button key={s.id} onClick={() => initProject(s.id as Stack)} className="p-6 bg-slate-800 rounded-xl border border-slate-700 hover:border-blue-500 hover:bg-slate-750 text-left transition-all group">
                                 <s.icon className={`w-8 h-8 ${s.color} mb-3 group-hover:scale-110 transition-transform`} />
@@ -866,7 +910,7 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                 {/* Left Sidebar */}
                 <div className={`${isSidebarCollapsed ? 'w-0 opacity-0' : 'w-64'} bg-slate-900 border-r border-slate-800 flex flex-col transition-all duration-300 flex-shrink-0`}>
                     <div className="flex border-b border-slate-800">
-                        {[{id:'files',icon:File}, {id:'git',icon:Github}, {id:'db',icon:Database}, {id:'pkg',icon:PackageIcon}].map((t:any) => (
+                        {[{id:'files',icon:File}, {id:'git',icon:Github}, {id:'db',icon:Database}, {id:'pkg',icon:PackageIcon}, {id:'snaps', icon:History}].map((t:any) => (
                             <button key={t.id} onClick={() => setSidebarTab(t.id)} className={`flex-1 py-3 flex justify-center border-b-2 transition-colors ${sidebarTab === t.id ? 'border-blue-500 text-blue-500 bg-slate-800/50' : 'border-transparent text-slate-500 hover:text-slate-300'}`}><t.icon className="w-4 h-4"/></button>
                         ))}
                     </div>
@@ -901,6 +945,26 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                                     {Object.keys(dependencies).map(k => <div key={k} className="text-xs text-slate-300 bg-slate-800 p-1.5 rounded flex justify-between"><span>{k}</span><span className="opacity-50">latest</span></div>)}
                                 </div>
                                 <input value={newPackage} onChange={e=>setNewPackage(e.target.value)} onKeyDown={e=>e.key==='Enter'&&handleAddPackage(newPackage)} placeholder="npm install..." className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white"/>
+                            </div>
+                        )}
+                        {sidebarTab === 'snaps' && (
+                            <div className="p-2 space-y-3">
+                                <h3 className="text-xs font-bold text-slate-500 uppercase flex justify-between">
+                                    Checkpoints
+                                    <button onClick={createSnapshot} className="text-blue-400 hover:text-blue-300"><Plus className="w-3 h-3"/></button>
+                                </h3>
+                                <div className="space-y-2">
+                                    {snapshots.map(s => (
+                                        <div key={s.id} onClick={() => restoreSnapshot(s)} className="bg-slate-800 p-2 rounded cursor-pointer hover:bg-slate-700 group">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-xs text-white font-bold">{s.name}</span>
+                                                <span className="text-[10px] text-slate-500">{new Date(s.timestamp).toLocaleTimeString()}</span>
+                                            </div>
+                                            <p className="text-[10px] text-slate-400 mt-1">{s.files.length} files</p>
+                                        </div>
+                                    ))}
+                                    {snapshots.length === 0 && <p className="text-xs text-slate-600 italic">No snapshots saved.</p>}
+                                </div>
                             </div>
                         )}
                     </div>
@@ -947,6 +1011,28 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                     </div>
                 </div>
             </div>
+
+            {showProjectModal && (
+                <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 backdrop-blur-sm">
+                    <div className="bg-slate-900 rounded-xl p-6 w-full max-w-md border border-slate-800">
+                        <h3 className="text-lg font-bold text-white mb-4">Switch Project</h3>
+                        <div className="space-y-2 max-h-60 overflow-y-auto">
+                            {savedProjects.map(p => (
+                                <div key={p.id} onClick={() => loadProject(p)} className="group relative p-3 hover:bg-slate-800 rounded-lg cursor-pointer border border-slate-800 flex justify-between items-center">
+                                    <div className="flex flex-col">
+                                        <span className="text-sm text-slate-200 font-medium">{p.name}</span>
+                                        <span className="text-[10px] text-slate-500 uppercase bg-slate-950 px-2 py-0.5 rounded w-fit mt-1">{p.stack}</span>
+                                    </div>
+                                    <button onClick={(e) => { e.stopPropagation(); deleteProject(p.id); }} className="text-slate-500 hover:text-red-500 opacity-0 group-hover:opacity-100 p-2 transition-all">
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                        <button onClick={() => setShowProjectModal(false)} className="mt-4 w-full py-2 bg-slate-800 text-slate-300 rounded hover:bg-slate-700 transition-colors">Close</button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

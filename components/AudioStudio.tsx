@@ -1,7 +1,7 @@
 
-import React, { useState } from 'react';
-import { generateSpeech, transcribeAudio, decodeAudio, arrayBufferToAudioBuffer, pcm16ToWavBlob } from '../services/geminiService';
-import { Volume2, Loader2, FileText, Download, Activity, Copy, Check } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { generateSpeech, transcribeAudio, decodeAudio, arrayBufferToAudioBuffer, pcm16ToWavBlob, ensureApiKey, blobToBase64 } from '../services/geminiService';
+import { Volume2, Loader2, FileText, Download, Activity, Copy, Check, Mic, MicOff } from 'lucide-react';
 import { View } from '../types';
 
 interface AudioStudioProps {
@@ -22,6 +22,11 @@ const AudioStudio: React.FC<AudioStudioProps> = ({ onNavigate }) => {
     const [isTranscribing, setIsTranscribing] = useState(false);
     const [uploadedAudioUrl, setUploadedAudioUrl] = useState<string | null>(null);
     const [isCopied, setIsCopied] = useState(false);
+    
+    // Recording State
+    const [isRecording, setIsRecording] = useState(false);
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const audioChunksRef = useRef<Blob[]>([]);
 
     const handleTTS = async () => {
         if (!ttsText) return;
@@ -74,6 +79,54 @@ const AudioStudio: React.FC<AudioStudioProps> = ({ onNavigate }) => {
         } catch (e: any) {
             setTranscription("Error: " + (e.message || e));
             setIsTranscribing(false);
+        }
+    };
+
+    const toggleRecording = async () => {
+        if (isRecording) {
+            if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+                mediaRecorderRef.current.stop();
+                setIsRecording(false);
+                setIsTranscribing(true);
+            }
+        } else {
+            try {
+                await ensureApiKey();
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                const mediaRecorder = new MediaRecorder(stream);
+                mediaRecorderRef.current = mediaRecorder;
+                audioChunksRef.current = [];
+
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        audioChunksRef.current.push(event.data);
+                    }
+                };
+
+                mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+                    const url = URL.createObjectURL(audioBlob);
+                    setUploadedAudioUrl(url);
+                    stream.getTracks().forEach(track => track.stop());
+
+                    try {
+                        const base64 = await blobToBase64(audioBlob);
+                        const transcript = await transcribeAudio(base64, 'audio/webm');
+                        setTranscription(transcript || "No speech detected.");
+                    } catch (error: any) {
+                        console.error("Transcription failed:", error);
+                        setTranscription("Error: " + error.message);
+                    } finally {
+                        setIsTranscribing(false);
+                    }
+                };
+
+                mediaRecorder.start();
+                setIsRecording(true);
+            } catch (error) {
+                console.error("Error accessing microphone:", error);
+                alert("Could not access microphone. Please check permissions.");
+            }
         }
     };
 
@@ -131,16 +184,25 @@ const AudioStudio: React.FC<AudioStudioProps> = ({ onNavigate }) => {
                     <div className="max-w-md mx-auto w-full text-center space-y-4 h-full flex flex-col justify-center">
                         <div className="text-center">
                              <h2 className="text-lg font-bold text-white">Audio Transcription</h2>
-                             <p className="text-slate-400 text-xs mt-1">Get accurate text from audio files.</p>
+                             <p className="text-slate-400 text-xs mt-1">Record voice or upload audio files.</p>
                         </div>
-                        <div className="border-2 border-dashed border-slate-700 rounded-xl p-4 hover:bg-slate-800/50 transition-all cursor-pointer bg-slate-900/50 relative w-full">
-                            <label className="cursor-pointer block w-full h-full flex flex-col items-center justify-center">
-                                <Download className="w-6 h-6 text-purple-500 mb-2 rotate-180" />
-                                <span className="text-xs font-bold text-white mb-1">Drop Audio File</span>
-                                <span className="text-[10px] text-slate-500 mb-2">MP3, WAV</span>
-                                <input type="file" accept="audio/*" className="hidden" onChange={handleFileTranscribe} />
-                                <div className="px-3 py-1 bg-slate-800 text-slate-300 rounded text-[10px] font-bold">Browse</div>
-                            </label>
+                        <div className="flex gap-2">
+                            <button 
+                                onClick={toggleRecording}
+                                disabled={isTranscribing}
+                                className={`flex-1 py-4 rounded-xl border border-dashed border-slate-700 flex flex-col items-center justify-center transition-all ${isRecording ? 'bg-red-900/20 border-red-500 text-red-500' : 'hover:bg-slate-800/50 text-slate-400 hover:text-white'}`}
+                            >
+                                {isRecording ? <MicOff className="w-6 h-6 mb-2 animate-pulse" /> : <Mic className="w-6 h-6 mb-2" />}
+                                <span className="text-xs font-bold">{isRecording ? "Stop Recording" : "Record Audio"}</span>
+                            </button>
+
+                            <div className="flex-1 border-2 border-dashed border-slate-700 rounded-xl p-4 hover:bg-slate-800/50 transition-all cursor-pointer bg-slate-900/50 relative">
+                                <label className="cursor-pointer block w-full h-full flex flex-col items-center justify-center">
+                                    <Download className="w-6 h-6 text-purple-500 mb-2 rotate-180" />
+                                    <span className="text-xs font-bold text-white mb-1">Upload File</span>
+                                    <input type="file" accept="audio/*" className="hidden" onChange={handleFileTranscribe} />
+                                </label>
+                            </div>
                         </div>
 
                         {uploadedAudioUrl && <audio controls src={uploadedAudioUrl} className="w-full h-8 rounded bg-slate-950 border border-slate-800" />}
