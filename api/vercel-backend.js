@@ -1,5 +1,5 @@
 
-// This file is a template for your Vercel backend (api/index.js)
+// This file is a template for Vercel backend (api/index.js)
 // It implements real Authentication and Usage Tracking using a MongoDB/Postgres database.
 
 /*
