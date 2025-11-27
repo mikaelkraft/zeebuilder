@@ -232,7 +232,7 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
     const [isGenerating, setIsGenerating] = useState(false);
     const [generationStatus, setGenerationStatus] = useState('');
     const [model, setModel] = useState(ModelType.PRO_PREVIEW);
-    const [useSearch, setUseSearch] = useState(false);
+    const [useSearch, setUseSearch] = useState(true); // Enable search by default for up-to-date tools/libraries
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     const [isRecording, setIsRecording] = useState(false);

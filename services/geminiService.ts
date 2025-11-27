@@ -101,10 +101,17 @@ export const createChatSession = async (
         const tools: any[] = [];
         const supportsTools = model !== ModelType.FLASH_LITE;
 
+        // NOTE: Google Search and Function Calling CANNOT be used together.
+        // If search is enabled, we skip function declarations.
         if (!isThinking && supportsTools) {
-            if (useSearch) tools.push({ googleSearch: {} });
-            if (useMaps) tools.push({ googleMaps: {} });
-            tools.push({ functionDeclarations: [createTaskFunction] });
+            if (useSearch) {
+                // Only use Google Search, no function calling
+                tools.push({ googleSearch: {} });
+            } else {
+                // Use function calling and optionally maps (maps works with functions)
+                if (useMaps) tools.push({ googleMaps: {} });
+                tools.push({ functionDeclarations: [createTaskFunction] });
+            }
         }
 
         const systemInstruction = `
