@@ -418,7 +418,7 @@ const App: React.FC = () => {
                                 Mikael Kraft
                             </a>
                         </div>
-                        <span className="text-[10px] text-slate-400 dark:text-slate-600 uppercase tracking-widest">© {new Date().getFullYear()} Zee Builder Inc.</span>
+                        <span className="text-[10px] text-slate-400 dark:text-slate-600 uppercase tracking-widest">© {new Date().getFullYear()} Zee Builder</span>
                      </div>
                 </div>
             </footer>
