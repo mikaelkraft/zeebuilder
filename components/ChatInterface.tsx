@@ -106,6 +106,7 @@ const ChatInterface: React.FC = () => {
 
     const chatSessionRef = useRef<any>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const messagesContainerRef = useRef<HTMLDivElement>(null);
 
     // Determine if tools are supported
     const supportsTools = model !== ModelType.FLASH_LITE;
@@ -137,7 +138,12 @@ const ChatInterface: React.FC = () => {
         initChat();
     }, [model, isThinking, useMaps, useSearch]);
 
-    useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+    useEffect(() => { 
+        // Scroll within the messages container only, not the whole page
+        if (messagesContainerRef.current) {
+            messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+        }
+    }, [messages]);
 
     const startNewSession = (initialPrompt?: string) => {
         const newId = Date.now().toString();
@@ -407,7 +413,7 @@ const ChatInterface: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 bg-gray-50 dark:bg-slate-950">
+                <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 bg-gray-50 dark:bg-slate-950">
                     {messages.length === 0 ? (
                         <div className="h-full flex flex-col items-center justify-center opacity-50 text-center p-4">
                             <div className="w-16 h-16 bg-blue-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center mb-4"><MessageSquare className="w-8 h-8 text-blue-500" /></div>

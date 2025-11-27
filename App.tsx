@@ -352,7 +352,7 @@ const App: React.FC = () => {
         </header>
 
         {/* View Content & Footer Wrapper */}
-        <div className="flex-1 overflow-y-auto flex flex-col w-full relative scroll-smooth">
+        <div className="flex-1 overflow-y-auto flex flex-col w-full relative">
             <div className="flex-1 p-4 lg:p-8 w-full max-w-7xl mx-auto min-h-full">
                 {currentView === View.HOME && <Home onNavigate={handleNavigation} />}
                 {currentView === View.DASHBOARD && <Dashboard user={user} onNavigate={handleNavigation} />}

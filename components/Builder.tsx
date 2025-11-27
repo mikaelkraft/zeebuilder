@@ -234,6 +234,7 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
     const [model, setModel] = useState(ModelType.PRO_PREVIEW);
     const [useSearch, setUseSearch] = useState(true); // Enable search by default for up-to-date tools/libraries
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const messagesContainerRef = useRef<HTMLDivElement>(null);
 
     const [isRecording, setIsRecording] = useState(false);
     const [isTranscribingAudio, setIsTranscribingAudio] = useState(false);
@@ -362,7 +363,12 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
         }
     }, [files, rightPanelTab, isFullScreenPreview]);
 
-    useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+    useEffect(() => { 
+        // Scroll within the messages container only, not the whole page
+        if (messagesContainerRef.current) {
+            messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+        }
+    }, [messages]);
 
     const initProject = (type: Stack) => {
         setStack(type);
@@ -922,7 +928,7 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                     </button>
                 </div>
             </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+            <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
                 {messages.length === 0 && (
                     <div className="text-center text-slate-600 text-xs mt-10">
                         <Bot className="w-10 h-10 mx-auto mb-3 opacity-20" />
