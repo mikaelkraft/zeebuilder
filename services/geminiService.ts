@@ -158,12 +158,21 @@ export const generateProject = async (
         await ensureApiKey();
         const ai = getClient();
         
+        // Check if the last message has an image attachment
+        const lastMessage = history[history.length - 1];
+        const hasImageAttachment = lastMessage?.attachment?.mimeType?.startsWith('image/');
+        
         const chatHistory = history.map(msg => {
             const parts: any[] = [];
             if (msg.attachment) {
                 parts.push({ inlineData: { data: msg.attachment.data, mimeType: msg.attachment.mimeType } });
             }
-            parts.push({ text: msg.text || (msg.attachment ? "Analyze this file." : ".") });
+            // Enhance prompt for image analysis
+            let textPart = msg.text || "";
+            if (msg.attachment?.mimeType?.startsWith('image/') && !textPart.trim()) {
+                textPart = "Analyze this image and help me build something based on it.";
+            }
+            parts.push({ text: textPart || "." });
             return { role: msg.role, parts };
         });
 
@@ -180,9 +189,24 @@ IMPORTANT: When writing connection code, use these EXACT values.`
         const isTs = stack === 'react-ts';
         const ext = isTs ? 'tsx' : 'js';
 
+        // Enhanced prompt with image analysis instructions
+        const imageAnalysisInstructions = hasImageAttachment ? `
+        **IMAGE ANALYSIS MODE**:
+        The user has provided an image. Carefully analyze:
+        - UI/UX Layout and structure
+        - Color scheme and visual design
+        - Components and their arrangement  
+        - Typography and spacing
+        - Any text, icons, or visual elements
+        
+        Based on your analysis, generate code that recreates or is inspired by the design.
+        Describe what you see in the image in your explanation.
+        ` : '';
+
         const prompt = `
         You are Zee Builder, an expert AI software engineer. 
         You are building a ${stack} application.
+        ${imageAnalysisInstructions}
         
         CURRENT FILES:
         ${fileContext}
@@ -196,6 +220,7 @@ IMPORTANT: When writing connection code, use these EXACT values.`
         INSTRUCTIONS:
         1. **Analyze the User Request**:
            - If the user asks to "build", "create", "add", "fix", or "update", GENERATE CODE.
+           - If an IMAGE is provided, analyze it and build UI that matches or is inspired by it.
            - If the user asks a question, explain it.
         
         2. **Code Generation Rules**:
@@ -214,7 +239,7 @@ IMPORTANT: When writing connection code, use these EXACT values.`
           "files": [
             { "name": "src/App.${ext}", "content": "code here...", "language": "${isTs ? 'typescript' : 'javascript'}" }
           ],
-          "explanation": "Brief summary",
+          "explanation": "Brief summary of what you built/analyzed",
           "toolCall": null
         }
         `;
