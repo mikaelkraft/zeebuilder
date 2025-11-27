@@ -101,7 +101,7 @@ const App: React.FC = () => {
 
   // Handle OAuth callback - listen for GitHub auth redirect
   useEffect(() => {
-    const { data: { subscription } } = onAuthStateChange(async (event, session) => {
+    const authListener = onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
         // User signed in via GitHub OAuth callback
         const githubUser = session.user;
@@ -128,7 +128,9 @@ const App: React.FC = () => {
 
     // Check if there's an existing session on mount (e.g., after OAuth redirect)
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      if (!supabase) return;
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
       if (session?.user && !user) {
         const githubUser = session.user;
         const newUser = {
@@ -148,16 +150,22 @@ const App: React.FC = () => {
         usageService.init(newUser.email);
         setCurrentView(View.DASHBOARD);
       }
+      } catch (e) {
+        console.error('Error checking session:', e);
+      }
     };
 
     checkSession();
 
-    return () => subscription.unsubscribe();
+    const subscription = authListener?.data?.subscription;
+    return () => subscription?.unsubscribe?.();
   }, []);
 
   const handleLogout = async () => {
     // Sign out from Supabase (clears GitHub OAuth session)
-    await supabase.auth.signOut();
+    if (supabase) {
+      await supabase.auth.signOut();
+    }
     setUser(null);
     localStorage.removeItem('zee_user');
     localStorage.removeItem('zee_github_token');
