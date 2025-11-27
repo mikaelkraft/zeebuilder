@@ -1,6 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { authService } from '../services/authService';
+import { signInWithGitHub, onAuthStateChange, supabase } from '../services/supabaseClient';
 import { User, Lock, Mail, Github, X, UserPlus, Loader2, AlertCircle, ArrowLeft, KeyRound, CheckCircle2 } from 'lucide-react';
 
 interface AuthModalProps {
@@ -16,11 +17,46 @@ const AuthModal: React.FC<AuthModalProps> = ({ onLogin, onClose }) => {
     const [password, setPassword] = useState('');
     const [username, setUsername] = useState('');
     const [loading, setLoading] = useState(false);
+    const [githubLoading, setGithubLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     
     // Reset Flow State
     const [resetEmail, setResetEmail] = useState('');
     const [newPassword, setNewPassword] = useState('');
+
+    // Listen for OAuth callback
+    useEffect(() => {
+        const { data: { subscription } } = onAuthStateChange(async (event, session) => {
+            if (event === 'SIGNED_IN' && session?.user) {
+                // User signed in via GitHub OAuth
+                const githubUser = session.user;
+                const user = {
+                    username: githubUser.user_metadata?.user_name || githubUser.user_metadata?.full_name || 'GitHub User',
+                    email: githubUser.email || '',
+                    avatar: githubUser.user_metadata?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${githubUser.id}`,
+                    isAdmin: false,
+                    githubToken: session.provider_token // Store GitHub token for API access
+                };
+                localStorage.setItem('zee_user', JSON.stringify(user));
+                localStorage.setItem('zee_github_token', session.provider_token || '');
+                onLogin(user);
+            }
+        });
+
+        return () => subscription.unsubscribe();
+    }, [onLogin]);
+
+    const handleGitHubLogin = async () => {
+        setGithubLoading(true);
+        setError(null);
+        try {
+            await signInWithGitHub();
+            // OAuth will redirect, so we don't need to handle success here
+        } catch (err: any) {
+            setError(err.message || "GitHub login failed");
+            setGithubLoading(false);
+        }
+    };
 
     const handleLoginSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -145,6 +181,24 @@ const AuthModal: React.FC<AuthModalProps> = ({ onLogin, onClose }) => {
                                 {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Sign In'}
                             </button>
                         </form>
+
+                        <div className="relative my-6">
+                            <div className="absolute inset-0 flex items-center">
+                                <div className="w-full border-t border-gray-200 dark:border-slate-800"></div>
+                            </div>
+                            <div className="relative flex justify-center text-xs uppercase">
+                                <span className="bg-white dark:bg-slate-900 px-2 text-slate-500">Or continue with</span>
+                            </div>
+                        </div>
+
+                        <button 
+                            onClick={handleGitHubLogin} 
+                            disabled={githubLoading}
+                            className="w-full bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold py-3 rounded-lg transition-all flex items-center justify-center border border-slate-700"
+                        >
+                            {githubLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Github className="w-5 h-5 mr-2" /> Continue with GitHub</>}
+                        </button>
+
                          <div className="mt-6 text-center">
                             <button onClick={() => { setView('REGISTER'); setError(null); }} className="text-sm text-slate-500 hover:text-slate-900 dark:hover:text-white">
                                 Don't have an account? <span className="text-blue-600 dark:text-blue-400 font-bold">Sign up</span>
@@ -189,6 +243,24 @@ const AuthModal: React.FC<AuthModalProps> = ({ onLogin, onClose }) => {
                                 {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Create Account'}
                             </button>
                         </form>
+
+                        <div className="relative my-6">
+                            <div className="absolute inset-0 flex items-center">
+                                <div className="w-full border-t border-gray-200 dark:border-slate-800"></div>
+                            </div>
+                            <div className="relative flex justify-center text-xs uppercase">
+                                <span className="bg-white dark:bg-slate-900 px-2 text-slate-500">Or</span>
+                            </div>
+                        </div>
+
+                        <button 
+                            onClick={handleGitHubLogin} 
+                            disabled={githubLoading}
+                            className="w-full bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold py-3 rounded-lg transition-all flex items-center justify-center border border-slate-700"
+                        >
+                            {githubLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Github className="w-5 h-5 mr-2" /> Sign up with GitHub</>}
+                        </button>
+
                         <div className="mt-6 text-center">
                             <button onClick={() => { setView('LOGIN'); setError(null); }} className="text-sm text-slate-500 hover:text-slate-900 dark:hover:text-white">
                                 Already have an account? <span className="text-blue-600 dark:text-blue-400 font-bold">Sign in</span>

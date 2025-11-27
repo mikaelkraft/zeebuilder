@@ -9,7 +9,7 @@ import {
     RotateCcw, Image, FileCode, ChevronRight, ChevronDown, Database, Package as PackageIcon,
     Smartphone, Layers, Globe, Paperclip, MonitorPlay,
     Undo2, Redo2, Play, FileType, Eye, ArrowLeftRight, Check, AlertCircle, Maximize2, Minimize2, MessageSquare,
-    Mic, MicOff, UploadCloud, Copy, Save, History
+    Mic, MicOff, UploadCloud, Copy, Save, History, GitBranch, GitCommit, ArrowUpFromLine, ArrowDownToLine, FolderGit2, Unlink
 } from 'lucide-react';
 import JSZip from 'jszip';
 
@@ -242,6 +242,11 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
 
     const [ghToken, setGhToken] = useState('');
     const [ghUser, setGhUser] = useState<any>(null);
+    const [ghOctokit, setGhOctokit] = useState<any>(null);
+    const [ghRepos, setGhRepos] = useState<any[]>([]);
+    const [selectedRepo, setSelectedRepo] = useState<{owner: string, name: string} | null>(null);
+    const [ghLoading, setGhLoading] = useState(false);
+    const [ghStatus, setGhStatus] = useState<string>('');
     const [dependencies, setDependencies] = useState<{[key: string]: string}>({});
     const [dbConfigs, setDbConfigs] = useState<DatabaseConfig[]>([]);
     const [newDbType, setNewDbType] = useState<'firebase' | 'supabase' | 'neon'>('firebase');
@@ -268,6 +273,13 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                 const lastProj = parsed.find((p: SavedProject) => p.id === lastId);
                 if (lastProj) loadProject(lastProj);
             }
+        }
+        
+        // Check for saved GitHub token (from OAuth login)
+        const savedGhToken = localStorage.getItem('zee_github_token');
+        if (savedGhToken) {
+            setGhToken(savedGhToken);
+            connectGitHub(savedGhToken);
         }
     }, []);
 
@@ -446,6 +458,154 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
             setFiles(JSON.parse(JSON.stringify(snapshot.files)));
             setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: `↺ Restored checkpoint: **${snapshot.name}**`, timestamp: Date.now() }]);
         }
+    };
+
+    // GitHub Integration Functions
+    const connectGitHub = async (token: string) => {
+        if (!token) return;
+        setGhLoading(true);
+        setGhStatus('Connecting...');
+        try {
+            const { octokit, user } = await githubService.connect(token);
+            setGhOctokit(octokit);
+            setGhUser(user);
+            localStorage.setItem('zee_github_token', token);
+            
+            // Fetch repos
+            setGhStatus('Fetching repositories...');
+            const repos = await githubService.getUserRepos(octokit);
+            setGhRepos(repos);
+            setGhStatus('');
+        } catch (e: any) {
+            setGhStatus('');
+            alert(e.message);
+        } finally {
+            setGhLoading(false);
+        }
+    };
+
+    const disconnectGitHub = () => {
+        setGhToken('');
+        setGhUser(null);
+        setGhOctokit(null);
+        setGhRepos([]);
+        setSelectedRepo(null);
+        localStorage.removeItem('zee_github_token');
+    };
+
+    const cloneRepo = async (owner: string, name: string) => {
+        if (!ghOctokit) return;
+        setGhLoading(true);
+        setGhStatus(`Cloning ${owner}/${name}...`);
+        try {
+            const repoFiles = await githubService.getRepoFiles(ghOctokit, owner, name);
+            if (repoFiles.length > 0) {
+                // Detect stack from files
+                let detectedStack: Stack = 'html';
+                if (repoFiles.some((f: any) => f.name.includes('package.json'))) detectedStack = 'react';
+                if (repoFiles.some((f: any) => f.name.endsWith('.py'))) detectedStack = 'python';
+                if (repoFiles.some((f: any) => f.name.endsWith('.dart'))) detectedStack = 'flutter';
+                
+                // Create new project from repo
+                const newId = Date.now().toString();
+                setCurrentProjectId(newId);
+                setProjectName(name);
+                setStack(detectedStack);
+                setFiles(repoFiles);
+                setSelectedRepo({ owner, name });
+                setActiveFile(repoFiles[0]?.name || '');
+                setHistoryStack([]);
+                setRedoStack([]);
+                setSnapshots([]);
+                setIsWizardOpen(false);
+                
+                setMessages([{ 
+                    id: 'clone', 
+                    role: 'model', 
+                    text: `✅ Cloned **${owner}/${name}** (${repoFiles.length} files). Ready to edit!`, 
+                    timestamp: Date.now() 
+                }]);
+            }
+            setGhStatus('');
+        } catch (e: any) {
+            setGhStatus('');
+            alert('Clone failed: ' + e.message);
+        } finally {
+            setGhLoading(false);
+        }
+    };
+
+    const pushToRepo = async () => {
+        if (!ghOctokit || !selectedRepo) {
+            alert('Please select a repository first');
+            return;
+        }
+        setGhLoading(true);
+        setGhStatus('Pushing files...');
+        try {
+            const commitMessage = prompt('Commit message:', `Update from Zee Builder - ${new Date().toLocaleString()}`);
+            if (!commitMessage) {
+                setGhLoading(false);
+                setGhStatus('');
+                return;
+            }
+            
+            for (const file of files) {
+                if (file.language === 'image') continue; // Skip base64 images
+                setGhStatus(`Pushing ${file.name}...`);
+                await githubService.pushFile(ghOctokit, selectedRepo.owner, selectedRepo.name, file.name, file.content, commitMessage);
+            }
+            
+            setGhStatus('');
+            setMessages(prev => [...prev, { 
+                id: Date.now().toString(), 
+                role: 'model', 
+                text: `✅ Pushed ${files.filter(f => f.language !== 'image').length} files to **${selectedRepo.owner}/${selectedRepo.name}**`, 
+                timestamp: Date.now() 
+            }]);
+        } catch (e: any) {
+            setGhStatus('');
+            alert('Push failed: ' + e.message);
+        } finally {
+            setGhLoading(false);
+        }
+    };
+
+    const createNewRepo = async () => {
+        if (!ghOctokit) return;
+        const repoName = prompt('New repository name:', projectName.toLowerCase().replace(/\s+/g, '-'));
+        if (!repoName) return;
+        
+        setGhLoading(true);
+        setGhStatus('Creating repository...');
+        try {
+            const { data } = await ghOctokit.rest.repos.createForAuthenticatedUser({
+                name: repoName,
+                private: false,
+                auto_init: true
+            });
+            
+            // Wait a moment for GitHub to initialize
+            await new Promise(r => setTimeout(r, 2000));
+            
+            setSelectedRepo({ owner: data.owner.login, name: data.name });
+            setGhRepos(prev => [data, ...prev]);
+            setGhStatus('');
+            
+            // Push files to new repo
+            await pushToRepo();
+        } catch (e: any) {
+            setGhStatus('');
+            alert('Failed to create repo: ' + e.message);
+        } finally {
+            setGhLoading(false);
+        }
+    };
+
+    const pullFromRepo = async () => {
+        if (!ghOctokit || !selectedRepo) return;
+        if (!confirm('Pull latest changes? This will overwrite local files.')) return;
+        await cloneRepo(selectedRepo.owner, selectedRepo.name);
     };
 
     const handleSendMessage = async () => {
@@ -918,9 +1078,131 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                         {sidebarTab === 'files' && <div className="space-y-1 pt-2">{getFileTree(files).map(n => <FileTreeNode key={n.path} node={n} level={0} activeFile={activeFile} onSelect={setActiveFile} />)}</div>}
                         {sidebarTab === 'git' && (
                             <div className="p-2 space-y-3">
-                                <input type="password" value={ghToken} onChange={e=>setGhToken(e.target.value)} placeholder="GitHub Token" className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white"/>
-                                <button onClick={async()=>{try{await githubService.connect(ghToken);setGhUser({login:'Connected'});}catch(e:any){alert(e.message)}}} className="w-full bg-slate-800 text-white text-xs py-1 rounded hover:bg-slate-700">Connect</button>
-                                {ghUser && <p className="text-xs text-green-500 flex items-center"><Check className="w-3 h-3 mr-1"/> Logged in</p>}
+                                <h3 className="text-xs font-bold text-slate-500 uppercase">GitHub Integration</h3>
+                                {!ghUser ? (
+                                    <>
+                                        <p className="text-[10px] text-slate-600">Connect your GitHub to push/pull code from repositories.</p>
+                                        <input 
+                                            type="password" 
+                                            value={ghToken} 
+                                            onChange={e=>setGhToken(e.target.value)} 
+                                            placeholder="GitHub Personal Access Token" 
+                                            className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white"
+                                        />
+                                        <button 
+                                            onClick={()=>connectGitHub(ghToken)} 
+                                            disabled={ghLoading || !ghToken}
+                                            className="w-full bg-slate-800 text-white text-xs py-2 rounded hover:bg-slate-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                                        >
+                                            {ghLoading ? <Loader2 className="w-3 h-3 animate-spin"/> : <Github className="w-3 h-3"/>}
+                                            Connect GitHub
+                                        </button>
+                                        <p className="text-[10px] text-slate-600 text-center">Need a token? <a href="https://github.com/settings/tokens/new?scopes=repo" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">Create one here</a></p>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className="bg-slate-800 rounded p-2 flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-6 h-6 bg-green-600 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                                                    {ghUser.login.charAt(0).toUpperCase()}
+                                                </div>
+                                                <div>
+                                                    <p className="text-xs text-white font-medium">{ghUser.login}</p>
+                                                    <p className="text-[10px] text-green-400 flex items-center gap-1"><Check className="w-2.5 h-2.5"/> Connected</p>
+                                                </div>
+                                            </div>
+                                            <button 
+                                                onClick={()=>{setGhUser(null);setGhToken('');setGhRepos([]);setSelectedRepo(null);setGhOctokit(null);}}
+                                                className="text-slate-500 hover:text-red-400"
+                                                title="Disconnect"
+                                            >
+                                                <Unlink className="w-4 h-4"/>
+                                            </button>
+                                        </div>
+
+                                        {ghStatus && (
+                                            <div className={`text-xs p-2 rounded ${ghStatus.includes('Error') || ghStatus.includes('Failed') ? 'bg-red-900/30 text-red-400' : 'bg-blue-900/30 text-blue-400'}`}>
+                                                {ghLoading && <Loader2 className="w-3 h-3 animate-spin inline mr-1.5"/>}
+                                                {ghStatus}
+                                            </div>
+                                        )}
+
+                                        <div className="border-t border-slate-800 pt-3 space-y-2">
+                                            <div className="flex justify-between items-center">
+                                                <h4 className="text-[10px] text-slate-400 font-bold uppercase">Your Repositories</h4>
+                                                <button onClick={async()=>{if(ghOctokit){setGhLoading(true);const repos=await githubService.getUserRepos(ghOctokit);setGhRepos(repos);setGhLoading(false);}}} disabled={ghLoading} className="text-blue-400 hover:text-blue-300">
+                                                    <RefreshCw className={`w-3 h-3 ${ghLoading ? 'animate-spin' : ''}`}/>
+                                                </button>
+                                            </div>
+                                            <select 
+                                                value={selectedRepo ? `${selectedRepo.owner}/${selectedRepo.name}` : ''}
+                                                onChange={e=>{
+                                                    const r = ghRepos.find(r=>`${r.owner}/${r.name}`===e.target.value);
+                                                    setSelectedRepo(r||null);
+                                                }}
+                                                className="w-full bg-slate-950 text-white text-xs p-2 rounded border border-slate-800"
+                                            >
+                                                <option value="">Select a repository...</option>
+                                                {ghRepos.map(r=>(
+                                                    <option key={`${r.owner}/${r.name}`} value={`${r.owner}/${r.name}`}>{r.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        {selectedRepo && (
+                                            <div className="space-y-2 border-t border-slate-800 pt-3">
+                                                <div className="bg-slate-800 rounded p-2">
+                                                    <p className="text-xs text-white font-medium flex items-center gap-1.5">
+                                                        <FolderGit2 className="w-3 h-3 text-purple-400"/>
+                                                        {selectedRepo.name}
+                                                    </p>
+                                                    <p className="text-[10px] text-slate-400">{selectedRepo.owner}/{selectedRepo.name}</p>
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <button 
+                                                        onClick={()=>cloneRepo(selectedRepo.owner, selectedRepo.name)}
+                                                        disabled={ghLoading}
+                                                        className="bg-slate-800 hover:bg-slate-700 text-white text-xs py-2 rounded flex items-center justify-center gap-1.5 disabled:opacity-50"
+                                                    >
+                                                        <ArrowDownToLine className="w-3 h-3"/>
+                                                        Clone
+                                                    </button>
+                                                    <button 
+                                                        onClick={pushToRepo}
+                                                        disabled={ghLoading || files.length === 0}
+                                                        className="bg-blue-600 hover:bg-blue-500 text-white text-xs py-2 rounded flex items-center justify-center gap-1.5 disabled:opacity-50"
+                                                    >
+                                                        <ArrowUpFromLine className="w-3 h-3"/>
+                                                        Push
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        <div className="border-t border-slate-800 pt-3 space-y-2">
+                                            <h4 className="text-[10px] text-slate-400 font-bold uppercase">Quick Actions</h4>
+                                            <button 
+                                                onClick={async()=>{
+                                                    if(!selectedRepo) return alert('Select a repository first');
+                                                    await cloneRepo(selectedRepo.owner, selectedRepo.name);
+                                                }}
+                                                disabled={ghLoading || !selectedRepo}
+                                                className="w-full bg-slate-800 hover:bg-slate-700 text-white text-xs py-2 rounded flex items-center justify-center gap-2 disabled:opacity-50"
+                                            >
+                                                <GitBranch className="w-3 h-3"/>
+                                                Import from Selected Repo
+                                            </button>
+                                            <button 
+                                                onClick={pushToRepo}
+                                                disabled={ghLoading || !selectedRepo || files.length === 0}
+                                                className="w-full bg-green-700 hover:bg-green-600 text-white text-xs py-2 rounded flex items-center justify-center gap-2 disabled:opacity-50"
+                                            >
+                                                <GitCommit className="w-3 h-3"/>
+                                                Commit & Push Changes
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         )}
                         {sidebarTab === 'db' && (
