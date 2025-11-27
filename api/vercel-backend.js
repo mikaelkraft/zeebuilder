@@ -1,81 +1,51 @@
-
-// This file is a template for Vercel backend (api/index.js)
-// It implements real Authentication and Usage Tracking using a MongoDB/Postgres database.
-
 /*
-  DIRECTORY STRUCTURE FOR VERCEL:
-  /api
-    /auth
-      login.ts
-      register.ts
-    /user
-      usage.ts
+  ZEEBUILDER VERCEL BACKEND - SUPABASE VERSION
   
-  DEPENDENCIES (package.json):
-  npm install mongoose jsonwebtoken bcryptjs
+  This file is kept for reference. The actual API routes are in:
+  - /api/auth/login.js     - User login
+  - /api/auth/register.js  - User registration
+  - /api/user/usage.js     - Usage tracking
+  - /api/lib/supabase.js   - Supabase client
+
+  REQUIRED ENVIRONMENT VARIABLES (add to Vercel):
+  - VITE_SUPABASE_URL          - Your Supabase project URL
+  - VITE_SUPABASE_ANON_KEY     - Supabase anon/public key
+  - SUPABASE_SERVICE_ROLE_KEY  - Supabase service role key (for backend)
+  - JWT_SECRET                 - Secret for signing JWT tokens
+  - VITE_ADMIN_EMAIL           - Super admin email
+  - VITE_ADMIN_PASSWORD_HASH   - Super admin password hash
+  - GEMINI_API_KEY             - Google Gemini API key
+
+  SUPABASE TABLE SCHEMA:
+  Run this SQL in Supabase SQL Editor:
+
+  CREATE TABLE users (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    email TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    username TEXT NOT NULL,
+    avatar TEXT,
+    plan TEXT DEFAULT 'free',
+    requests INTEGER DEFAULT 0,
+    is_admin BOOLEAN DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  );
+
+  -- Enable Row Level Security
+  ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+
+  -- Policy: Users can read their own data
+  CREATE POLICY "Users can view own data" ON users
+    FOR SELECT USING (auth.uid()::text = id::text);
+
+  -- Policy: Service role can do everything (for backend)
+  CREATE POLICY "Service role full access" ON users
+    FOR ALL USING (auth.role() = 'service_role');
 */
 
-// --- api/auth/login.ts ---
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-import mongoose from 'mongoose';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-
-// Connect to DB (Optimization: Cache connection outside handler)
-const MONGODB_URI = process.env.MONGODB_URI; // Add this to Vercel Env Vars
-
-if (!mongoose.connections[0].readyState) {
-  mongoose.connect(MONGODB_URI);
+export default function handler(req, res) {
+  res.status(200).json({ 
+    message: 'ZeeBuilder API - See /api/auth/login, /api/auth/register, /api/user/usage' 
+  });
 }
 
-const UserSchema = new mongoose.Schema({
-  email: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
-  username: String,
-  plan: { type: String, default: 'free' },
-  requests: { type: Number, default: 0 }
-});
-
-const User = mongoose.models.User || mongoose.model('User', UserSchema);
-
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
-  
-  const { email, password } = req.body;
-  
-  try {
-    const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ error: 'User not found' });
-
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ error: 'Invalid credentials' });
-
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET!, { expiresIn: '1d' });
-    
-    res.status(200).json({ 
-      token, 
-      user: { 
-        email: user.email, 
-        username: user.username, 
-        plan: user.plan 
-      } 
-    });
-  } catch (e) {
-    res.status(500).json({ error: 'Server Error' });
-  }
-}
-
-// --- api/user/usage.ts ---
-// Updates usage counts
-export const updateUsage = async (req: VercelRequest, res: VercelResponse) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    if(!token) return res.status(401).send('Unauthorized');
-    
-    try {
-        const decoded: any = jwt.verify(token, process.env.JWT_SECRET!);
-        await User.findByIdAndUpdate(decoded.id, { $inc: { requests: 1 } });
-        res.status(200).json({ success: true });
-    } catch(e) {
-        res.status(401).send('Invalid Token');
-    }
-};

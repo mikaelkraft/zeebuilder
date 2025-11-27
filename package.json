@@ -14,7 +14,6 @@
     "react-dom": "^19.2.0",
     "lucide-react": "^0.554.0",
     "@octokit/rest": "^20.0.0",
-    "mongoose": "^9.0.0",
     "bcryptjs": "^3.0.3",
     "jsonwebtoken": "^9.0.2",
     "@vercel/node": "^5.5.9",
