@@ -4,7 +4,7 @@ import { usageService } from './usageService';
 
 const USERS_KEY = 'zee_users_db';
 const SESSION_KEY = 'zee_user';
-const USE_REAL_API = false; // Toggle this to TRUE when backend is deployed to Vercel
+const USE_REAL_API = true; // Toggle this to TRUE when backend is deployed to Vercel
 
 // Simple mock hash for "security" (not real crypto but better than plain text for demo)
 const hash = (str: string) => {
