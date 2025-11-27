@@ -925,16 +925,76 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                         )}
                         {sidebarTab === 'db' && (
                             <div className="p-2 space-y-3">
-                                <h3 className="text-xs font-bold text-slate-500 uppercase">Connections</h3>
+                                <h3 className="text-xs font-bold text-slate-500 uppercase">Project Databases</h3>
+                                <p className="text-[10px] text-slate-600">Connect databases to this project. Credentials are injected into generated code.</p>
                                 {dbConfigs.map((db,i) => (
-                                    <div key={i} className="bg-slate-800 p-2 rounded text-xs text-white mb-2 flex justify-between">
-                                        <span className="capitalize">{db.type}</span>
-                                        <Trash2 className="w-3 h-3 cursor-pointer text-red-400" onClick={()=>{const n=[...dbConfigs];n.splice(i,1);setDbConfigs(n)}}/>
+                                    <div key={i} className="bg-slate-800 p-3 rounded text-xs text-white space-y-2">
+                                        <div className="flex justify-between items-center">
+                                            <span className="capitalize font-bold flex items-center">
+                                                <Database className="w-3 h-3 mr-1.5 text-green-500"/>
+                                                {db.name || db.type}
+                                            </span>
+                                            <Trash2 className="w-3 h-3 cursor-pointer text-red-400 hover:text-red-300" onClick={()=>{const n=[...dbConfigs];n.splice(i,1);setDbConfigs(n)}}/>
+                                        </div>
+                                        {db.config?.url && <p className="text-[10px] text-slate-400 truncate">{db.config.url}</p>}
+                                        <span className={`text-[10px] px-1.5 py-0.5 rounded ${db.connected ? 'bg-green-900/50 text-green-400' : 'bg-yellow-900/50 text-yellow-400'}`}>
+                                            {db.connected ? 'Connected' : 'Not Connected'}
+                                        </span>
                                     </div>
                                 ))}
-                                <div className="pt-2 border-t border-slate-800 space-y-2">
-                                    <select onChange={e=>setNewDbType(e.target.value as any)} className="w-full bg-slate-950 text-white text-xs p-2 rounded border border-slate-800"><option value="firebase">Firebase</option><option value="supabase">Supabase</option></select>
-                                    <button onClick={()=>setDbConfigs([...dbConfigs, {type:newDbType, name:newDbType, connected:true, config:{}}])} className="w-full bg-blue-600 text-white text-xs py-1.5 rounded font-bold">Add</button>
+                                <div className="pt-3 border-t border-slate-800 space-y-2">
+                                    <h4 className="text-[10px] text-slate-400 font-bold uppercase">Add Connection</h4>
+                                    <select 
+                                        value={newDbType}
+                                        onChange={e=>setNewDbType(e.target.value as any)} 
+                                        className="w-full bg-slate-950 text-white text-xs p-2 rounded border border-slate-800"
+                                    >
+                                        <option value="supabase">Supabase</option>
+                                        <option value="firebase">Firebase</option>
+                                        <option value="neon">Neon Postgres</option>
+                                    </select>
+                                    <input 
+                                        type="text"
+                                        value={newDbConfig.name || ''}
+                                        onChange={e => setNewDbConfig({...newDbConfig, name: e.target.value})}
+                                        placeholder="Connection Name"
+                                        className="w-full bg-slate-950 text-white text-xs p-2 rounded border border-slate-800"
+                                    />
+                                    <input 
+                                        type="text"
+                                        value={newDbConfig.url || ''}
+                                        onChange={e => setNewDbConfig({...newDbConfig, url: e.target.value})}
+                                        placeholder={newDbType === 'supabase' ? 'Supabase URL' : newDbType === 'firebase' ? 'Firebase Project ID' : 'Connection String'}
+                                        className="w-full bg-slate-950 text-white text-xs p-2 rounded border border-slate-800"
+                                    />
+                                    <input 
+                                        type="password"
+                                        value={newDbConfig.key || ''}
+                                        onChange={e => setNewDbConfig({...newDbConfig, key: e.target.value})}
+                                        placeholder={newDbType === 'supabase' ? 'Anon Key' : newDbType === 'firebase' ? 'API Key' : 'Password'}
+                                        className="w-full bg-slate-950 text-white text-xs p-2 rounded border border-slate-800"
+                                    />
+                                    <button 
+                                        onClick={()=>{
+                                            if (!newDbConfig.url) return alert('Please enter connection details');
+                                            setDbConfigs([...dbConfigs, {
+                                                type: newDbType, 
+                                                name: newDbConfig.name || newDbType, 
+                                                connected: true, 
+                                                config: { url: newDbConfig.url, key: newDbConfig.key }
+                                            }]);
+                                            setNewDbConfig({});
+                                            setMessages(prev => [...prev, { 
+                                                id: Date.now().toString(), 
+                                                role: 'model', 
+                                                text: `✅ **${newDbType} database connected!** I'll use these credentials when generating backend code.`, 
+                                                timestamp: Date.now() 
+                                            }]);
+                                        }} 
+                                        className="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs py-2 rounded font-bold transition-colors"
+                                    >
+                                        Connect Database
+                                    </button>
                                 </div>
                             </div>
                         )}

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { User, SupabaseConfig } from '../types';
-import { User as UserIcon, Mail, Shield, Save, Loader2, Lock, KeyRound, AlertCircle, Cloud, Database, Check } from 'lucide-react';
+import { User as UserIcon, Mail, Shield, Save, Loader2, Lock, KeyRound, AlertCircle, Cloud, Database, Check, Unlink, Info } from 'lucide-react';
 import { authService } from '../services/authService';
 import { storageService } from '../services/storageService';
 
@@ -90,6 +90,14 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser }) => {
         e.preventDefault();
         storageService.saveConfig(cloudConfig);
         setMessage({ type: 'success', text: "Cloud storage settings saved." });
+    };
+
+    const handleDisconnectCloud = () => {
+        if (confirm('Disconnect cloud sync? Your local data will remain, but syncing will stop.')) {
+            setCloudConfig({ url: '', key: '', enabled: false });
+            storageService.saveConfig({ url: '', key: '', enabled: false });
+            setMessage({ type: 'success', text: "Cloud sync disconnected." });
+        }
     };
 
     const handleResetRequest = () => {
@@ -217,38 +225,64 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser }) => {
 
                             <div>
                                 <h3 className="text-lg font-bold text-slate-900 dark:text-white border-b border-gray-200 dark:border-slate-800 pb-2 flex items-center">
-                                    <Cloud className="w-5 h-5 mr-2 text-blue-500" /> Cloud Sync
+                                    <Cloud className="w-5 h-5 mr-2 text-blue-500" /> Cloud Sync (Optional)
                                 </h3>
-                                <p className="text-xs text-slate-500 my-2">Connect your own Supabase project to persistent storage.</p>
-                                <form onSubmit={handleSaveCloud} className="space-y-3">
-                                    <input 
-                                        type="text"
-                                        value={cloudConfig.url}
-                                        onChange={(e) => setCloudConfig({...cloudConfig, url: e.target.value})}
-                                        className="w-full px-3 py-2 bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-lg text-sm"
-                                        placeholder="Supabase URL"
-                                    />
-                                    <input 
-                                        type="password"
-                                        value={cloudConfig.key}
-                                        onChange={(e) => setCloudConfig({...cloudConfig, key: e.target.value})}
-                                        className="w-full px-3 py-2 bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-lg text-sm"
-                                        placeholder="Supabase Anon Key"
-                                    />
-                                    <div className="flex items-center">
-                                        <input 
-                                            type="checkbox" 
-                                            id="cloudEnabled"
-                                            checked={cloudConfig.enabled}
-                                            onChange={(e) => setCloudConfig({...cloudConfig, enabled: e.target.checked})}
-                                            className="mr-2 rounded text-blue-600 focus:ring-blue-500"
-                                        />
-                                        <label htmlFor="cloudEnabled" className="text-sm text-slate-700 dark:text-slate-300">Enable Cloud Sync</label>
-                                        <button type="submit" className="ml-auto flex items-center px-3 py-1.5 bg-green-600 text-white rounded text-xs font-bold">
-                                            <Database className="w-3 h-3 mr-1" /> Connect
-                                        </button>
+                                <div className="flex items-start gap-2 my-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                                    <Info className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                                    <p className="text-xs text-blue-700 dark:text-blue-300">
+                                        This syncs your <strong>Zee account data</strong> to your own Supabase. For project databases, use the App Builder's DB panel instead.
+                                    </p>
+                                </div>
+                                
+                                {cloudConfig.enabled && cloudConfig.url ? (
+                                    <div className="space-y-3">
+                                        <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center text-green-700 dark:text-green-400">
+                                                    <Check className="w-4 h-4 mr-2" />
+                                                    <span className="text-sm font-medium">Connected</span>
+                                                </div>
+                                                <button 
+                                                    onClick={handleDisconnectCloud}
+                                                    className="flex items-center px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded text-xs font-bold transition-colors"
+                                                >
+                                                    <Unlink className="w-3 h-3 mr-1" /> Disconnect
+                                                </button>
+                                            </div>
+                                            <p className="text-xs text-green-600 dark:text-green-500 mt-2 truncate">{cloudConfig.url}</p>
+                                        </div>
                                     </div>
-                                </form>
+                                ) : (
+                                    <form onSubmit={handleSaveCloud} className="space-y-3">
+                                        <input 
+                                            type="text"
+                                            value={cloudConfig.url}
+                                            onChange={(e) => setCloudConfig({...cloudConfig, url: e.target.value})}
+                                            className="w-full px-3 py-2 bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-lg text-sm"
+                                            placeholder="Supabase URL"
+                                        />
+                                        <input 
+                                            type="password"
+                                            value={cloudConfig.key}
+                                            onChange={(e) => setCloudConfig({...cloudConfig, key: e.target.value})}
+                                            className="w-full px-3 py-2 bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-lg text-sm"
+                                            placeholder="Supabase Anon Key"
+                                        />
+                                        <div className="flex items-center">
+                                            <input 
+                                                type="checkbox" 
+                                                id="cloudEnabled"
+                                                checked={cloudConfig.enabled}
+                                                onChange={(e) => setCloudConfig({...cloudConfig, enabled: e.target.checked})}
+                                                className="mr-2 rounded text-blue-600 focus:ring-blue-500"
+                                            />
+                                            <label htmlFor="cloudEnabled" className="text-sm text-slate-700 dark:text-slate-300">Enable Cloud Sync</label>
+                                            <button type="submit" className="ml-auto flex items-center px-3 py-1.5 bg-green-600 text-white rounded text-xs font-bold">
+                                                <Database className="w-3 h-3 mr-1" /> Connect
+                                            </button>
+                                        </div>
+                                    </form>
+                                )}
                             </div>
                         </div>
                     </div>
