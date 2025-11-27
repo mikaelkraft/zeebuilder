@@ -34,6 +34,7 @@ import LegalDocs from './components/LegalDocs';
 import Developers from './components/Developers';
 import Projects from './components/Projects';
 import { usageService } from './services/usageService';
+import { supabase, onAuthStateChange } from './services/supabaseClient';
 
 // Zee Logo Component
 const ZeeLogo = () => (
@@ -98,9 +99,68 @@ const App: React.FC = () => {
     }
   }, []);
 
-  const handleLogout = () => {
+  // Handle OAuth callback - listen for GitHub auth redirect
+  useEffect(() => {
+    const { data: { subscription } } = onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        // User signed in via GitHub OAuth callback
+        const githubUser = session.user;
+        const newUser = {
+          username: githubUser.user_metadata?.user_name || githubUser.user_metadata?.full_name || 'GitHub User',
+          email: githubUser.email || '',
+          avatar: githubUser.user_metadata?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${githubUser.id}`,
+          isAdmin: false,
+          githubToken: session.provider_token
+        };
+        
+        // Store user and GitHub token
+        localStorage.setItem('zee_user', JSON.stringify(newUser));
+        if (session.provider_token) {
+          localStorage.setItem('zee_github_token', session.provider_token);
+        }
+        
+        setUser(newUser);
+        usageService.init(newUser.email);
+        setShowAuth(false);
+        setCurrentView(View.DASHBOARD);
+      }
+    });
+
+    // Check if there's an existing session on mount (e.g., after OAuth redirect)
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user && !user) {
+        const githubUser = session.user;
+        const newUser = {
+          username: githubUser.user_metadata?.user_name || githubUser.user_metadata?.full_name || 'GitHub User',
+          email: githubUser.email || '',
+          avatar: githubUser.user_metadata?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${githubUser.id}`,
+          isAdmin: false,
+          githubToken: session.provider_token
+        };
+        
+        localStorage.setItem('zee_user', JSON.stringify(newUser));
+        if (session.provider_token) {
+          localStorage.setItem('zee_github_token', session.provider_token);
+        }
+        
+        setUser(newUser);
+        usageService.init(newUser.email);
+        setCurrentView(View.DASHBOARD);
+      }
+    };
+
+    checkSession();
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    // Sign out from Supabase (clears GitHub OAuth session)
+    await supabase.auth.signOut();
     setUser(null);
     localStorage.removeItem('zee_user');
+    localStorage.removeItem('zee_github_token');
     setCurrentView(View.HOME);
   };
 
