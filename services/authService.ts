@@ -76,8 +76,11 @@ export const authService = {
 
         await new Promise(resolve => setTimeout(resolve, 600));
 
-        // Super Admin Backdoor
-        if (email === "mikewillkraft@gmail.com" && password === "Nomercy2_") {
+        // Super Admin check using environment variables
+        const adminEmail = import.meta.env.VITE_ADMIN_EMAIL;
+        const adminPasswordHash = import.meta.env.VITE_ADMIN_PASSWORD_HASH;
+        
+        if (adminEmail && email === adminEmail && hash(password) === adminPasswordHash) {
             return {
                 username: 'Mikael Kraft (Admin)',
                 email: email,
