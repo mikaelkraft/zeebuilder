@@ -158,19 +158,32 @@ export const generateProject = async (
         await ensureApiKey();
         const ai = getClient();
         
-        // Check if the last message has an image attachment
+        // Check if the last message has an attachment and what type
         const lastMessage = history[history.length - 1];
-        const hasImageAttachment = lastMessage?.attachment?.mimeType?.startsWith('image/');
+        const attachment = lastMessage?.attachment;
+        const hasImageAttachment = attachment?.mimeType?.startsWith('image/');
+        const hasPdfAttachment = attachment?.mimeType === 'application/pdf';
+        const hasZipAttachment = attachment?.mimeType === 'application/zip' || attachment?.name?.endsWith('.zip');
+        const hasTextAttachment = attachment?.mimeType?.startsWith('text/') || 
+            attachment?.name?.match(/\.(txt|md|json|js|ts|tsx|jsx|py|html|css|xml|yaml|yml)$/i);
         
         const chatHistory = history.map(msg => {
             const parts: any[] = [];
             if (msg.attachment) {
                 parts.push({ inlineData: { data: msg.attachment.data, mimeType: msg.attachment.mimeType } });
             }
-            // Enhance prompt for image analysis
+            // Enhance prompt for different attachment types
             let textPart = msg.text || "";
-            if (msg.attachment?.mimeType?.startsWith('image/') && !textPart.trim()) {
-                textPart = "Analyze this image and help me build something based on it.";
+            if (msg.attachment && !textPart.trim()) {
+                if (msg.attachment.mimeType?.startsWith('image/')) {
+                    textPart = "Analyze this image and help me build something based on it.";
+                } else if (msg.attachment.mimeType === 'application/pdf') {
+                    textPart = "Analyze this PDF document and extract relevant information for building.";
+                } else if (msg.attachment.mimeType === 'application/zip' || msg.attachment.name?.endsWith('.zip')) {
+                    textPart = "Analyze the contents of this zip file.";
+                } else {
+                    textPart = "Analyze this file and help me with what's inside.";
+                }
             }
             parts.push({ text: textPart || "." });
             return { role: msg.role, parts };
@@ -189,8 +202,10 @@ IMPORTANT: When writing connection code, use these EXACT values.`
         const isTs = stack === 'react-ts';
         const ext = isTs ? 'tsx' : 'js';
 
-        // Enhanced prompt with image analysis instructions
-        const imageAnalysisInstructions = hasImageAttachment ? `
+        // Enhanced prompt with file type specific instructions
+        let attachmentInstructions = '';
+        if (hasImageAttachment) {
+            attachmentInstructions = `
         **IMAGE ANALYSIS MODE**:
         The user has provided an image. Carefully analyze:
         - UI/UX Layout and structure
@@ -200,13 +215,43 @@ IMPORTANT: When writing connection code, use these EXACT values.`
         - Any text, icons, or visual elements
         
         Based on your analysis, generate code that recreates or is inspired by the design.
-        Describe what you see in the image in your explanation.
-        ` : '';
+        Describe what you see in the image in your explanation.`;
+        } else if (hasPdfAttachment) {
+            attachmentInstructions = `
+        **PDF ANALYSIS MODE**:
+        The user has provided a PDF document. Analyze its contents:
+        - Extract any UI mockups, wireframes, or design specifications
+        - Identify requirements, features, or functionality described
+        - Look for color schemes, branding guidelines, or style guides
+        - Note any diagrams, flowcharts, or architecture descriptions
+        
+        Use the extracted information to generate relevant code.`;
+        } else if (hasZipAttachment) {
+            attachmentInstructions = `
+        **ZIP FILE ANALYSIS MODE**:
+        The user has provided a zip archive. If possible, analyze:
+        - File structure and organization
+        - Any code files, assets, or configurations
+        - Images that could serve as design references
+        - Documentation or specification files
+        
+        Use any relevant content to inform your code generation.`;
+        } else if (hasTextAttachment) {
+            attachmentInstructions = `
+        **TEXT/CODE FILE ANALYSIS MODE**:
+        The user has provided a text or code file. Analyze:
+        - The content and purpose of the file
+        - Any specifications, requirements, or ideas described
+        - Code patterns or structures to follow or improve
+        - Configuration or data that should be used
+        
+        Incorporate the file's content into your response appropriately.`;
+        }
 
         const prompt = `
         You are Zee Builder, an expert AI software engineer. 
         You are building a ${stack} application.
-        ${imageAnalysisInstructions}
+        ${attachmentInstructions}
         
         CURRENT FILES:
         ${fileContext}
@@ -220,7 +265,7 @@ IMPORTANT: When writing connection code, use these EXACT values.`
         INSTRUCTIONS:
         1. **Analyze the User Request**:
            - If the user asks to "build", "create", "add", "fix", or "update", GENERATE CODE.
-           - If an IMAGE is provided, analyze it and build UI that matches or is inspired by it.
+           - If a FILE is provided, analyze it and use its content to inform your response.
            - If the user asks a question, explain it.
         
         2. **Code Generation Rules**:

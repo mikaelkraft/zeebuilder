@@ -965,13 +965,9 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                     >
                         {isTranscribingAudio ? <Loader2 className="w-4 h-4 animate-spin" /> : (isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />)}
                     </button>
-                    <label className="p-3 cursor-pointer text-slate-500 hover:text-blue-500 hover:bg-slate-900 transition-colors border-r border-slate-800" title="Attach file or image">
+                    <label className="p-3 cursor-pointer text-slate-500 hover:text-blue-500 hover:bg-slate-900 transition-colors border-r border-slate-800" title="Attach any file (images, PDFs, text, zip, code files...)">
                         <Paperclip className="w-4 h-4" />
-                        <input type="file" accept="image/*,.pdf,.txt,.json,.js,.ts,.tsx,.jsx,.py,.html,.css" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) blobToBase64(f).then(d => setChatAttachment({ name: f.name, mimeType: f.type, data: d })) }} />
-                    </label>
-                    <label className="p-3 cursor-pointer text-slate-500 hover:text-purple-500 hover:bg-slate-900 transition-colors border-r border-slate-800" title="Upload image for design reference">
-                        <Image className="w-4 h-4" />
-                        <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) blobToBase64(f).then(d => setChatAttachment({ name: f.name, mimeType: f.type, data: d })) }} />
+                        <input type="file" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) blobToBase64(f).then(d => setChatAttachment({ name: f.name, mimeType: f.type || 'application/octet-stream', data: d })) }} />
                     </label>
                     <textarea 
                         value={chatInput} 
@@ -997,14 +993,32 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                                         className="w-12 h-12 object-cover rounded border border-slate-600"
                                     />
                                 ) : (
-                                    <div className="w-10 h-10 bg-slate-700 rounded flex items-center justify-center">
-                                        <Paperclip className="w-4 h-4 text-slate-400" />
+                                    <div className={`w-10 h-10 rounded flex items-center justify-center ${
+                                        chatAttachment.mimeType === 'application/pdf' ? 'bg-red-900/30' :
+                                        chatAttachment.mimeType === 'application/zip' || chatAttachment.name.endsWith('.zip') ? 'bg-yellow-900/30' :
+                                        chatAttachment.mimeType.startsWith('text/') || chatAttachment.name.match(/\.(txt|md|json|js|ts|tsx|jsx|py|html|css|xml|yaml|yml)$/i) ? 'bg-blue-900/30' :
+                                        'bg-slate-700'
+                                    }`}>
+                                        {chatAttachment.mimeType === 'application/pdf' ? (
+                                            <FileCode className="w-4 h-4 text-red-400" />
+                                        ) : chatAttachment.mimeType === 'application/zip' || chatAttachment.name.endsWith('.zip') ? (
+                                            <PackageIcon className="w-4 h-4 text-yellow-400" />
+                                        ) : chatAttachment.mimeType.startsWith('text/') || chatAttachment.name.match(/\.(txt|md|json|js|ts|tsx|jsx|py|html|css)$/i) ? (
+                                            <File className="w-4 h-4 text-blue-400" />
+                                        ) : (
+                                            <Paperclip className="w-4 h-4 text-slate-400" />
+                                        )}
                                     </div>
                                 )}
                                 <div>
                                     <p className="text-xs text-slate-300 truncate max-w-[150px]">{chatAttachment.name}</p>
                                     <p className="text-[10px] text-slate-500">
-                                        {chatAttachment.mimeType.startsWith('image/') ? '📷 Image ready for analysis' : 'File attached'}
+                                        {chatAttachment.mimeType.startsWith('image/') ? '📷 Image - design reference' :
+                                         chatAttachment.mimeType === 'application/pdf' ? '📄 PDF document' :
+                                         chatAttachment.mimeType === 'application/zip' || chatAttachment.name.endsWith('.zip') ? '📦 Zip archive' :
+                                         chatAttachment.mimeType.startsWith('text/') || chatAttachment.name.match(/\.(txt|md)$/i) ? '📝 Text document' :
+                                         chatAttachment.name.match(/\.(json|js|ts|tsx|jsx|py|html|css)$/i) ? '💻 Code file' :
+                                         'File attached'}
                                     </p>
                                 </div>
                             </div>
@@ -1012,12 +1026,17 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                                 <X className="w-4 h-4" />
                             </button>
                         </div>
-                        {chatAttachment.mimeType.startsWith('image/') && (
-                            <p className="text-[10px] text-purple-400 mt-2 flex items-center">
-                                <Image className="w-3 h-3 mr-1" />
-                                Tip: Describe what you want - "Build this UI" or "Use this color scheme"
-                            </p>
-                        )}
+                        <p className="text-[10px] text-purple-400 mt-2 flex items-center">
+                            {chatAttachment.mimeType.startsWith('image/') ? (
+                                <><Image className="w-3 h-3 mr-1" /> Tip: "Build this UI" or "Use this color scheme"</>
+                            ) : chatAttachment.mimeType === 'application/pdf' ? (
+                                <><FileCode className="w-3 h-3 mr-1" /> Tip: "Extract ideas from this PDF" or "Build based on this spec"</>
+                            ) : chatAttachment.mimeType === 'application/zip' || chatAttachment.name.endsWith('.zip') ? (
+                                <><PackageIcon className="w-3 h-3 mr-1" /> Tip: "Analyze these files" or "Use assets from this zip"</>
+                            ) : (
+                                <><File className="w-3 h-3 mr-1" /> Tip: Describe what you want to do with this file</>
+                            )}
+                        </p>
                     </div>
                 )}
             </div>
