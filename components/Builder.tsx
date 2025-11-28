@@ -140,6 +140,15 @@ class Shell {
                 const uniquePaths = new Set(this.files.map(f => f.name.split('/')[0]));
                 uniquePaths.forEach(p => this.term.writeln(p));
                 break;
+            case 'tree':
+                this.term.writeln('.');
+                const sortedFiles = [...this.files].sort((a, b) => a.name.localeCompare(b.name));
+                sortedFiles.forEach((f, i) => {
+                    const parts = f.name.split('/');
+                    const prefix = i === sortedFiles.length - 1 ? '└── ' : '├── ';
+                    this.term.writeln(`${prefix}${parts.join('/')}`);
+                });
+                break;
             case 'cat':
                 if (args[0]) {
                     const f = this.files.find(file => file.name === args[0] || file.name === `src/${args[0]}`);
@@ -167,7 +176,7 @@ class Shell {
                  this.term.writeln(`\x1b[33mPython Runtime (Simulated)...\x1b[0m`);
                  if (args[0]) this.term.writeln(`Executing ${args[0]}...`);
                  break;
-            case 'help': this.term.writeln('Commands: ls, cat, npm install <pkg>, node, python, clear'); break;
+            case 'help': this.term.writeln('Commands: ls, tree, cat <file>, npm install <pkg>, node, python, clear'); break;
             case '': break;
             default: this.term.writeln(`bash: ${command}: command not found`);
         }
@@ -210,10 +219,11 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
     const [stack, setStack] = useState<Stack>('react');
     const [isWizardOpen, setIsWizardOpen] = useState(true);
     
-    const [sidebarTab, setSidebarTab] = useState<'files' | 'git' | 'db' | 'pkg' | 'snaps'>('files');
+    const [sidebarTab, setSidebarTab] = useState<'files' | 'git' | 'db' | 'pkg' | 'snaps' | 'code' | 'term'>('files');
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [rightPanelTab, setRightPanelTab] = useState<'chat' | 'preview'>('chat');
     const [isFullScreenPreview, setIsFullScreenPreview] = useState(false);
+    const [mobileCodeView, setMobileCodeView] = useState(false);
     
     const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
     const [savedProjects, setSavedProjects] = useState<SavedProject[]>([]);
@@ -764,84 +774,176 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
         if (stack === 'flutter' || stack === 'python') return;
         setIsRefreshing(true);
         
-        const blobs: Record<string, string> = {};
+        // Transpile TypeScript/JSX files using Babel (via simple regex transforms for esm.sh compatibility)
+        const transpileCode = (code: string, filename: string): string => {
+            // Remove TypeScript type annotations (simplified approach)
+            let result = code;
+            
+            // Remove import type declarations
+            result = result.replace(/import\s+type\s+\{[^}]+\}\s+from\s+['"][^'"]+['"];?\n?/g, '');
+            
+            // Remove type-only exports
+            result = result.replace(/export\s+type\s+\{[^}]+\};?\n?/g, '');
+            
+            // Remove interface declarations
+            result = result.replace(/interface\s+\w+\s*(?:<[^>]+>)?\s*\{[^}]*\}/gs, '');
+            
+            // Remove type declarations
+            result = result.replace(/type\s+\w+\s*(?:<[^>]+>)?\s*=\s*[^;]+;/g, '');
+            
+            // Remove type annotations from variables and functions
+            result = result.replace(/:\s*(?:\w+|[\w<>,\s\[\]|&]+)(?=\s*[=,)\];}])/g, '');
+            result = result.replace(/<\w+(?:\s+extends\s+\w+)?>/g, ''); // Generic params like <T>
+            
+            // Remove 'as' type assertions
+            result = result.replace(/\s+as\s+\w+(?:\[\])?/g, '');
+            
+            // Clean up any leftover artifacts
+            result = result.replace(/\(\s*,/g, '(');
+            result = result.replace(/,\s*\)/g, ')');
+            result = result.replace(/\{\s*,/g, '{');
+            
+            return result;
+        };
+        
+        // Create blob URLs for all files
+        const blobMap: Record<string, string> = {};
+        const transpiledContents: Record<string, string> = {};
+        
         files.forEach(f => {
             const isJs = f.name.match(/\.(js|jsx|ts|tsx)$/);
             const isCss = f.name.endsWith('.css');
             const isImage = f.name.match(/\.(png|jpg|jpeg|svg|gif)$/);
-            if (isJs || isCss) {
-                blobs[f.name] = URL.createObjectURL(new Blob([f.content], { type: isCss ? 'text/css' : 'application/javascript' }));
+            
+            if (isJs) {
+                // Transpile TypeScript/JSX to plain JavaScript
+                transpiledContents[f.name] = transpileCode(f.content, f.name);
+            } else if (isCss) {
+                blobMap[f.name] = URL.createObjectURL(new Blob([f.content], { type: 'text/css' }));
             } else if (isImage) {
                 const jsModuleContent = `export default "${f.content}";`;
-                blobs[f.name] = URL.createObjectURL(new Blob([jsModuleContent], { type: 'application/javascript' }));
+                blobMap[f.name] = URL.createObjectURL(new Blob([jsModuleContent], { type: 'application/javascript' }));
             }
         });
 
-        const processedBlobs: Record<string, string> = {};
+        // Process JS/TS files and resolve imports
         files.forEach(f => {
             if (f.name.match(/\.(js|jsx|ts|tsx)$/)) {
-                let content = f.content;
-                content = content.replace(/from\s+['"](\..*?)['"]/g, (match, path) => {
-                    const cleanPath = path.replace(/^\.\//, 'src/').replace(/\.(js|jsx|ts|tsx)$/, '');
-                    let found = files.find(x => x.name.startsWith(cleanPath) || x.name === cleanPath);
-                    if (!found) {
-                        const extensions = ['.png', '.jpg', '.jpeg', '.svg', '.css'];
-                        for (const ext of extensions) {
-                            const trialPath = cleanPath.endsWith(ext) ? cleanPath : cleanPath + ext;
-                            found = files.find(x => x.name.endsWith(trialPath.replace('src/', '')));
-                            if (found) break;
-                        }
+                let content = transpiledContents[f.name] || f.content;
+                
+                // Resolve relative imports to blob URLs
+                content = content.replace(/from\s+['"](\.[^'"]+)['"]/g, (match, importPath) => {
+                    // Resolve the relative path
+                    const basePath = f.name.substring(0, f.name.lastIndexOf('/') + 1);
+                    let resolvedPath = importPath;
+                    
+                    // Handle ./ and ../ prefixes
+                    if (importPath.startsWith('./')) {
+                        resolvedPath = basePath + importPath.substring(2);
+                    } else if (importPath.startsWith('../')) {
+                        const parts = basePath.split('/').filter(Boolean);
+                        const upCount = (importPath.match(/\.\.\//g) || []).length;
+                        const remaining = importPath.replace(/\.\.\//g, '');
+                        resolvedPath = parts.slice(0, -upCount).join('/') + '/' + remaining;
                     }
-                    return found && blobs[found.name] ? `from "${blobs[found.name]}"` : match;
+                    
+                    // Remove file extension if present
+                    resolvedPath = resolvedPath.replace(/\.(js|jsx|ts|tsx|css)$/, '');
+                    
+                    // Find matching file
+                    const extensions = ['.tsx', '.ts', '.jsx', '.js', '.css', '.png', '.jpg', '.svg'];
+                    let foundFile = null;
+                    
+                    for (const ext of extensions) {
+                        foundFile = files.find(x => 
+                            x.name === resolvedPath + ext || 
+                            x.name === resolvedPath ||
+                            x.name.endsWith('/' + resolvedPath.split('/').pop() + ext)
+                        );
+                        if (foundFile) break;
+                    }
+                    
+                    if (foundFile && blobMap[foundFile.name]) {
+                        return `from "${blobMap[foundFile.name]}"`;
+                    }
+                    
+                    return match;
                 });
-                processedBlobs[f.name] = URL.createObjectURL(new Blob([content], { type: 'application/javascript' }));
+                
+                blobMap[f.name] = URL.createObjectURL(new Blob([content], { type: 'application/javascript' }));
             }
         });
 
+        // Build import map for external dependencies
         const importMap = {
             imports: {
-                "react": "https://esm.sh/react@18.2.0",
-                "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
-                "vue": "https://esm.sh/vue@3.3.4",
-                ...Object.keys(dependencies).reduce((acc, key) => ({ ...acc, [key]: `https://esm.sh/${key}` }), {})
+                "react": "https://esm.sh/react@18.2.0?bundle",
+                "react-dom/client": "https://esm.sh/react-dom@18.2.0/client?bundle",
+                "react-dom": "https://esm.sh/react-dom@18.2.0?bundle",
+                "vue": "https://esm.sh/vue@3.3.4?bundle",
+                ...Object.keys(dependencies).reduce((acc, key) => ({ 
+                    ...acc, 
+                    [key]: `https://esm.sh/${key}?bundle` 
+                }), {})
             }
         };
 
-        const entry = files.find(f => f.name.match(/src\/(App|main)\.(js|jsx|ts|tsx)$/))?.name;
-        const entryUrl = entry ? processedBlobs[entry] || blobs[entry] : '';
+        // Find entry point
+        const entryFile = files.find(f => f.name.match(/src\/(App|main|index)\.(js|jsx|ts|tsx)$/)) 
+            || files.find(f => f.name.match(/App\.(js|jsx|ts|tsx)$/));
+        const entryUrl = entryFile ? blobMap[entryFile.name] : '';
+
+        // Get inline CSS
+        const cssFiles = files.filter(f => f.name.endsWith('.css'));
+        const inlineCss = cssFiles.map(f => f.content).join('\n');
 
         const html = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <script src="https://cdn.tailwindcss.com"></script>
-            <script type="importmap">${JSON.stringify(importMap)}</script>
-            <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-            <style>body { background-color: #ffffff; }</style>
-        </head>
-        <body>
-            <div id="root"></div>
-            <div id="app"></div>
-            <script>
-                window.onerror = function(msg, url, line) {
-                    document.body.innerHTML = '<div style="color:red;padding:20px;font-family:monospace">RUNTIME ERROR: ' + msg + '<br>Line: ' + line + '</div>';
-                };
-            </script>
-            <script type="text/babel" data-type="module" data-presets="react,typescript">
-                ${stack === 'vue' ? '' : `
-                import React from 'react';
-                import { createRoot } from 'react-dom/client';
-                import App from '${entryUrl}';
-                try {
-                    const root = createRoot(document.getElementById('root'));
-                    root.render(<App />);
-                } catch (e) {
-                    console.error(e);
-                }
-                `}
-            </script>
-        </body>
-        </html>`;
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="importmap">${JSON.stringify(importMap)}</script>
+    <style>
+        body { background-color: #ffffff; margin: 0; }
+        ${inlineCss}
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <div id="app"></div>
+    <script type="module">
+        // Error handling
+        window.onerror = function(msg, url, line, col, error) {
+            const errorDiv = document.createElement('div');
+            errorDiv.style.cssText = 'color:#ef4444;padding:20px;font-family:monospace;background:#fef2f2;border:1px solid #fecaca;margin:10px;border-radius:8px;';
+            errorDiv.innerHTML = '<strong>Runtime Error:</strong><br>' + msg + '<br><small>Line: ' + line + '</small>';
+            document.body.insertBefore(errorDiv, document.body.firstChild);
+            return true;
+        };
+        
+        ${stack === 'vue' ? `
+            import { createApp } from 'vue';
+            const App = await import('${entryUrl}').then(m => m.default || m);
+            createApp(App).mount('#app');
+        ` : `
+            import React from 'react';
+            import { createRoot } from 'react-dom/client';
+            
+            try {
+                const AppModule = await import('${entryUrl}');
+                const App = AppModule.default || AppModule;
+                const root = createRoot(document.getElementById('root'));
+                root.render(React.createElement(App));
+            } catch (e) {
+                console.error('App initialization error:', e);
+                document.getElementById('root').innerHTML = '<div style="color:#ef4444;padding:20px;font-family:monospace;background:#fef2f2;border:1px solid #fecaca;margin:10px;border-radius:8px;"><strong>Initialization Error:</strong><br>' + e.message + '</div>';
+            }
+        `}
+    </script>
+</body>
+</html>`;
 
         const finalBlob = new Blob([html], {type: 'text/html'});
         setIframeSrc(URL.createObjectURL(finalBlob));
@@ -1130,14 +1232,143 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
             <div className="flex-1 flex overflow-hidden">
                 
                 {/* Left Sidebar */}
-                <div className={`${isSidebarCollapsed ? 'w-0 opacity-0' : 'w-64'} bg-slate-900 border-r border-slate-800 flex flex-col transition-all duration-300 flex-shrink-0`}>
-                    <div className="flex border-b border-slate-800">
-                        {[{id:'files',icon:File}, {id:'git',icon:Github}, {id:'db',icon:Database}, {id:'pkg',icon:PackageIcon}, {id:'snaps', icon:History}].map((t:any) => (
-                            <button key={t.id} onClick={() => setSidebarTab(t.id)} className={`flex-1 py-3 flex justify-center border-b-2 transition-colors ${sidebarTab === t.id ? 'border-blue-500 text-blue-500 bg-slate-800/50' : 'border-transparent text-slate-500 hover:text-slate-300'}`}><t.icon className="w-4 h-4"/></button>
+                <div className={`${isSidebarCollapsed ? 'w-0 opacity-0' : 'w-64 md:w-64'} bg-slate-900 border-r border-slate-800 flex flex-col transition-all duration-300 flex-shrink-0 overflow-hidden`}>
+                    <div className="flex border-b border-slate-800 overflow-x-auto custom-scrollbar">
+                        {[{id:'files',icon:File,label:'Files'}, {id:'code',icon:CodeIcon,label:'Code'}, {id:'term',icon:TerminalIcon,label:'Terminal'}, {id:'git',icon:Github,label:'Git'}, {id:'db',icon:Database,label:'DB'}, {id:'pkg',icon:PackageIcon,label:'Packages'}, {id:'snaps', icon:History,label:'Snaps'}].map((t:any) => (
+                            <button key={t.id} onClick={() => setSidebarTab(t.id)} className={`flex-shrink-0 px-3 py-3 flex flex-col items-center border-b-2 transition-colors ${sidebarTab === t.id ? 'border-blue-500 text-blue-500 bg-slate-800/50' : 'border-transparent text-slate-500 hover:text-slate-300'}`} title={t.label}>
+                                <t.icon className="w-4 h-4"/>
+                                <span className="text-[9px] mt-0.5 hidden md:block">{t.label}</span>
+                            </button>
                         ))}
                     </div>
                     <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
                         {sidebarTab === 'files' && <div className="space-y-1 pt-2">{getFileTree(files).map(n => <FileTreeNode key={n.path} node={n} level={0} activeFile={activeFile} onSelect={setActiveFile} />)}</div>}
+                        
+                        {/* Code View Tab with Line Numbers */}
+                        {sidebarTab === 'code' && (
+                            <div className="h-full flex flex-col">
+                                <div className="flex items-center justify-between mb-2">
+                                    <select 
+                                        value={activeFile}
+                                        onChange={e => setActiveFile(e.target.value)}
+                                        className="flex-1 bg-slate-950 text-white text-xs p-2 rounded border border-slate-800"
+                                    >
+                                        {files.map(f => <option key={f.name} value={f.name}>{f.name}</option>)}
+                                    </select>
+                                    <button 
+                                        onClick={() => navigator.clipboard.writeText(files.find(f => f.name === activeFile)?.content || '')}
+                                        className="ml-2 p-2 bg-slate-800 hover:bg-slate-700 rounded text-slate-400"
+                                        title="Copy code"
+                                    >
+                                        <Copy className="w-3 h-3"/>
+                                    </button>
+                                </div>
+                                <div className="flex-1 bg-slate-950 rounded border border-slate-800 overflow-auto font-mono text-xs">
+                                    <div className="flex min-h-full">
+                                        <div className="bg-slate-900 text-slate-600 text-right py-2 px-2 select-none border-r border-slate-800 sticky left-0">
+                                            {(files.find(f => f.name === activeFile)?.content || '').split('\n').map((_, i) => (
+                                                <div key={i} className="leading-5">{i + 1}</div>
+                                            ))}
+                                        </div>
+                                        <textarea 
+                                            value={files.find(f => f.name === activeFile)?.content || ''} 
+                                            onChange={e => {
+                                                const v = e.target.value;
+                                                setFiles(files.map(f => f.name === activeFile ? {...f, content: v} : f));
+                                            }}
+                                            className="flex-1 bg-transparent text-slate-300 p-2 resize-none focus:outline-none leading-5 min-w-[300px]"
+                                            spellCheck={false}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                        
+                        {/* Terminal Tab */}
+                        {sidebarTab === 'term' && (
+                            <div className="h-full flex flex-col">
+                                <div className="flex items-center justify-between mb-2 px-1">
+                                    <span className="text-xs text-slate-500 font-mono flex items-center gap-2">
+                                        <TerminalIcon className="w-3 h-3 text-green-500"/> Terminal
+                                    </span>
+                                    <button 
+                                        onClick={() => {
+                                            if (xtermRef.current) {
+                                                xtermRef.current.clear();
+                                                shellRef.current?.prompt();
+                                            }
+                                        }}
+                                        className="text-xs text-slate-500 hover:text-white"
+                                    >
+                                        Clear
+                                    </button>
+                                </div>
+                                
+                                {/* Terminal Commands Panel */}
+                                <div className="flex-1 bg-black rounded border border-slate-800 overflow-hidden flex flex-col">
+                                    {/* Terminal Output Display */}
+                                    <div className="flex-1 p-2 font-mono text-xs text-green-400 overflow-y-auto custom-scrollbar min-h-[200px]">
+                                        <div className="text-slate-500 mb-2">ZeeBuilder Shell v1.0</div>
+                                        <div className="text-slate-600 text-[10px] mb-3">Type commands below. The terminal syncs with the bottom panel.</div>
+                                        
+                                        {/* Quick Command Buttons */}
+                                        <div className="space-y-1 mb-3">
+                                            <button 
+                                                onClick={() => { shellRef.current?.log('$ ls'); shellRef.current?.handleCommand('ls'); }}
+                                                className="w-full text-left px-2 py-1 bg-slate-900 hover:bg-slate-800 rounded text-slate-300 text-[10px]"
+                                            >
+                                                <span className="text-blue-400">ls</span> - List all files
+                                            </button>
+                                            <button 
+                                                onClick={() => { shellRef.current?.log('$ tree'); shellRef.current?.handleCommand('tree'); }}
+                                                className="w-full text-left px-2 py-1 bg-slate-900 hover:bg-slate-800 rounded text-slate-300 text-[10px]"
+                                            >
+                                                <span className="text-blue-400">tree</span> - Show file tree
+                                            </button>
+                                            <button 
+                                                onClick={() => { 
+                                                    const pkg = activeFile;
+                                                    shellRef.current?.log(`$ cat ${pkg}`); 
+                                                    shellRef.current?.handleCommand(`cat ${pkg}`); 
+                                                }}
+                                                className="w-full text-left px-2 py-1 bg-slate-900 hover:bg-slate-800 rounded text-slate-300 text-[10px]"
+                                            >
+                                                <span className="text-blue-400">cat</span> - Show active file content
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Command Input */}
+                                    <div className="border-t border-slate-800 p-2">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-green-400 text-xs">$</span>
+                                            <input 
+                                                type="text"
+                                                placeholder="Enter command..."
+                                                className="flex-1 bg-transparent text-white text-xs focus:outline-none font-mono"
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') {
+                                                        const cmd = (e.target as HTMLInputElement).value;
+                                                        if (cmd.trim()) {
+                                                            shellRef.current?.log(`$ ${cmd}`);
+                                                            shellRef.current?.handleCommand(cmd);
+                                                            (e.target as HTMLInputElement).value = '';
+                                                        }
+                                                    }
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div className="mt-2 text-[10px] text-slate-600 px-1 space-y-1">
+                                    <p><code className="text-green-400">npm i &lt;pkg&gt;</code> - Install package</p>
+                                    <p><code className="text-green-400">cat &lt;file&gt;</code> - View file</p>
+                                    <p><code className="text-green-400">clear</code> - Clear output</p>
+                                </div>
+                            </div>
+                        )}
+                        
                         {sidebarTab === 'git' && (
                             <div className="p-2 space-y-3">
                                 <h3 className="text-xs font-bold text-slate-500 uppercase">GitHub Integration</h3>
@@ -1344,11 +1575,90 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                         )}
                         {sidebarTab === 'pkg' && (
                             <div className="p-2 space-y-3">
-                                <h3 className="text-xs font-bold text-slate-500 uppercase">Dependencies</h3>
-                                <div className="space-y-1">
-                                    {Object.keys(dependencies).map(k => <div key={k} className="text-xs text-slate-300 bg-slate-800 p-1.5 rounded flex justify-between"><span>{k}</span><span className="opacity-50">latest</span></div>)}
+                                <h3 className="text-xs font-bold text-slate-500 uppercase">Project Dependencies</h3>
+                                <p className="text-[10px] text-slate-600">Manage npm packages for your project. Packages are auto-added to package.json and available in preview.</p>
+                                
+                                {/* Add Package Input */}
+                                <div className="flex gap-2">
+                                    <input 
+                                        value={newPackage} 
+                                        onChange={e => setNewPackage(e.target.value)} 
+                                        onKeyDown={e => e.key === 'Enter' && handleAddPackage(newPackage)} 
+                                        placeholder="Package name (e.g. axios)" 
+                                        className="flex-1 bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white"
+                                    />
+                                    <button 
+                                        onClick={() => handleAddPackage(newPackage)}
+                                        disabled={!newPackage.trim()}
+                                        className="px-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded text-xs font-bold"
+                                    >
+                                        <Plus className="w-3 h-3"/>
+                                    </button>
                                 </div>
-                                <input value={newPackage} onChange={e=>setNewPackage(e.target.value)} onKeyDown={e=>e.key==='Enter'&&handleAddPackage(newPackage)} placeholder="npm install..." className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white"/>
+                                
+                                {/* Installed Packages List */}
+                                <div className="space-y-1 max-h-48 overflow-y-auto custom-scrollbar">
+                                    {Object.entries(dependencies).length === 0 ? (
+                                        <p className="text-xs text-slate-600 italic py-2">No packages installed yet.</p>
+                                    ) : (
+                                        Object.entries(dependencies).map(([name, version]) => (
+                                            <div key={name} className="text-xs text-slate-300 bg-slate-800 p-2 rounded flex justify-between items-center group">
+                                                <div className="flex items-center gap-2">
+                                                    <PackageIcon className="w-3 h-3 text-green-500"/>
+                                                    <span className="font-mono">{name}</span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-slate-500 text-[10px]">{version}</span>
+                                                    <button 
+                                                        onClick={() => {
+                                                            const newDeps = {...dependencies};
+                                                            delete newDeps[name];
+                                                            setDependencies(newDeps);
+                                                            // Update package.json
+                                                            const pkgFile = files.find(f => f.name === 'package.json');
+                                                            if (pkgFile) {
+                                                                try {
+                                                                    const json = JSON.parse(pkgFile.content);
+                                                                    delete json.dependencies[name];
+                                                                    const newFiles = files.map(f => f.name === 'package.json' ? {...f, content: JSON.stringify(json, null, 2)} : f);
+                                                                    setFiles(newFiles);
+                                                                } catch (e) {}
+                                                            }
+                                                            if (shellRef.current) shellRef.current.log(`\x1b[31m- ${name} removed\x1b[0m`);
+                                                        }}
+                                                        className="text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                        title="Remove package"
+                                                    >
+                                                        <X className="w-3 h-3"/>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                                
+                                {/* Quick Install Suggestions */}
+                                <div className="border-t border-slate-800 pt-3">
+                                    <h4 className="text-[10px] text-slate-500 font-bold uppercase mb-2">Popular Packages</h4>
+                                    <div className="flex flex-wrap gap-1">
+                                        {['axios', 'lodash', 'dayjs', 'uuid', 'zustand', 'framer-motion', 'react-router-dom', 'react-query'].filter(p => !dependencies[p]).slice(0, 6).map(pkg => (
+                                            <button
+                                                key={pkg}
+                                                onClick={() => handleAddPackage(pkg)}
+                                                className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded text-[10px] transition-colors"
+                                            >
+                                                + {pkg}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                                
+                                {/* Import Map Info */}
+                                <div className="bg-slate-950 rounded p-2 border border-slate-800">
+                                    <p className="text-[10px] text-slate-500">
+                                        <span className="text-green-400">✓</span> Packages are loaded via ESM from <span className="text-blue-400">esm.sh</span>
+                                    </p>
+                                </div>
                             </div>
                         )}
                         {sidebarTab === 'snaps' && (
