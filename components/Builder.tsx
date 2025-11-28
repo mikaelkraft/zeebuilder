@@ -894,18 +894,17 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
             return;
         }
         
-        // Clean TypeScript syntax from code
+        // Clean TypeScript syntax from code - remove ALL imports
         const cleanTS = (code: string) => {
             let c = code;
-            // Remove type imports
-            c = c.replace(/import\s+type\s+\{[^}]*\}\s+from\s+['"][^'"]+['"];?\s*/g, '');
-            c = c.replace(/import\s+\{[^}]*type\s+\w+[^}]*\}\s+from/g, m => m.replace(/,?\s*type\s+\w+/g, ''));
+            // Remove ALL import statements - match complete lines
+            c = c.split('\n').filter(line => !line.trim().startsWith('import ')).join('\n');
             // Remove type exports
             c = c.replace(/export\s+type\s+\{[^}]*\};?\s*/g, '');
             c = c.replace(/export\s+type\s+\w+\s*=\s*[^;]+;/g, '');
             // Remove interfaces and type declarations
-            c = c.replace(/(?:export\s+)?interface\s+\w+[^{]*\{[^}]*\}/gs, '');
-            c = c.replace(/(?:export\s+)?type\s+\w+\s*(?:<[^>]*>)?\s*=\s*(?:[^;]|\n)+;/g, '');
+            c = c.replace(/(?:export\s+)?interface\s+\w+[^{]*\{[\s\S]*?\}/g, '');
+            c = c.replace(/(?:export\s+)?type\s+\w+\s*(?:<[^>]*>)?\s*=\s*[^;]+;/g, '');
             // Remove type annotations
             c = c.replace(/:\s*(?:React\.)?(?:FC|FunctionComponent|ComponentType|ReactNode|ReactElement|JSX\.Element|string|number|boolean|any|void|null|undefined|object|Array|Record|Promise|Set|Map)(?:<[^>]*>)?(?:\s*\|\s*\w+(?:<[^>]*>)?)*(?=\s*[=,)}\];])/g, '');
             c = c.replace(/:\s*\([^)]+\)\s*=>\s*\w+(?:<[^>]*>)?/g, '');
@@ -914,14 +913,6 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
             c = c.replace(/<\s*(?:\w+\s*(?:extends\s+\w+)?(?:,\s*\w+\s*(?:extends\s+\w+)?)*)\s*>\s*\(/g, '(');
             // Remove 'as' assertions
             c = c.replace(/\s+as\s+(?:const|(?:React\.)?\w+(?:<[^>]*>)?(?:\[\])?)/g, '');
-            // Remove React/react-dom imports (we'll add globals)
-            c = c.replace(/import\s+(?:\*\s+as\s+)?(?:React|ReactDOM|\{[^}]*\})\s+from\s+['"]react(?:-dom)?(?:\/client)?['"];?\s*/g, '');
-            // Remove relative imports (simplified - inline components)
-            c = c.replace(/import\s+\w+\s+from\s+['"]\.\/[^'"]+['"];?\s*/g, '');
-            c = c.replace(/import\s+\{[^}]+\}\s+from\s+['"]\.\/[^'"]+['"];?\s*/g, '');
-            // Remove other node module imports for simplicity
-            c = c.replace(/import\s+(?:\*\s+as\s+)?\w+\s+from\s+['"][^'"]+['"];?\s*/g, '');
-            c = c.replace(/import\s+\{[^}]+\}\s+from\s+['"][^'"]+['"];?\s*/g, '');
             // Clean up exports
             c = c.replace(/export\s+default\s+function\s+/g, 'function ');
             c = c.replace(/export\s+default\s+/g, 'const _DefaultExport = ');
@@ -1355,28 +1346,34 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                                     </button>
                                 </div>
                                 <div className="flex-1 bg-[#1e1e1e] rounded border border-slate-800 overflow-hidden font-mono text-xs flex flex-col">
-                                    <div className="flex-1 overflow-auto custom-scrollbar">
-                                        <div className="flex min-h-full">
-                                            {/* Line numbers column */}
-                                            <div className="bg-[#1a1a1a] text-slate-600 text-right px-2 py-2 select-none flex-shrink-0 border-r border-slate-800">
-                                                {(files.find(f => f.name === activeFile)?.content || '').split('\\n').map((_, i) => (
-                                                    <div key={i} style={{ lineHeight: '18px', height: '18px', fontSize: '11px' }}>{i + 1}</div>
-                                                ))}
+                                    {(() => {
+                                        const content = files.find(f => f.name === activeFile)?.content || '';
+                                        const lineCount = content.split('\n').length;
+                                        return (
+                                            <div className="flex-1 overflow-auto custom-scrollbar">
+                                                <div className="flex min-h-full">
+                                                    {/* Line numbers column */}
+                                                    <div className="bg-[#1a1a1a] text-slate-600 text-right px-2 py-2 select-none flex-shrink-0 border-r border-slate-800">
+                                                        {Array.from({length: lineCount}, (_, i) => (
+                                                            <div key={i} style={{ lineHeight: '18px', height: '18px', fontSize: '11px' }}>{i + 1}</div>
+                                                        ))}
+                                                    </div>
+                                                    {/* Code textarea */}
+                                                    <textarea 
+                                                        value={content} 
+                                                        onChange={e => {
+                                                            const v = e.target.value;
+                                                            setFiles(files.map(f => f.name === activeFile ? {...f, content: v} : f));
+                                                        }}
+                                                        className="flex-1 bg-transparent text-slate-300 p-2 resize-none focus:outline-none min-w-0"
+                                                        style={{ lineHeight: '18px', fontSize: '11px', tabSize: 2 }}
+                                                        spellCheck={false}
+                                                        wrap="off"
+                                                    />
+                                                </div>
                                             </div>
-                                            {/* Code textarea */}
-                                            <textarea 
-                                                value={files.find(f => f.name === activeFile)?.content || ''} 
-                                                onChange={e => {
-                                                    const v = e.target.value;
-                                                    setFiles(files.map(f => f.name === activeFile ? {...f, content: v} : f));
-                                                }}
-                                                className="flex-1 bg-transparent text-slate-300 p-2 resize-none focus:outline-none min-w-0"
-                                                style={{ lineHeight: '18px', fontSize: '11px', tabSize: 2 }}
-                                                spellCheck={false}
-                                                wrap="off"
-                                            />
-                                        </div>
-                                    </div>
+                                        );
+                                    })()}
                                 </div>
                             </div>
                         )}
