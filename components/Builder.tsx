@@ -785,7 +785,8 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
     };
 
     const updateWebPreview = () => {
-        if (stack === 'flutter' || stack === 'python' || stack === 'java') return;
+        // Stacks that need external runtime
+        if (stack === 'flutter' || stack === 'python' || stack === 'java' || stack === 'svelte' || stack === 'node') return;
         setIsRefreshing(true);
         
         // Get inline CSS
@@ -820,12 +821,73 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
         }
         
         // Find App file for React/Vue stacks
-        const jsFiles = files.filter(f => f.name.match(/\.(js|jsx|ts|tsx)$/));
-        const appFile = jsFiles.find(f => f.name.match(/App\.(js|jsx|ts|tsx)$/));
+        const jsFiles = files.filter(f => f.name.match(/\.(js|jsx|ts|tsx|vue)$/));
+        const appFile = jsFiles.find(f => f.name.match(/App\.(js|jsx|ts|tsx|vue)$/));
         
         if (!appFile) {
-            const noAppHtml = `<!DOCTYPE html><html><body style="padding:20px;font-family:system-ui;"><p>No App.tsx or App.jsx file found.</p></body></html>`;
+            const noAppHtml = `<!DOCTYPE html><html><body style="padding:20px;font-family:system-ui;"><p>No App file found. Create App.tsx, App.jsx, or App.vue.</p></body></html>`;
             const blob = new Blob([noAppHtml], {type: 'text/html'});
+            setIframeSrc(URL.createObjectURL(blob));
+            setPreviewKey(p => p + 1);
+            setTimeout(() => setIsRefreshing(false), 300);
+            return;
+        }
+        
+        // Vue 3 Preview
+        if (stack === 'vue') {
+            const vueFile = files.find(f => f.name.endsWith('.vue'));
+            const vueContent = vueFile?.content || '';
+            
+            // Extract template, script, and style from .vue file
+            const templateMatch = vueContent.match(/<template>([\s\S]*?)<\/template>/);
+            const scriptMatch = vueContent.match(/<script[^>]*>([\s\S]*?)<\/script>/);
+            const styleMatch = vueContent.match(/<style[^>]*>([\s\S]*?)<\/style>/);
+            
+            const template = templateMatch ? templateMatch[1].trim() : '<div>No template</div>';
+            let script = scriptMatch ? scriptMatch[1].trim() : '';
+            const style = styleMatch ? styleMatch[1].trim() : '';
+            
+            // Clean up script - extract component options
+            script = script.replace(/export\s+default\s*/, '');
+            script = script.replace(/import\s+.*?from\s+['"][^'"]+['"];?\s*/g, '');
+            
+            const vueHtml = `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <style>
+        body { background-color: #ffffff; margin: 0; font-family: system-ui, -apple-system, sans-serif; }
+        #app { min-height: 100vh; }
+        ${style}
+        ${inlineCss}
+    </style>
+</head>
+<body>
+    <div id="app"></div>
+    <script>
+        const { createApp, ref, reactive, computed, onMounted, watch } = Vue;
+        
+        try {
+            const componentOptions = ${script || '{}'};
+            
+            const app = createApp({
+                ...componentOptions,
+                template: \`${template.replace(/`/g, '\`')}\`
+            });
+            
+            app.mount('#app');
+        } catch (e) {
+            console.error('Vue error:', e);
+            document.getElementById('app').innerHTML = '<div style="padding:20px;color:#ef4444;font-family:monospace;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;margin:20px;"><strong>Vue Error:</strong><br>' + e.message + '</div>';
+        }
+    </script>
+</body>
+</html>`;
+            
+            const blob = new Blob([vueHtml], {type: 'text/html'});
             setIframeSrc(URL.createObjectURL(blob));
             setPreviewKey(p => p + 1);
             setTimeout(() => setIsRefreshing(false), 300);
@@ -1009,23 +1071,29 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                     </button>
                 </div>
             </div>
-            {stack === 'flutter' || stack === 'python' || stack === 'java' ? (
+            {stack === 'flutter' || stack === 'python' || stack === 'java' || stack === 'svelte' || stack === 'node' ? (
                 <div className="flex-1 flex flex-col items-center justify-center bg-slate-50 text-slate-500 p-6">
                     <Smartphone className="w-16 h-16 mb-4 opacity-20" />
                     <p className="text-sm mb-2 font-medium text-slate-700">
                         {stack === 'python' ? 'Python Runtime' : 
                          stack === 'java' ? 'Java Application' :
+                         stack === 'svelte' ? 'Svelte App' :
+                         stack === 'node' ? 'Node.js Backend' :
                          'Flutter App'}
                     </p>
                     <p className="text-xs text-slate-500 mb-4 text-center max-w-xs">
                         {stack === 'python' ? 'Run Python code in an external environment' : 
                          stack === 'java' ? 'Compile & run Java with Maven/Gradle' :
+                         stack === 'svelte' ? 'Svelte requires a build step to compile' :
+                         stack === 'node' ? 'Node.js runs on the server, not in browser' :
                          'Flutter requires Dart VM for live preview'}
                     </p>
                     <div className="flex flex-col gap-2">
                         {stack === 'flutter' && <a href="https://zapp.run" target="_blank" rel="noreferrer" className="px-4 py-2 bg-cyan-600 text-white rounded-lg text-sm font-bold shadow-lg hover:bg-cyan-500 flex items-center gap-2"><Smartphone className="w-4 h-4"/>Open Zapp.run</a>}
                         {stack === 'java' && <a href="https://www.jdoodle.com/online-java-compiler/" target="_blank" rel="noreferrer" className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-bold shadow-lg hover:bg-red-500 flex items-center gap-2"><FileCode className="w-4 h-4"/>Open JDoodle</a>}
                         {stack === 'python' && <a href="https://www.online-python.com/" target="_blank" rel="noreferrer" className="px-4 py-2 bg-yellow-600 text-white rounded-lg text-sm font-bold shadow-lg hover:bg-yellow-500 flex items-center gap-2"><TerminalIcon className="w-4 h-4"/>Online Python</a>}
+                        {stack === 'svelte' && <a href="https://svelte.dev/repl" target="_blank" rel="noreferrer" className="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-bold shadow-lg hover:bg-orange-500 flex items-center gap-2"><FileCode className="w-4 h-4"/>Open Svelte REPL</a>}
+                        {stack === 'node' && <a href="https://replit.com/languages/nodejs" target="_blank" rel="noreferrer" className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-bold shadow-lg hover:bg-green-500 flex items-center gap-2"><TerminalIcon className="w-4 h-4"/>Open Replit</a>}
                         <button onClick={handleDownload} className="px-4 py-2 bg-slate-700 text-white rounded-lg text-sm font-bold hover:bg-slate-600 flex items-center gap-2"><Download className="w-4 h-4"/>Download ZIP</button>
                     </div>
                 </div>
