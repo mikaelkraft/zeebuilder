@@ -9,7 +9,7 @@ import {
     RotateCcw, Image, FileCode, ChevronRight, ChevronDown, Database, Package as PackageIcon,
     Smartphone, Layers, Globe, Paperclip, MonitorPlay,
     Undo2, Redo2, Play, FileType, Eye, ArrowLeftRight, Check, AlertCircle, Maximize2, Minimize2, MessageSquare,
-    Mic, MicOff, UploadCloud, Copy, Save, History, GitBranch, GitCommit, ArrowUpFromLine, ArrowDownToLine, FolderGit2, Unlink
+    Mic, MicOff, UploadCloud, Copy, Save, History, GitBranch, GitCommit, ArrowUpFromLine, ArrowDownToLine, FolderGit2, Unlink, Edit
 } from 'lucide-react';
 import JSZip from 'jszip';
 
@@ -949,10 +949,10 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/@babel/standalone@7.23.5/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"><\/script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"><\/script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"><\/script>
+    <script src="https://unpkg.com/@babel/standalone@7.23.5/babel.min.js"><\/script>
     <style>
         body { background-color: #ffffff; margin: 0; font-family: system-ui, -apple-system, sans-serif; }
         #root { min-height: 100vh; }
@@ -960,17 +960,17 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
     </style>
 </head>
 <body>
-    <div id="root">
-        <div style="display:flex;align-items:center;justify-content:center;min-height:100vh;color:#94a3b8;">
-            <div style="text-align:center;">
-                <div style="font-size:24px;margin-bottom:8px;">⏳</div>
-                <div>Loading preview...</div>
-            </div>
-        </div>
-    </div>
+    <div id="root"></div>
     
-    <script type="text/babel" data-presets="react,typescript">
-        // Error boundary for better error messages
+    <script>
+        window.onerror = function(msg, url, line, col, error) {
+            document.getElementById('root').innerHTML = '<div style="padding:20px;color:#ef4444;font-family:monospace;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;margin:20px;"><strong>Error:</strong><br>' + msg + '</div>';
+            return true;
+        };
+    <\/script>
+    
+    <script type="text/babel" data-presets="react">
+        // Error boundary
         class ErrorBoundary extends React.Component {
             constructor(props) {
                 super(props);
@@ -981,41 +981,36 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
             }
             render() {
                 if (this.state.hasError) {
-                    return (
-                        <div style={{padding: '20px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', margin: '20px', fontFamily: 'monospace'}}>
-                            <strong style={{color: '#dc2626'}}>Render Error:</strong>
-                            <pre style={{color: '#7f1d1d', marginTop: '8px', whiteSpace: 'pre-wrap'}}>{this.state.error?.message}</pre>
-                        </div>
-                    );
+                    return React.createElement('div', {
+                        style: {padding: '20px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', margin: '20px', fontFamily: 'monospace'}
+                    }, [
+                        React.createElement('strong', {style: {color: '#dc2626'}}, 'Render Error:'),
+                        React.createElement('pre', {style: {color: '#7f1d1d', marginTop: '8px', whiteSpace: 'pre-wrap'}}, this.state.error?.message)
+                    ]);
                 }
                 return this.props.children;
             }
         }
 
+        // User's App component
+        ${appCode}
+        
+        // Render
         try {
-            // User's App component code
-            ${appCode}
-            
-            // Determine which component to render
             const AppComponent = typeof ${componentName} !== 'undefined' ? ${componentName} : 
                                  typeof _DefaultExport !== 'undefined' ? _DefaultExport : 
                                  typeof App !== 'undefined' ? App : null;
             
             if (AppComponent) {
                 const root = ReactDOM.createRoot(document.getElementById('root'));
-                root.render(
-                    <ErrorBoundary>
-                        <AppComponent />
-                    </ErrorBoundary>
-                );
+                root.render(React.createElement(ErrorBoundary, null, React.createElement(AppComponent)));
             } else {
-                document.getElementById('root').innerHTML = '<div style="padding:20px;color:#ef4444;font-family:monospace;">Could not find a default export or App component.</div>';
+                document.getElementById('root').innerHTML = '<div style="padding:20px;color:#ef4444;font-family:monospace;">No App component found. Make sure your file exports a component.</div>';
             }
         } catch (e) {
-            console.error('Preview error:', e);
             document.getElementById('root').innerHTML = '<div style="padding:20px;color:#ef4444;font-family:monospace;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;margin:20px;"><strong>Error:</strong><br>' + e.message + '</div>';
         }
-    </script>
+    <\/script>
 </body>
 </html>`;
 
@@ -1359,56 +1354,29 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                                         <Copy className="w-3 h-3"/>
                                     </button>
                                 </div>
-                                <div className="flex-1 bg-[#2d2d2d] rounded border border-slate-800 overflow-auto font-mono text-xs relative">
-                                    {(() => {
-                                        const content = files.find(f => f.name === activeFile)?.content || '';
-                                        const ext = activeFile.split('.').pop()?.toLowerCase() || '';
-                                        const langMap: Record<string, string> = {
-                                            'tsx': 'tsx', 'ts': 'typescript', 'jsx': 'jsx', 'js': 'javascript',
-                                            'html': 'markup', 'css': 'css', 'json': 'json',
-                                            'java': 'java', 'py': 'python', 'dart': 'dart',
-                                            'xml': 'markup', 'svelte': 'markup', 'vue': 'markup', 'md': 'markdown'
-                                        };
-                                        const lang = langMap[ext] || 'javascript';
-                                        const highlighted = typeof (window as any).Prism !== 'undefined' && (window as any).Prism.languages[lang]
-                                            ? (window as any).Prism.highlight(content, (window as any).Prism.languages[lang], lang)
-                                            : content.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                                        
-                                        return (
-                                            <div className="flex min-h-full">
-                                                {/* Line Numbers */}
-                                                <div className="bg-[#1e1e1e] text-slate-500 text-right py-3 px-3 select-none border-r border-slate-700 sticky left-0 z-10">
-                                                    {content.split('\n').map((_, i) => (
-                                                        <div key={i} className="leading-5 h-5">{i + 1}</div>
-                                                    ))}
-                                                </div>
-                                                {/* Code Content with Highlighting */}
-                                                <div className="relative flex-1 min-w-0">
-                                                    {/* Highlighted code display */}
-                                                    <pre 
-                                                        className="p-3 whitespace-pre leading-5 min-w-full pointer-events-none absolute inset-0 overflow-visible"
-                                                        style={{ margin: 0, background: 'transparent', fontFamily: 'inherit', fontSize: 'inherit' }}
-                                                    >
-                                                        <code 
-                                                            className={`language-${lang}`}
-                                                            dangerouslySetInnerHTML={{ __html: highlighted }}
-                                                        />
-                                                    </pre>
-                                                    {/* Editable textarea overlay */}
-                                                    <textarea 
-                                                        value={content} 
-                                                        onChange={e => {
-                                                            const v = e.target.value;
-                                                            setFiles(files.map(f => f.name === activeFile ? {...f, content: v} : f));
-                                                        }}
-                                                        className="w-full h-full bg-transparent text-transparent caret-white p-3 resize-none focus:outline-none leading-5 min-w-[300px] absolute inset-0 z-20"
-                                                        spellCheck={false}
-                                                        style={{ fontFamily: 'inherit', fontSize: 'inherit', caretColor: 'white' }}
-                                                    />
-                                                </div>
+                                <div className="flex-1 bg-[#1e1e1e] rounded border border-slate-800 overflow-hidden font-mono text-xs flex flex-col">
+                                    <div className="flex-1 overflow-auto custom-scrollbar">
+                                        <div className="flex min-h-full">
+                                            {/* Line numbers column */}
+                                            <div className="bg-[#1a1a1a] text-slate-600 text-right px-2 py-2 select-none flex-shrink-0 border-r border-slate-800">
+                                                {(files.find(f => f.name === activeFile)?.content || '').split('\\n').map((_, i) => (
+                                                    <div key={i} style={{ lineHeight: '18px', height: '18px', fontSize: '11px' }}>{i + 1}</div>
+                                                ))}
                                             </div>
-                                        );
-                                    })()}
+                                            {/* Code textarea */}
+                                            <textarea 
+                                                value={files.find(f => f.name === activeFile)?.content || ''} 
+                                                onChange={e => {
+                                                    const v = e.target.value;
+                                                    setFiles(files.map(f => f.name === activeFile ? {...f, content: v} : f));
+                                                }}
+                                                className="flex-1 bg-transparent text-slate-300 p-2 resize-none focus:outline-none min-w-0"
+                                                style={{ lineHeight: '18px', fontSize: '11px', tabSize: 2 }}
+                                                spellCheck={false}
+                                                wrap="off"
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         )}
