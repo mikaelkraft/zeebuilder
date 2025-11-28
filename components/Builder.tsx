@@ -792,152 +792,167 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
         const cssFiles = files.filter(f => f.name.endsWith('.css'));
         const inlineCss = cssFiles.map(f => f.content).join('\n');
         
-        // Build import map for external dependencies
-        const importMap = {
-            imports: {
-                "react": "https://esm.sh/react@18.2.0",
-                "react-dom": "https://esm.sh/react-dom@18.2.0",
-                "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
-                "react/jsx-runtime": "https://esm.sh/react@18.2.0/jsx-runtime",
-                "vue": "https://esm.sh/vue@3.3.4",
-                "svelte": "https://esm.sh/svelte@4",
-                ...Object.keys(dependencies).reduce((acc, key) => ({ 
-                    ...acc, 
-                    [key]: `https://esm.sh/${key}` 
-                }), {})
+        // For pure HTML stack, use index.html directly
+        if (stack === 'html') {
+            const htmlFile = files.find(f => f.name === 'index.html' || f.name.endsWith('.html'));
+            const jsFile = files.find(f => f.name.endsWith('.js'));
+            
+            let htmlContent = htmlFile?.content || '<html><body><h1>Hello World</h1></body></html>';
+            
+            // Inject CSS if not already in HTML
+            if (inlineCss && !htmlContent.includes('<style>')) {
+                htmlContent = htmlContent.replace('</head>', `<style>${inlineCss}</style></head>`);
             }
+            // Inject Tailwind
+            if (!htmlContent.includes('tailwindcss')) {
+                htmlContent = htmlContent.replace('<head>', '<head><script src="https://cdn.tailwindcss.com"></script>');
+            }
+            // Inject JS if separate file
+            if (jsFile && !htmlContent.includes(jsFile.name)) {
+                htmlContent = htmlContent.replace('</body>', `<script>${jsFile.content}</script></body>`);
+            }
+            
+            const blob = new Blob([htmlContent], {type: 'text/html'});
+            setIframeSrc(URL.createObjectURL(blob));
+            setPreviewKey(p => p + 1);
+            setTimeout(() => setIsRefreshing(false), 300);
+            return;
+        }
+        
+        // Find App file for React/Vue stacks
+        const jsFiles = files.filter(f => f.name.match(/\.(js|jsx|ts|tsx)$/));
+        const appFile = jsFiles.find(f => f.name.match(/App\.(js|jsx|ts|tsx)$/));
+        
+        if (!appFile) {
+            const noAppHtml = `<!DOCTYPE html><html><body style="padding:20px;font-family:system-ui;"><p>No App.tsx or App.jsx file found.</p></body></html>`;
+            const blob = new Blob([noAppHtml], {type: 'text/html'});
+            setIframeSrc(URL.createObjectURL(blob));
+            setPreviewKey(p => p + 1);
+            setTimeout(() => setIsRefreshing(false), 300);
+            return;
+        }
+        
+        // Clean TypeScript syntax from code
+        const cleanTS = (code: string) => {
+            let c = code;
+            // Remove type imports
+            c = c.replace(/import\s+type\s+\{[^}]*\}\s+from\s+['"][^'"]+['"];?\s*/g, '');
+            c = c.replace(/import\s+\{[^}]*type\s+\w+[^}]*\}\s+from/g, m => m.replace(/,?\s*type\s+\w+/g, ''));
+            // Remove type exports
+            c = c.replace(/export\s+type\s+\{[^}]*\};?\s*/g, '');
+            c = c.replace(/export\s+type\s+\w+\s*=\s*[^;]+;/g, '');
+            // Remove interfaces and type declarations
+            c = c.replace(/(?:export\s+)?interface\s+\w+[^{]*\{[^}]*\}/gs, '');
+            c = c.replace(/(?:export\s+)?type\s+\w+\s*(?:<[^>]*>)?\s*=\s*(?:[^;]|\n)+;/g, '');
+            // Remove type annotations
+            c = c.replace(/:\s*(?:React\.)?(?:FC|FunctionComponent|ComponentType|ReactNode|ReactElement|JSX\.Element|string|number|boolean|any|void|null|undefined|object|Array|Record|Promise|Set|Map)(?:<[^>]*>)?(?:\s*\|\s*\w+(?:<[^>]*>)?)*(?=\s*[=,)}\];])/g, '');
+            c = c.replace(/:\s*\([^)]+\)\s*=>\s*\w+(?:<[^>]*>)?/g, '');
+            c = c.replace(/:\s*\{[^}]+\}(?=\s*[=,)}\];])/g, '');
+            // Remove generics from function declarations
+            c = c.replace(/<\s*(?:\w+\s*(?:extends\s+\w+)?(?:,\s*\w+\s*(?:extends\s+\w+)?)*)\s*>\s*\(/g, '(');
+            // Remove 'as' assertions
+            c = c.replace(/\s+as\s+(?:const|(?:React\.)?\w+(?:<[^>]*>)?(?:\[\])?)/g, '');
+            // Remove React/react-dom imports (we'll add globals)
+            c = c.replace(/import\s+(?:\*\s+as\s+)?(?:React|ReactDOM|\{[^}]*\})\s+from\s+['"]react(?:-dom)?(?:\/client)?['"];?\s*/g, '');
+            // Remove relative imports (simplified - inline components)
+            c = c.replace(/import\s+\w+\s+from\s+['"]\.\/[^'"]+['"];?\s*/g, '');
+            c = c.replace(/import\s+\{[^}]+\}\s+from\s+['"]\.\/[^'"]+['"];?\s*/g, '');
+            // Remove other node module imports for simplicity
+            c = c.replace(/import\s+(?:\*\s+as\s+)?\w+\s+from\s+['"][^'"]+['"];?\s*/g, '');
+            c = c.replace(/import\s+\{[^}]+\}\s+from\s+['"][^'"]+['"];?\s*/g, '');
+            // Clean up exports
+            c = c.replace(/export\s+default\s+function\s+/g, 'function ');
+            c = c.replace(/export\s+default\s+/g, 'const _DefaultExport = ');
+            c = c.replace(/export\s+(?:const|let|var|function)/g, m => m.replace('export ', ''));
+            return c;
         };
 
-        // Find entry file and collect all JS/TS files
-        const jsFiles = files.filter(f => f.name.match(/\.(js|jsx|ts|tsx)$/));
-        const entryFile = jsFiles.find(f => f.name.match(/(App|main|index)\.(js|jsx|ts|tsx)$/));
+        const appCode = cleanTS(appFile.content);
         
-        // Create file content map for inline bundling
-        const fileContents: Record<string, string> = {};
-        jsFiles.forEach(f => {
-            // Clean up TypeScript syntax
-            let content = f.content;
-            // Remove import type statements
-            content = content.replace(/import\s+type\s+\{[^}]*\}\s+from\s+['"][^'"]+['"];?\s*/g, '');
-            content = content.replace(/import\s+\{[^}]*type\s+\w+[^}]*\}\s+from/g, (match) => {
-                return match.replace(/,?\s*type\s+\w+/g, '');
-            });
-            // Remove export type statements
-            content = content.replace(/export\s+type\s+\{[^}]*\};?\s*/g, '');
-            content = content.replace(/export\s+type\s+\w+\s*=\s*[^;]+;/g, '');
-            // Remove interface declarations
-            content = content.replace(/(?:export\s+)?interface\s+\w+\s*(?:<[^>]*>)?\s*(?:extends\s+[^{]+)?\{[^}]*\}/gs, '');
-            // Remove type declarations  
-            content = content.replace(/(?:export\s+)?type\s+\w+\s*(?:<[^>]*>)?\s*=\s*(?:[^;]|\n)+;/g, '');
-            // Remove type annotations (simplified - handles most cases)
-            content = content.replace(/:\s*(?:React\.)?(?:FC|FunctionComponent|ComponentType|ReactNode|ReactElement|JSX\.Element|string|number|boolean|any|void|null|undefined|object|Array|Record|Promise|Set|Map)(?:<[^>]*>)?(?:\s*\|\s*(?:React\.)?(?:FC|FunctionComponent|ComponentType|ReactNode|ReactElement|JSX\.Element|string|number|boolean|any|void|null|undefined|object|Array|Record|Promise|Set|Map)(?:<[^>]*>)?)*(?=\s*[=,)}\];])/g, '');
-            content = content.replace(/:\s*\([^)]+\)\s*=>\s*\w+(?:<[^>]*>)?(?=\s*[=,)}\];])/g, '');
-            content = content.replace(/:\s*\{[^}]+\}(?=\s*[=,)}\];])/g, '');
-            // Remove generic type parameters from functions
-            content = content.replace(/<\s*(?:\w+\s*(?:extends\s+\w+)?(?:\s*,\s*\w+\s*(?:extends\s+\w+)?)*)\s*>\s*\(/g, '(');
-            // Remove 'as' type assertions
-            content = content.replace(/\s+as\s+(?:const|(?:React\.)?\w+(?:<[^>]*>)?(?:\[\])?)/g, '');
-            
-            fileContents[f.name] = content;
-        });
+        // Find the component name
+        let componentName = 'App';
+        const funcMatch = appCode.match(/function\s+(\w+)\s*\(/);
+        const constMatch = appCode.match(/(?:const|let)\s+(\w+)\s*=\s*(?:\([^)]*\)|)\s*=>/);
+        if (funcMatch) componentName = funcMatch[1];
+        else if (constMatch) componentName = constMatch[1];
+        
+        // Build dependencies import map for user packages
+        const depsMap = Object.keys(dependencies).reduce((acc, key) => ({ 
+            ...acc, 
+            [key]: `https://esm.sh/${key}` 
+        }), {});
 
-        // Generate inline scripts for all components
-        const componentScripts = jsFiles.map(f => {
-            const content = fileContents[f.name];
-            const moduleName = f.name.replace(/\.(js|jsx|ts|tsx)$/, '').replace(/[^a-zA-Z0-9]/g, '_');
-            
-            // Transform relative imports to use our module registry
-            let transformed = content;
-            transformed = transformed.replace(/import\s+(\w+)\s+from\s+['"]\.\/([^'"]+)['"]/g, 
-                (_, name, path) => `const ${name} = window.__modules__['${path.replace(/\.(js|jsx|ts|tsx)$/, '')}']?.default || window.__modules__['${path.replace(/\.(js|jsx|ts|tsx)$/, '')}'];`);
-            transformed = transformed.replace(/import\s+\{([^}]+)\}\s+from\s+['"]\.\/([^'"]+)['"]/g,
-                (_, imports, path) => {
-                    const cleanPath = path.replace(/\.(js|jsx|ts|tsx)$/, '');
-                    return imports.split(',').map((imp: string) => {
-                        const trimmed = imp.trim();
-                        return `const ${trimmed} = window.__modules__['${cleanPath}']?.${trimmed};`;
-                    }).join('\n');
-                });
-            
-            return { name: f.name, moduleName, content: transformed };
-        }).filter(s => s.content.trim());
-
-        const html = `
-<!DOCTYPE html>
+        const html = `<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone@7.23.5/babel.min.js"></script>
-    <script type="importmap">${JSON.stringify(importMap)}</script>
     <style>
-        body { background-color: #ffffff; margin: 0; font-family: system-ui, sans-serif; }
-        #root, #app { min-height: 100vh; }
+        body { background-color: #ffffff; margin: 0; font-family: system-ui, -apple-system, sans-serif; }
+        #root { min-height: 100vh; }
         ${inlineCss}
     </style>
 </head>
 <body>
-    <div id="root"></div>
-    <div id="app"></div>
+    <div id="root">
+        <div style="display:flex;align-items:center;justify-content:center;min-height:100vh;color:#94a3b8;">
+            <div style="text-align:center;">
+                <div style="font-size:24px;margin-bottom:8px;">⏳</div>
+                <div>Loading preview...</div>
+            </div>
+        </div>
+    </div>
     
-    <script>
-        window.__modules__ = {};
-        window.onerror = function(msg, url, line, col, error) {
-            console.error('Error:', msg, 'at line', line);
-            return false;
-        };
-    </script>
-
-    ${componentScripts.map(script => `
-    <script type="text/babel" data-presets="react,typescript" data-module="${script.moduleName}">
-        (function() {
-            ${script.content.replace(/export\s+default\s+/g, 'window.__modules__["' + script.name.replace(/\.(js|jsx|ts|tsx)$/, '').replace(/^src\//, '') + '"] = { default: ')}
-            ${script.content.includes('export default') ? '' : `
-                // Handle named exports
-                ${script.content.match(/export\s+(?:const|let|var|function|class)\s+(\w+)/g)?.map(exp => {
-                    const name = exp.match(/export\s+(?:const|let|var|function|class)\s+(\w+)/)?.[1];
-                    return name ? `if (typeof ${name} !== 'undefined') { window.__modules__["${script.name.replace(/\.(js|jsx|ts|tsx)$/, '').replace(/^src\//, '')}"] = window.__modules__["${script.name.replace(/\.(js|jsx|ts|tsx)$/, '').replace(/^src\//, '')}"] || {}; window.__modules__["${script.name.replace(/\.(js|jsx|ts|tsx)$/, '').replace(/^src\//, '')}"]["${name}"] = ${name}; }` : '';
-                }).join('\n') || ''}
-            `}
-            ${script.content.includes('export default') ? '};' : ''}
-        })();
-    </script>
-    `).join('\n')}
-
     <script type="text/babel" data-presets="react,typescript">
-        ${stack === 'vue' ? `
-            import { createApp } from 'vue';
-            const App = window.__modules__['App']?.default || window.__modules__['src/App']?.default;
-            if (App) {
-                createApp(App).mount('#app');
-            } else {
-                document.getElementById('app').innerHTML = '<div style="padding:20px;color:#666;">No App component found</div>';
+        // Error boundary for better error messages
+        class ErrorBoundary extends React.Component {
+            constructor(props) {
+                super(props);
+                this.state = { hasError: false, error: null };
             }
-        ` : stack === 'html' ? `
-            // Pure HTML/JS - no framework
-            document.getElementById('root').innerHTML = '<div style="padding:20px;">HTML Preview</div>';
-        ` : `
-            import React from 'react';
-            import { createRoot } from 'react-dom/client';
-            
-            try {
-                const App = window.__modules__['App']?.default 
-                    || window.__modules__['src/App']?.default
-                    || window.__modules__['App.tsx']?.default
-                    || window.__modules__['src/App.tsx']?.default;
-                
-                if (App) {
-                    const root = createRoot(document.getElementById('root'));
-                    root.render(React.createElement(App));
-                } else {
-                    document.getElementById('root').innerHTML = '<div style="padding:20px;color:#ef4444;font-family:monospace;">No App component found. Make sure you have an App.tsx or src/App.tsx file with a default export.</div>';
+            static getDerivedStateFromError(error) {
+                return { hasError: true, error };
+            }
+            render() {
+                if (this.state.hasError) {
+                    return (
+                        <div style={{padding: '20px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', margin: '20px', fontFamily: 'monospace'}}>
+                            <strong style={{color: '#dc2626'}}>Render Error:</strong>
+                            <pre style={{color: '#7f1d1d', marginTop: '8px', whiteSpace: 'pre-wrap'}}>{this.state.error?.message}</pre>
+                        </div>
+                    );
                 }
-            } catch (e) {
-                console.error('React render error:', e);
-                document.getElementById('root').innerHTML = '<div style="color:#ef4444;padding:20px;font-family:monospace;background:#fef2f2;border:1px solid #fecaca;margin:10px;border-radius:8px;"><strong>Render Error:</strong><br>' + e.message + '</div>';
+                return this.props.children;
             }
-        `}
+        }
+
+        try {
+            // User's App component code
+            ${appCode}
+            
+            // Determine which component to render
+            const AppComponent = typeof ${componentName} !== 'undefined' ? ${componentName} : 
+                                 typeof _DefaultExport !== 'undefined' ? _DefaultExport : 
+                                 typeof App !== 'undefined' ? App : null;
+            
+            if (AppComponent) {
+                const root = ReactDOM.createRoot(document.getElementById('root'));
+                root.render(
+                    <ErrorBoundary>
+                        <AppComponent />
+                    </ErrorBoundary>
+                );
+            } else {
+                document.getElementById('root').innerHTML = '<div style="padding:20px;color:#ef4444;font-family:monospace;">Could not find a default export or App component.</div>';
+            }
+        } catch (e) {
+            console.error('Preview error:', e);
+            document.getElementById('root').innerHTML = '<div style="padding:20px;color:#ef4444;font-family:monospace;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;margin:20px;"><strong>Error:</strong><br>' + e.message + '</div>';
+        }
     </script>
 </body>
 </html>`;
@@ -1257,7 +1272,7 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                     <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
                         {sidebarTab === 'files' && <div className="space-y-1 pt-2">{getFileTree(files).map(n => <FileTreeNode key={n.path} node={n} level={0} activeFile={activeFile} onSelect={setActiveFile} />)}</div>}
                         
-                        {/* Code View Tab with Line Numbers */}
+                        {/* Code View Tab with Syntax Highlighting */}
                         {sidebarTab === 'code' && (
                             <div className="h-full flex flex-col">
                                 <div className="flex items-center justify-between mb-2">
@@ -1276,23 +1291,56 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                                         <Copy className="w-3 h-3"/>
                                     </button>
                                 </div>
-                                <div className="flex-1 bg-slate-950 rounded border border-slate-800 overflow-auto font-mono text-xs">
-                                    <div className="flex min-h-full">
-                                        <div className="bg-slate-900 text-slate-600 text-right py-2 px-2 select-none border-r border-slate-800 sticky left-0">
-                                            {(files.find(f => f.name === activeFile)?.content || '').split('\n').map((_, i) => (
-                                                <div key={i} className="leading-5">{i + 1}</div>
-                                            ))}
-                                        </div>
-                                        <textarea 
-                                            value={files.find(f => f.name === activeFile)?.content || ''} 
-                                            onChange={e => {
-                                                const v = e.target.value;
-                                                setFiles(files.map(f => f.name === activeFile ? {...f, content: v} : f));
-                                            }}
-                                            className="flex-1 bg-transparent text-slate-300 p-2 resize-none focus:outline-none leading-5 min-w-[300px]"
-                                            spellCheck={false}
-                                        />
-                                    </div>
+                                <div className="flex-1 bg-[#2d2d2d] rounded border border-slate-800 overflow-auto font-mono text-xs relative">
+                                    {(() => {
+                                        const content = files.find(f => f.name === activeFile)?.content || '';
+                                        const ext = activeFile.split('.').pop()?.toLowerCase() || '';
+                                        const langMap: Record<string, string> = {
+                                            'tsx': 'tsx', 'ts': 'typescript', 'jsx': 'jsx', 'js': 'javascript',
+                                            'html': 'markup', 'css': 'css', 'json': 'json',
+                                            'java': 'java', 'py': 'python', 'dart': 'dart',
+                                            'xml': 'markup', 'svelte': 'markup', 'vue': 'markup', 'md': 'markdown'
+                                        };
+                                        const lang = langMap[ext] || 'javascript';
+                                        const highlighted = typeof (window as any).Prism !== 'undefined' && (window as any).Prism.languages[lang]
+                                            ? (window as any).Prism.highlight(content, (window as any).Prism.languages[lang], lang)
+                                            : content.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                                        
+                                        return (
+                                            <div className="flex min-h-full">
+                                                {/* Line Numbers */}
+                                                <div className="bg-[#1e1e1e] text-slate-500 text-right py-3 px-3 select-none border-r border-slate-700 sticky left-0 z-10">
+                                                    {content.split('\n').map((_, i) => (
+                                                        <div key={i} className="leading-5 h-5">{i + 1}</div>
+                                                    ))}
+                                                </div>
+                                                {/* Code Content with Highlighting */}
+                                                <div className="relative flex-1 min-w-0">
+                                                    {/* Highlighted code display */}
+                                                    <pre 
+                                                        className="p-3 whitespace-pre leading-5 min-w-full pointer-events-none absolute inset-0 overflow-visible"
+                                                        style={{ margin: 0, background: 'transparent', fontFamily: 'inherit', fontSize: 'inherit' }}
+                                                    >
+                                                        <code 
+                                                            className={`language-${lang}`}
+                                                            dangerouslySetInnerHTML={{ __html: highlighted }}
+                                                        />
+                                                    </pre>
+                                                    {/* Editable textarea overlay */}
+                                                    <textarea 
+                                                        value={content} 
+                                                        onChange={e => {
+                                                            const v = e.target.value;
+                                                            setFiles(files.map(f => f.name === activeFile ? {...f, content: v} : f));
+                                                        }}
+                                                        className="w-full h-full bg-transparent text-transparent caret-white p-3 resize-none focus:outline-none leading-5 min-w-[300px] absolute inset-0 z-20"
+                                                        spellCheck={false}
+                                                        style={{ fontFamily: 'inherit', fontSize: 'inherit', caretColor: 'white' }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
                             </div>
                         )}
