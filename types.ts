@@ -62,10 +62,10 @@ export interface BuilderChatMessage {
 export interface ProjectFile {
   name: string;
   content: string;
-  language: 'javascript' | 'typescript' | 'html' | 'css' | 'json' | 'dart' | 'vue' | 'image' | 'python';
+  language: 'javascript' | 'typescript' | 'html' | 'css' | 'json' | 'dart' | 'vue' | 'image' | 'python' | 'java' | 'xml' | 'svelte' | 'markdown';
 }
 
-export type Stack = 'react' | 'react-ts' | 'flutter' | 'html' | 'vue' | 'node' | 'python' | 'svelte';
+export type Stack = 'react' | 'react-ts' | 'flutter' | 'html' | 'vue' | 'node' | 'python' | 'svelte' | 'java';
 
 export interface Snapshot {
     id: string;

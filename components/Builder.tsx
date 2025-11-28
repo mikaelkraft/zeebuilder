@@ -224,6 +224,8 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
     const [rightPanelTab, setRightPanelTab] = useState<'chat' | 'preview'>('chat');
     const [isFullScreenPreview, setIsFullScreenPreview] = useState(false);
     const [mobileCodeView, setMobileCodeView] = useState(false);
+    const [terminalCmd, setTerminalCmd] = useState('');
+    const [terminalOutput, setTerminalOutput] = useState<string[]>(['ZeeBuilder Shell v1.0', 'Type commands below or use quick buttons.']);
     
     const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
     const [savedProjects, setSavedProjects] = useState<SavedProject[]>([]);
@@ -418,6 +420,18 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                  { name: 'requirements.txt', content: ``, language: 'html' }
              ];
              setActiveFile('main.py');
+        } else if (type === 'svelte') {
+             initialFiles = [
+                 { name: 'package.json', content: JSON.stringify({ name: "svelte-app", version: "1.0.0", dependencies: { "svelte": "latest" } }, null, 2), language: 'json' },
+                 { name: 'src/App.svelte', content: `<script>\n  let count = 0;\n  function increment() {\n    count += 1;\n  }\n</script>\n\n<main class="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center">\n  <h1 class="text-3xl font-bold mb-4">Hello Svelte!</h1>\n  <button class="px-4 py-2 bg-orange-600 rounded hover:bg-orange-500" on:click={increment}>\n    Clicked {count} times\n  </button>\n</main>\n\n<style>\n  main { font-family: system-ui, sans-serif; }\n</style>`, language: 'html' }
+             ];
+             setActiveFile('src/App.svelte');
+        } else if (type === 'java') {
+             initialFiles = [
+                 { name: 'pom.xml', content: `<?xml version="1.0" encoding="UTF-8"?>\n<project xmlns="http://maven.apache.org/POM/4.0.0">\n  <modelVersion>4.0.0</modelVersion>\n  <groupId>com.zeebuilder</groupId>\n  <artifactId>app</artifactId>\n  <version>1.0.0</version>\n  <properties>\n    <maven.compiler.source>17</maven.compiler.source>\n    <maven.compiler.target>17</maven.compiler.target>\n  </properties>\n</project>`, language: 'xml' },
+                 { name: 'src/main/java/App.java', content: `public class App {\n    public static void main(String[] args) {\n        System.out.println("Hello from Java!");\n    }\n}`, language: 'java' }
+             ];
+             setActiveFile('src/main/java/App.java');
         } else {
             initialFiles = [{ name: 'index.html', content: '<html><body><h1>Hello World</h1></body></html>', language: 'html'}];
             setActiveFile('index.html');
@@ -771,131 +785,82 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
     };
 
     const updateWebPreview = () => {
-        if (stack === 'flutter' || stack === 'python') return;
+        if (stack === 'flutter' || stack === 'python' || stack === 'java') return;
         setIsRefreshing(true);
         
-        // Transpile TypeScript/JSX files using Babel (via simple regex transforms for esm.sh compatibility)
-        const transpileCode = (code: string, filename: string): string => {
-            // Remove TypeScript type annotations (simplified approach)
-            let result = code;
-            
-            // Remove import type declarations
-            result = result.replace(/import\s+type\s+\{[^}]+\}\s+from\s+['"][^'"]+['"];?\n?/g, '');
-            
-            // Remove type-only exports
-            result = result.replace(/export\s+type\s+\{[^}]+\};?\n?/g, '');
-            
-            // Remove interface declarations
-            result = result.replace(/interface\s+\w+\s*(?:<[^>]+>)?\s*\{[^}]*\}/gs, '');
-            
-            // Remove type declarations
-            result = result.replace(/type\s+\w+\s*(?:<[^>]+>)?\s*=\s*[^;]+;/g, '');
-            
-            // Remove type annotations from variables and functions
-            result = result.replace(/:\s*(?:\w+|[\w<>,\s\[\]|&]+)(?=\s*[=,)\];}])/g, '');
-            result = result.replace(/<\w+(?:\s+extends\s+\w+)?>/g, ''); // Generic params like <T>
-            
-            // Remove 'as' type assertions
-            result = result.replace(/\s+as\s+\w+(?:\[\])?/g, '');
-            
-            // Clean up any leftover artifacts
-            result = result.replace(/\(\s*,/g, '(');
-            result = result.replace(/,\s*\)/g, ')');
-            result = result.replace(/\{\s*,/g, '{');
-            
-            return result;
-        };
+        // Get inline CSS
+        const cssFiles = files.filter(f => f.name.endsWith('.css'));
+        const inlineCss = cssFiles.map(f => f.content).join('\n');
         
-        // Create blob URLs for all files
-        const blobMap: Record<string, string> = {};
-        const transpiledContents: Record<string, string> = {};
-        
-        files.forEach(f => {
-            const isJs = f.name.match(/\.(js|jsx|ts|tsx)$/);
-            const isCss = f.name.endsWith('.css');
-            const isImage = f.name.match(/\.(png|jpg|jpeg|svg|gif)$/);
-            
-            if (isJs) {
-                // Transpile TypeScript/JSX to plain JavaScript
-                transpiledContents[f.name] = transpileCode(f.content, f.name);
-            } else if (isCss) {
-                blobMap[f.name] = URL.createObjectURL(new Blob([f.content], { type: 'text/css' }));
-            } else if (isImage) {
-                const jsModuleContent = `export default "${f.content}";`;
-                blobMap[f.name] = URL.createObjectURL(new Blob([jsModuleContent], { type: 'application/javascript' }));
-            }
-        });
-
-        // Process JS/TS files and resolve imports
-        files.forEach(f => {
-            if (f.name.match(/\.(js|jsx|ts|tsx)$/)) {
-                let content = transpiledContents[f.name] || f.content;
-                
-                // Resolve relative imports to blob URLs
-                content = content.replace(/from\s+['"](\.[^'"]+)['"]/g, (match, importPath) => {
-                    // Resolve the relative path
-                    const basePath = f.name.substring(0, f.name.lastIndexOf('/') + 1);
-                    let resolvedPath = importPath;
-                    
-                    // Handle ./ and ../ prefixes
-                    if (importPath.startsWith('./')) {
-                        resolvedPath = basePath + importPath.substring(2);
-                    } else if (importPath.startsWith('../')) {
-                        const parts = basePath.split('/').filter(Boolean);
-                        const upCount = (importPath.match(/\.\.\//g) || []).length;
-                        const remaining = importPath.replace(/\.\.\//g, '');
-                        resolvedPath = parts.slice(0, -upCount).join('/') + '/' + remaining;
-                    }
-                    
-                    // Remove file extension if present
-                    resolvedPath = resolvedPath.replace(/\.(js|jsx|ts|tsx|css)$/, '');
-                    
-                    // Find matching file
-                    const extensions = ['.tsx', '.ts', '.jsx', '.js', '.css', '.png', '.jpg', '.svg'];
-                    let foundFile = null;
-                    
-                    for (const ext of extensions) {
-                        foundFile = files.find(x => 
-                            x.name === resolvedPath + ext || 
-                            x.name === resolvedPath ||
-                            x.name.endsWith('/' + resolvedPath.split('/').pop() + ext)
-                        );
-                        if (foundFile) break;
-                    }
-                    
-                    if (foundFile && blobMap[foundFile.name]) {
-                        return `from "${blobMap[foundFile.name]}"`;
-                    }
-                    
-                    return match;
-                });
-                
-                blobMap[f.name] = URL.createObjectURL(new Blob([content], { type: 'application/javascript' }));
-            }
-        });
-
         // Build import map for external dependencies
         const importMap = {
             imports: {
-                "react": "https://esm.sh/react@18.2.0?bundle",
-                "react-dom/client": "https://esm.sh/react-dom@18.2.0/client?bundle",
-                "react-dom": "https://esm.sh/react-dom@18.2.0?bundle",
-                "vue": "https://esm.sh/vue@3.3.4?bundle",
+                "react": "https://esm.sh/react@18.2.0",
+                "react-dom": "https://esm.sh/react-dom@18.2.0",
+                "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+                "react/jsx-runtime": "https://esm.sh/react@18.2.0/jsx-runtime",
+                "vue": "https://esm.sh/vue@3.3.4",
+                "svelte": "https://esm.sh/svelte@4",
                 ...Object.keys(dependencies).reduce((acc, key) => ({ 
                     ...acc, 
-                    [key]: `https://esm.sh/${key}?bundle` 
+                    [key]: `https://esm.sh/${key}` 
                 }), {})
             }
         };
 
-        // Find entry point
-        const entryFile = files.find(f => f.name.match(/src\/(App|main|index)\.(js|jsx|ts|tsx)$/)) 
-            || files.find(f => f.name.match(/App\.(js|jsx|ts|tsx)$/));
-        const entryUrl = entryFile ? blobMap[entryFile.name] : '';
+        // Find entry file and collect all JS/TS files
+        const jsFiles = files.filter(f => f.name.match(/\.(js|jsx|ts|tsx)$/));
+        const entryFile = jsFiles.find(f => f.name.match(/(App|main|index)\.(js|jsx|ts|tsx)$/));
+        
+        // Create file content map for inline bundling
+        const fileContents: Record<string, string> = {};
+        jsFiles.forEach(f => {
+            // Clean up TypeScript syntax
+            let content = f.content;
+            // Remove import type statements
+            content = content.replace(/import\s+type\s+\{[^}]*\}\s+from\s+['"][^'"]+['"];?\s*/g, '');
+            content = content.replace(/import\s+\{[^}]*type\s+\w+[^}]*\}\s+from/g, (match) => {
+                return match.replace(/,?\s*type\s+\w+/g, '');
+            });
+            // Remove export type statements
+            content = content.replace(/export\s+type\s+\{[^}]*\};?\s*/g, '');
+            content = content.replace(/export\s+type\s+\w+\s*=\s*[^;]+;/g, '');
+            // Remove interface declarations
+            content = content.replace(/(?:export\s+)?interface\s+\w+\s*(?:<[^>]*>)?\s*(?:extends\s+[^{]+)?\{[^}]*\}/gs, '');
+            // Remove type declarations  
+            content = content.replace(/(?:export\s+)?type\s+\w+\s*(?:<[^>]*>)?\s*=\s*(?:[^;]|\n)+;/g, '');
+            // Remove type annotations (simplified - handles most cases)
+            content = content.replace(/:\s*(?:React\.)?(?:FC|FunctionComponent|ComponentType|ReactNode|ReactElement|JSX\.Element|string|number|boolean|any|void|null|undefined|object|Array|Record|Promise|Set|Map)(?:<[^>]*>)?(?:\s*\|\s*(?:React\.)?(?:FC|FunctionComponent|ComponentType|ReactNode|ReactElement|JSX\.Element|string|number|boolean|any|void|null|undefined|object|Array|Record|Promise|Set|Map)(?:<[^>]*>)?)*(?=\s*[=,)}\];])/g, '');
+            content = content.replace(/:\s*\([^)]+\)\s*=>\s*\w+(?:<[^>]*>)?(?=\s*[=,)}\];])/g, '');
+            content = content.replace(/:\s*\{[^}]+\}(?=\s*[=,)}\];])/g, '');
+            // Remove generic type parameters from functions
+            content = content.replace(/<\s*(?:\w+\s*(?:extends\s+\w+)?(?:\s*,\s*\w+\s*(?:extends\s+\w+)?)*)\s*>\s*\(/g, '(');
+            // Remove 'as' type assertions
+            content = content.replace(/\s+as\s+(?:const|(?:React\.)?\w+(?:<[^>]*>)?(?:\[\])?)/g, '');
+            
+            fileContents[f.name] = content;
+        });
 
-        // Get inline CSS
-        const cssFiles = files.filter(f => f.name.endsWith('.css'));
-        const inlineCss = cssFiles.map(f => f.content).join('\n');
+        // Generate inline scripts for all components
+        const componentScripts = jsFiles.map(f => {
+            const content = fileContents[f.name];
+            const moduleName = f.name.replace(/\.(js|jsx|ts|tsx)$/, '').replace(/[^a-zA-Z0-9]/g, '_');
+            
+            // Transform relative imports to use our module registry
+            let transformed = content;
+            transformed = transformed.replace(/import\s+(\w+)\s+from\s+['"]\.\/([^'"]+)['"]/g, 
+                (_, name, path) => `const ${name} = window.__modules__['${path.replace(/\.(js|jsx|ts|tsx)$/, '')}']?.default || window.__modules__['${path.replace(/\.(js|jsx|ts|tsx)$/, '')}'];`);
+            transformed = transformed.replace(/import\s+\{([^}]+)\}\s+from\s+['"]\.\/([^'"]+)['"]/g,
+                (_, imports, path) => {
+                    const cleanPath = path.replace(/\.(js|jsx|ts|tsx)$/, '');
+                    return imports.split(',').map((imp: string) => {
+                        const trimmed = imp.trim();
+                        return `const ${trimmed} = window.__modules__['${cleanPath}']?.${trimmed};`;
+                    }).join('\n');
+                });
+            
+            return { name: f.name, moduleName, content: transformed };
+        }).filter(s => s.content.trim());
 
         const html = `
 <!DOCTYPE html>
@@ -904,41 +869,73 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@babel/standalone@7.23.5/babel.min.js"></script>
     <script type="importmap">${JSON.stringify(importMap)}</script>
     <style>
-        body { background-color: #ffffff; margin: 0; }
+        body { background-color: #ffffff; margin: 0; font-family: system-ui, sans-serif; }
+        #root, #app { min-height: 100vh; }
         ${inlineCss}
     </style>
 </head>
 <body>
     <div id="root"></div>
     <div id="app"></div>
-    <script type="module">
-        // Error handling
+    
+    <script>
+        window.__modules__ = {};
         window.onerror = function(msg, url, line, col, error) {
-            const errorDiv = document.createElement('div');
-            errorDiv.style.cssText = 'color:#ef4444;padding:20px;font-family:monospace;background:#fef2f2;border:1px solid #fecaca;margin:10px;border-radius:8px;';
-            errorDiv.innerHTML = '<strong>Runtime Error:</strong><br>' + msg + '<br><small>Line: ' + line + '</small>';
-            document.body.insertBefore(errorDiv, document.body.firstChild);
-            return true;
+            console.error('Error:', msg, 'at line', line);
+            return false;
         };
-        
+    </script>
+
+    ${componentScripts.map(script => `
+    <script type="text/babel" data-presets="react,typescript" data-module="${script.moduleName}">
+        (function() {
+            ${script.content.replace(/export\s+default\s+/g, 'window.__modules__["' + script.name.replace(/\.(js|jsx|ts|tsx)$/, '').replace(/^src\//, '') + '"] = { default: ')}
+            ${script.content.includes('export default') ? '' : `
+                // Handle named exports
+                ${script.content.match(/export\s+(?:const|let|var|function|class)\s+(\w+)/g)?.map(exp => {
+                    const name = exp.match(/export\s+(?:const|let|var|function|class)\s+(\w+)/)?.[1];
+                    return name ? `if (typeof ${name} !== 'undefined') { window.__modules__["${script.name.replace(/\.(js|jsx|ts|tsx)$/, '').replace(/^src\//, '')}"] = window.__modules__["${script.name.replace(/\.(js|jsx|ts|tsx)$/, '').replace(/^src\//, '')}"] || {}; window.__modules__["${script.name.replace(/\.(js|jsx|ts|tsx)$/, '').replace(/^src\//, '')}"]["${name}"] = ${name}; }` : '';
+                }).join('\n') || ''}
+            `}
+            ${script.content.includes('export default') ? '};' : ''}
+        })();
+    </script>
+    `).join('\n')}
+
+    <script type="text/babel" data-presets="react,typescript">
         ${stack === 'vue' ? `
             import { createApp } from 'vue';
-            const App = await import('${entryUrl}').then(m => m.default || m);
-            createApp(App).mount('#app');
+            const App = window.__modules__['App']?.default || window.__modules__['src/App']?.default;
+            if (App) {
+                createApp(App).mount('#app');
+            } else {
+                document.getElementById('app').innerHTML = '<div style="padding:20px;color:#666;">No App component found</div>';
+            }
+        ` : stack === 'html' ? `
+            // Pure HTML/JS - no framework
+            document.getElementById('root').innerHTML = '<div style="padding:20px;">HTML Preview</div>';
         ` : `
             import React from 'react';
             import { createRoot } from 'react-dom/client';
             
             try {
-                const AppModule = await import('${entryUrl}');
-                const App = AppModule.default || AppModule;
-                const root = createRoot(document.getElementById('root'));
-                root.render(React.createElement(App));
+                const App = window.__modules__['App']?.default 
+                    || window.__modules__['src/App']?.default
+                    || window.__modules__['App.tsx']?.default
+                    || window.__modules__['src/App.tsx']?.default;
+                
+                if (App) {
+                    const root = createRoot(document.getElementById('root'));
+                    root.render(React.createElement(App));
+                } else {
+                    document.getElementById('root').innerHTML = '<div style="padding:20px;color:#ef4444;font-family:monospace;">No App component found. Make sure you have an App.tsx or src/App.tsx file with a default export.</div>';
+                }
             } catch (e) {
-                console.error('App initialization error:', e);
-                document.getElementById('root').innerHTML = '<div style="color:#ef4444;padding:20px;font-family:monospace;background:#fef2f2;border:1px solid #fecaca;margin:10px;border-radius:8px;"><strong>Initialization Error:</strong><br>' + e.message + '</div>';
+                console.error('React render error:', e);
+                document.getElementById('root').innerHTML = '<div style="color:#ef4444;padding:20px;font-family:monospace;background:#fef2f2;border:1px solid #fecaca;margin:10px;border-radius:8px;"><strong>Render Error:</strong><br>' + e.message + '</div>';
             }
         `}
     </script>
@@ -997,11 +994,17 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                     </button>
                 </div>
             </div>
-            {stack === 'flutter' || stack === 'python' ? (
+            {stack === 'flutter' || stack === 'python' || stack === 'java' ? (
                 <div className="flex-1 flex flex-col items-center justify-center bg-slate-50 text-slate-500">
                     <Smartphone className="w-16 h-16 mb-4 opacity-20" />
-                    <p className="text-sm mb-4">{stack === 'python' ? 'Python Runtime (Console Only)' : 'Flutter Preview requires Zapp!'}</p>
-                    {stack === 'flutter' && <a href="https://zapp.run" target="_blank" rel="noreferrer" className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold shadow-lg hover:bg-blue-500">Open Compiler</a>}
+                    <p className="text-sm mb-4">
+                        {stack === 'python' ? 'Python Runtime (Console Only)' : 
+                         stack === 'java' ? 'Java projects require external compilation' :
+                         'Flutter Preview requires Zapp!'}
+                    </p>
+                    {stack === 'flutter' && <a href="https://zapp.run" target="_blank" rel="noreferrer" className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold shadow-lg hover:bg-blue-500">Open Zapp Compiler</a>}
+                    {stack === 'java' && <a href="https://www.jdoodle.com/online-java-compiler/" target="_blank" rel="noreferrer" className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-bold shadow-lg hover:bg-red-500">Open Java Compiler</a>}
+                    {stack === 'python' && <a href="https://www.online-python.com/" target="_blank" rel="noreferrer" className="px-4 py-2 bg-yellow-600 text-white rounded-lg text-sm font-bold shadow-lg hover:bg-yellow-500">Open Python Console</a>}
                 </div>
             ) : (
                 <iframe key={previewKey} src={iframeSrc} className="flex-1 w-full border-none bg-white" title="Preview" />
@@ -1162,10 +1165,12 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                             { id: 'react', label: 'React', icon: CodeIcon, color: 'text-blue-500' },
                             { id: 'react-ts', label: 'React TS', icon: FileType, color: 'text-blue-400' },
                             { id: 'vue', label: 'Vue.js', icon: Layers, color: 'text-green-500' },
+                            { id: 'svelte', label: 'Svelte', icon: Layers, color: 'text-orange-600' },
                             { id: 'flutter', label: 'Flutter', icon: Smartphone, color: 'text-cyan-500' },
                             { id: 'python', label: 'Python', icon: TerminalIcon, color: 'text-yellow-500' },
-                            { id: 'html', label: 'HTML/JS', icon: Globe, color: 'text-orange-500' },
                             { id: 'node', label: 'Node.js', icon: TerminalIcon, color: 'text-green-600' },
+                            { id: 'java', label: 'Java', icon: FileCode, color: 'text-red-500' },
+                            { id: 'html', label: 'HTML/JS', icon: Globe, color: 'text-orange-500' },
                         ].map((s) => (
                             <button key={s.id} onClick={() => initProject(s.id as Stack)} className="p-6 bg-slate-800 rounded-xl border border-slate-700 hover:border-blue-500 hover:bg-slate-750 text-left transition-all group">
                                 <s.icon className={`w-8 h-8 ${s.color} mb-3 group-hover:scale-110 transition-transform`} />
@@ -1293,6 +1298,7 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                                     </span>
                                     <button 
                                         onClick={() => {
+                                            setTerminalOutput(['ZeeBuilder Shell v1.0', 'Cleared.']);
                                             if (xtermRef.current) {
                                                 xtermRef.current.clear();
                                                 shellRef.current?.prompt();
@@ -1307,64 +1313,139 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                                 {/* Terminal Commands Panel */}
                                 <div className="flex-1 bg-black rounded border border-slate-800 overflow-hidden flex flex-col">
                                     {/* Terminal Output Display */}
-                                    <div className="flex-1 p-2 font-mono text-xs text-green-400 overflow-y-auto custom-scrollbar min-h-[200px]">
-                                        <div className="text-slate-500 mb-2">ZeeBuilder Shell v1.0</div>
-                                        <div className="text-slate-600 text-[10px] mb-3">Type commands below. The terminal syncs with the bottom panel.</div>
+                                    <div className="flex-1 p-2 font-mono text-xs overflow-y-auto custom-scrollbar min-h-[200px]">
+                                        {terminalOutput.map((line, i) => (
+                                            <div key={i} className={line.startsWith('$') ? 'text-green-400' : line.startsWith('Error') ? 'text-red-400' : 'text-slate-300'}>
+                                                {line}
+                                            </div>
+                                        ))}
                                         
                                         {/* Quick Command Buttons */}
-                                        <div className="space-y-1 mb-3">
-                                            <button 
-                                                onClick={() => { shellRef.current?.log('$ ls'); shellRef.current?.handleCommand('ls'); }}
-                                                className="w-full text-left px-2 py-1 bg-slate-900 hover:bg-slate-800 rounded text-slate-300 text-[10px]"
-                                            >
-                                                <span className="text-blue-400">ls</span> - List all files
-                                            </button>
-                                            <button 
-                                                onClick={() => { shellRef.current?.log('$ tree'); shellRef.current?.handleCommand('tree'); }}
-                                                className="w-full text-left px-2 py-1 bg-slate-900 hover:bg-slate-800 rounded text-slate-300 text-[10px]"
-                                            >
-                                                <span className="text-blue-400">tree</span> - Show file tree
-                                            </button>
-                                            <button 
-                                                onClick={() => { 
-                                                    const pkg = activeFile;
-                                                    shellRef.current?.log(`$ cat ${pkg}`); 
-                                                    shellRef.current?.handleCommand(`cat ${pkg}`); 
-                                                }}
-                                                className="w-full text-left px-2 py-1 bg-slate-900 hover:bg-slate-800 rounded text-slate-300 text-[10px]"
-                                            >
-                                                <span className="text-blue-400">cat</span> - Show active file content
-                                            </button>
+                                        <div className="space-y-1 mt-3 border-t border-slate-800 pt-3">
+                                            <p className="text-slate-600 text-[10px] mb-2">Quick Commands:</p>
+                                            <div className="flex flex-wrap gap-1">
+                                                <button 
+                                                    onClick={() => {
+                                                        const output = files.map(f => f.name.split('/')[0]).filter((v, i, a) => a.indexOf(v) === i);
+                                                        setTerminalOutput(prev => [...prev, '$ ls', ...output]);
+                                                    }}
+                                                    className="px-2 py-1 bg-slate-900 hover:bg-slate-800 rounded text-blue-400 text-[10px]"
+                                                >
+                                                    ls
+                                                </button>
+                                                <button 
+                                                    onClick={() => {
+                                                        const tree = files.map(f => `  ${f.name}`);
+                                                        setTerminalOutput(prev => [...prev, '$ tree', '.', ...tree]);
+                                                    }}
+                                                    className="px-2 py-1 bg-slate-900 hover:bg-slate-800 rounded text-blue-400 text-[10px]"
+                                                >
+                                                    tree
+                                                </button>
+                                                <button 
+                                                    onClick={() => {
+                                                        const file = files.find(f => f.name === activeFile);
+                                                        if (file) {
+                                                            const lines = file.content.split('\n').slice(0, 20);
+                                                            setTerminalOutput(prev => [...prev, `$ cat ${activeFile}`, ...lines, lines.length >= 20 ? '...(truncated)' : '']);
+                                                        }
+                                                    }}
+                                                    className="px-2 py-1 bg-slate-900 hover:bg-slate-800 rounded text-blue-400 text-[10px]"
+                                                >
+                                                    cat
+                                                </button>
+                                                <button 
+                                                    onClick={() => setTerminalOutput(['ZeeBuilder Shell v1.0', 'Cleared.'])}
+                                                    className="px-2 py-1 bg-slate-900 hover:bg-slate-800 rounded text-yellow-400 text-[10px]"
+                                                >
+                                                    clear
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                     
                                     {/* Command Input */}
                                     <div className="border-t border-slate-800 p-2">
-                                        <div className="flex items-center gap-2">
+                                        <form 
+                                            onSubmit={(e) => {
+                                                e.preventDefault();
+                                                if (terminalCmd.trim()) {
+                                                    const cmd = terminalCmd.trim();
+                                                    const parts = cmd.split(/\s+/);
+                                                    const command = parts[0];
+                                                    const args = parts.slice(1);
+                                                    
+                                                    let output: string[] = [`$ ${cmd}`];
+                                                    
+                                                    switch (command) {
+                                                        case 'ls':
+                                                            output.push(...files.map(f => f.name.split('/')[0]).filter((v, i, a) => a.indexOf(v) === i));
+                                                            break;
+                                                        case 'tree':
+                                                            output.push('.', ...files.map(f => `├── ${f.name}`));
+                                                            break;
+                                                        case 'cat':
+                                                            if (args[0]) {
+                                                                const file = files.find(f => f.name === args[0] || f.name.endsWith(args[0]));
+                                                                if (file) {
+                                                                    output.push(...file.content.split('\n').slice(0, 30));
+                                                                } else {
+                                                                    output.push(`Error: File not found: ${args[0]}`);
+                                                                }
+                                                            } else {
+                                                                output.push('Usage: cat <filename>');
+                                                            }
+                                                            break;
+                                                        case 'npm':
+                                                            if (args[0] === 'i' || args[0] === 'install') {
+                                                                if (args[1]) {
+                                                                    handleAddPackage(args[1]);
+                                                                    output.push(`Installing ${args[1]}...`, `+ ${args[1]}@latest added`);
+                                                                } else {
+                                                                    output.push('Usage: npm install <package>');
+                                                                }
+                                                            }
+                                                            break;
+                                                        case 'clear':
+                                                            setTerminalOutput(['ZeeBuilder Shell v1.0', 'Cleared.']);
+                                                            setTerminalCmd('');
+                                                            return;
+                                                        case 'help':
+                                                            output.push('Available commands:', '  ls - List files', '  tree - Show file tree', '  cat <file> - View file content', '  npm i <pkg> - Install package', '  clear - Clear terminal', '  help - Show this help');
+                                                            break;
+                                                        default:
+                                                            output.push(`Command not found: ${command}. Type 'help' for available commands.`);
+                                                    }
+                                                    
+                                                    setTerminalOutput(prev => [...prev, ...output]);
+                                                    setTerminalCmd('');
+                                                    
+                                                    // Also sync to xterm if available
+                                                    if (shellRef.current) {
+                                                        shellRef.current.handleCommand(cmd);
+                                                    }
+                                                }
+                                            }}
+                                            className="flex items-center gap-2"
+                                        >
                                             <span className="text-green-400 text-xs">$</span>
                                             <input 
                                                 type="text"
+                                                value={terminalCmd}
+                                                onChange={(e) => setTerminalCmd(e.target.value)}
                                                 placeholder="Enter command..."
                                                 className="flex-1 bg-transparent text-white text-xs focus:outline-none font-mono"
-                                                onKeyDown={(e) => {
-                                                    if (e.key === 'Enter') {
-                                                        const cmd = (e.target as HTMLInputElement).value;
-                                                        if (cmd.trim()) {
-                                                            shellRef.current?.log(`$ ${cmd}`);
-                                                            shellRef.current?.handleCommand(cmd);
-                                                            (e.target as HTMLInputElement).value = '';
-                                                        }
-                                                    }
-                                                }}
+                                                autoComplete="off"
                                             />
-                                        </div>
+                                            <button type="submit" className="text-green-400 hover:text-green-300 text-xs">
+                                                Run
+                                            </button>
+                                        </form>
                                     </div>
                                 </div>
                                 
-                                <div className="mt-2 text-[10px] text-slate-600 px-1 space-y-1">
-                                    <p><code className="text-green-400">npm i &lt;pkg&gt;</code> - Install package</p>
-                                    <p><code className="text-green-400">cat &lt;file&gt;</code> - View file</p>
-                                    <p><code className="text-green-400">clear</code> - Clear output</p>
+                                <div className="mt-2 text-[10px] text-slate-600 px-1">
+                                    <p>Try: <code className="text-green-400">npm i axios</code>, <code className="text-green-400">cat App.tsx</code>, <code className="text-green-400">help</code></p>
                                 </div>
                             </div>
                         )}
