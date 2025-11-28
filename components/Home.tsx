@@ -82,8 +82,8 @@ const EngagementChat = ({ onNavigate }: { onNavigate: (view: View) => void }) =>
 const Home: React.FC<HomeProps> = ({ onNavigate }) => {
     const [currentWordIndex, setCurrentWordIndex] = useState(0);
     const heroWords = [
-        "Build Apps (React, Vue, Flutter, HTML)",
-        "Write Python Scripts & Node.js",
+        "Apps (React, Vue, Flutter, HTML)",
+        "Python Scripts & Node.js",
         "Images (Logos, Edits)",
         "Audio (Transcripts, Text-To-Speech)",
         "Tasks on your board",
