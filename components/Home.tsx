@@ -13,7 +13,17 @@ import {
     LayoutDashboard,
     Send,
     Sparkles,
-    History
+    History,
+    Terminal,
+    Smartphone,
+    Globe,
+    Package,
+    GitBranch,
+    Play,
+    ChevronLeft,
+    ChevronRight,
+    FileCode,
+    Cpu
 } from 'lucide-react';
 
 interface HomeProps {
@@ -31,6 +41,14 @@ const FeatureCard = ({ title, description, icon: Icon, onClick, color }: any) =>
         <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors">{title}</h3>
         <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">{description}</p>
     </button>
+);
+
+const StackCard = ({ name, icon: Icon, color, description }: any) => (
+    <div className="flex-shrink-0 w-40 p-4 bg-white dark:bg-slate-900/80 border border-gray-200 dark:border-slate-800 rounded-xl text-center hover:border-blue-500 transition-all cursor-pointer group">
+        <Icon className={`w-10 h-10 mx-auto mb-2 ${color} group-hover:scale-110 transition-transform`} />
+        <h4 className="font-bold text-slate-900 dark:text-white text-sm">{name}</h4>
+        <p className="text-[10px] text-slate-500 mt-1">{description}</p>
+    </div>
 );
 
 const EngagementChat = ({ onNavigate }: { onNavigate: (view: View) => void }) => {
@@ -61,7 +79,7 @@ const EngagementChat = ({ onNavigate }: { onNavigate: (view: View) => void }) =>
                             type="text" 
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
-                            placeholder="e.g., Build a Python script to scrape data..." 
+                            placeholder="e.g., Build a React dashboard with charts..." 
                             className="w-full bg-transparent border-none px-4 py-3 text-sm text-slate-900 dark:text-white focus:ring-0 placeholder:text-slate-500 placeholder:text-xs"
                             autoFocus={false}
                         />
@@ -81,22 +99,45 @@ const EngagementChat = ({ onNavigate }: { onNavigate: (view: View) => void }) =>
 
 const Home: React.FC<HomeProps> = ({ onNavigate }) => {
     const [currentWordIndex, setCurrentWordIndex] = useState(0);
+    const [stackScrollPos, setStackScrollPos] = useState(0);
+    
     const heroWords = [
-        "Apps (React, Vue, Flutter, HTML)",
-        "Python Scripts & Node.js",
-        "Images (Logos, Edits)",
-        "Audio (Transcripts, Text-To-Speech)",
-        "Tasks on your board",
-        "API Keys for development",
-        "Answers to general knowledge"
+        "React & Vue Apps",
+        "Flutter Mobile Apps",
+        "Python Scripts",
+        "Node.js Backends",
+        "Java Applications",
+        "Svelte Components",
+        "AI-Powered Images",
+        "Audio & Transcripts"
+    ];
+
+    const stacks = [
+        { name: 'React', icon: Code, color: 'text-blue-500', description: 'Modern UI' },
+        { name: 'React TS', icon: FileCode, color: 'text-blue-400', description: 'Type-safe' },
+        { name: 'Vue.js', icon: Layers, color: 'text-green-500', description: 'Progressive' },
+        { name: 'Svelte', icon: Zap, color: 'text-orange-500', description: 'Compiled' },
+        { name: 'Flutter', icon: Smartphone, color: 'text-cyan-500', description: 'Cross-platform' },
+        { name: 'Python', icon: Terminal, color: 'text-yellow-500', description: 'AI & Scripts' },
+        { name: 'Node.js', icon: Terminal, color: 'text-green-600', description: 'Server-side' },
+        { name: 'Java', icon: Cpu, color: 'text-red-500', description: 'Enterprise' },
+        { name: 'HTML/JS', icon: Globe, color: 'text-orange-400', description: 'Vanilla' },
     ];
 
     useEffect(() => {
         const interval = setInterval(() => {
             setCurrentWordIndex((prev) => (prev + 1) % heroWords.length);
-        }, 3000);
+        }, 2500);
         return () => clearInterval(interval);
     }, [heroWords.length]);
+
+    const scrollStacks = (direction: 'left' | 'right') => {
+        const container = document.getElementById('stack-carousel');
+        if (container) {
+            const scrollAmount = direction === 'left' ? -200 : 200;
+            container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+        }
+    };
 
     return (
         <div className="max-w-7xl mx-auto animate-in fade-in duration-700 pb-20">
@@ -112,19 +153,19 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                     <span className="text-slate-900 dark:text-white">create...</span>
                     
                     {/* Slot Machine Carousel */}
-                    <div className="h-20 md:h-24 relative overflow-hidden mt-2 w-full max-w-4xl mx-auto">
+                    <div className="h-16 md:h-20 relative overflow-hidden mt-4 w-full max-w-4xl mx-auto">
                         {heroWords.map((word, index) => (
                             <div 
                                 key={index}
-                                className={`absolute inset-0 flex items-center justify-center transition-all duration-700 ease-in-out transform ${
+                                className={`absolute inset-0 flex items-center justify-center transition-all duration-500 ease-out transform ${
                                     index === currentWordIndex 
-                                        ? 'translate-y-0 opacity-100 blur-0' 
+                                        ? 'translate-y-0 opacity-100 scale-100' 
                                         : index === (currentWordIndex - 1 + heroWords.length) % heroWords.length
-                                            ? 'translate-y-12 opacity-0 blur-sm' // Previous slides down/out
-                                            : '-translate-y-12 opacity-0 blur-sm' // Next waits at top
+                                            ? 'translate-y-8 opacity-0 scale-95'
+                                            : '-translate-y-8 opacity-0 scale-95'
                                 }`}
                             >
-                                <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-600 via-pink-500 to-purple-600 dark:from-purple-400 dark:via-pink-300 dark:to-purple-400 bg-[length:200%_auto] animate-shimmer text-2xl md:text-4xl px-4 leading-relaxed">
+                                <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-600 via-pink-500 to-orange-500 dark:from-purple-400 dark:via-pink-400 dark:to-orange-400 text-2xl md:text-4xl font-bold">
                                     {word}
                                 </span>
                             </div>
@@ -138,14 +179,15 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                  </h1>
                  
                  <p className="text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto leading-relaxed mb-10">
-                    The ultimate platform for creators and developers. Generate code, images, and voice interactions in one unified studio powered by Zee AI.
+                    The ultimate platform for creators and developers. Build full-stack apps, generate images, and create audio - all in one unified AI-powered studio.
                  </p>
 
                  <div className="flex justify-center gap-4 mb-8">
                      <button 
                         onClick={() => onNavigate(View.BUILDER)}
-                        className="px-8 py-3 bg-slate-900 dark:bg-white text-white dark:text-black font-bold rounded-full hover:bg-slate-800 dark:hover:bg-slate-200 transition-colors shadow-[0_0_20px_rgba(0,0,0,0.1)] dark:shadow-[0_0_20px_rgba(255,255,255,0.3)]"
+                        className="px-8 py-3 bg-slate-900 dark:bg-white text-white dark:text-black font-bold rounded-full hover:bg-slate-800 dark:hover:bg-slate-200 transition-colors shadow-[0_0_20px_rgba(0,0,0,0.1)] dark:shadow-[0_0_20px_rgba(255,255,255,0.3)] flex items-center gap-2"
                      >
+                        <Play className="w-4 h-4" />
                         Start Building
                      </button>
                      <button 
@@ -157,11 +199,110 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                  </div>
             </div>
 
+            {/* Stack Carousel */}
+            <div className="mb-12 px-4">
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <Package className="w-5 h-5 text-blue-500" />
+                        Supported Stacks
+                    </h2>
+                    <div className="flex gap-2">
+                        <button onClick={() => scrollStacks('left')} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+                            <ChevronLeft className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+                        </button>
+                        <button onClick={() => scrollStacks('right')} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+                            <ChevronRight className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+                        </button>
+                    </div>
+                </div>
+                <div 
+                    id="stack-carousel"
+                    className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide scroll-smooth"
+                    style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                >
+                    {stacks.map((stack, i) => (
+                        <StackCard key={i} {...stack} />
+                    ))}
+                </div>
+            </div>
+
             {/* Engagement Chat (Inline) */}
             <EngagementChat onNavigate={onNavigate} />
 
+            {/* NEW: Builder Features Highlight */}
+            <div className="mb-12 px-4">
+                <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-8 text-white relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+                    <div className="relative z-10">
+                        <h2 className="text-2xl md:text-3xl font-bold mb-4">🚀 New in Builder</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="flex items-start gap-3">
+                                <div className="p-2 bg-white/20 rounded-lg">
+                                    <Terminal className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold">Integrated Terminal</h3>
+                                    <p className="text-sm text-white/80">Run commands, install packages, view files</p>
+                                </div>
+                            </div>
+                            <div className="flex items-start gap-3">
+                                <div className="p-2 bg-white/20 rounded-lg">
+                                    <Code className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold">Code View with Line Numbers</h3>
+                                    <p className="text-sm text-white/80">Edit any file with syntax highlighting</p>
+                                </div>
+                            </div>
+                            <div className="flex items-start gap-3">
+                                <div className="p-2 bg-white/20 rounded-lg">
+                                    <Package className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold">Dependency Manager</h3>
+                                    <p className="text-sm text-white/80">Add, remove npm packages with one click</p>
+                                </div>
+                            </div>
+                            <div className="flex items-start gap-3">
+                                <div className="p-2 bg-white/20 rounded-lg">
+                                    <GitBranch className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold">GitHub Integration</h3>
+                                    <p className="text-sm text-white/80">Push & pull from your repositories</p>
+                                </div>
+                            </div>
+                            <div className="flex items-start gap-3">
+                                <div className="p-2 bg-white/20 rounded-lg">
+                                    <Play className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold">Live Preview</h3>
+                                    <p className="text-sm text-white/80">See React, Vue, Svelte apps in real-time</p>
+                                </div>
+                            </div>
+                            <div className="flex items-start gap-3">
+                                <div className="p-2 bg-white/20 rounded-lg">
+                                    <Cpu className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold">Java & Python Support</h3>
+                                    <p className="text-sm text-white/80">Create backend apps with AI assist</p>
+                                </div>
+                            </div>
+                        </div>
+                        <button 
+                            onClick={() => onNavigate(View.BUILDER)}
+                            className="mt-6 px-6 py-2 bg-white text-blue-600 font-bold rounded-full hover:bg-blue-50 transition-colors"
+                        >
+                            Try Builder Now →
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             {/* Feature Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8 px-4">
                 <FeatureCard 
                     title="User Dashboard" 
                     description="Track your progress, manage projects, and view statistics."
@@ -171,7 +312,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                 />
                 <FeatureCard 
                     title="App Builder IDE" 
-                    description="Full-featured drag-and-drop builder. Export Clean Code for Web, Python & Flutter."
+                    description="Full-featured IDE with terminal, package manager, and GitHub sync. Supports 9 languages."
                     icon={Code}
                     color="bg-blue-600"
                     onClick={() => onNavigate(View.BUILDER)}
@@ -221,7 +362,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
             </div>
 
             {/* Footer / Tech Section */}
-            <div className="mt-16 pt-12 border-t border-gray-200 dark:border-slate-800">
+            <div className="mt-16 pt-12 border-t border-gray-200 dark:border-slate-800 px-4">
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
                      <div>
                          <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4 flex items-center">
@@ -230,12 +371,14 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                          </h3>
                          <p className="text-slate-600 dark:text-slate-400 leading-relaxed mb-4">
                              Built with React 19, Tailwind CSS, and Lucide Icons. 
-                             Features a responsive component-based architecture, real-time state management, and simulated IDE environment.
+                             Features a responsive component-based architecture, real-time preview with Babel transpilation, and simulated IDE environment.
                          </p>
                          <div className="flex flex-wrap gap-2">
                              <span className="px-3 py-1 bg-gray-100 dark:bg-slate-900 rounded-full text-xs text-blue-600 dark:text-blue-400 border border-gray-200 dark:border-slate-800">React 19</span>
                              <span className="px-3 py-1 bg-gray-100 dark:bg-slate-900 rounded-full text-xs text-cyan-600 dark:text-cyan-400 border border-gray-200 dark:border-slate-800">Tailwind</span>
                              <span className="px-3 py-1 bg-gray-100 dark:bg-slate-900 rounded-full text-xs text-violet-600 dark:text-violet-400 border border-gray-200 dark:border-slate-800">Vite</span>
+                             <span className="px-3 py-1 bg-gray-100 dark:bg-slate-900 rounded-full text-xs text-yellow-600 dark:text-yellow-400 border border-gray-200 dark:border-slate-800">Babel</span>
+                             <span className="px-3 py-1 bg-gray-100 dark:bg-slate-900 rounded-full text-xs text-green-600 dark:text-green-400 border border-gray-200 dark:border-slate-800">xterm.js</span>
                          </div>
                      </div>
                      <div>
@@ -244,11 +387,13 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                              Backend & AI
                          </h3>
                          <p className="text-slate-600 dark:text-slate-400 leading-relaxed mb-4">
-                             Powered by Zee AI Intelligence. Utilizing Zee Pro for reasoning and Zee Image models for assets.
+                             Powered by Zee AI Intelligence. Utilizing Zee Pro for reasoning, Zee Image models for assets, and Supabase for authentication.
                          </p>
                          <div className="flex flex-wrap gap-2">
                              <span className="px-3 py-1 bg-gray-100 dark:bg-slate-900 rounded-full text-xs text-orange-600 dark:text-orange-400 border border-gray-200 dark:border-slate-800">Zee Pro</span>
-                             <span className="px-3 py-1 bg-gray-100 dark:bg-slate-900 rounded-full text-xs text-green-600 dark:text-green-400 border border-gray-200 dark:border-slate-800">Gemini 1.5</span>
+                             <span className="px-3 py-1 bg-gray-100 dark:bg-slate-900 rounded-full text-xs text-green-600 dark:text-green-400 border border-gray-200 dark:border-slate-800">Gemini 2.5</span>
+                             <span className="px-3 py-1 bg-gray-100 dark:bg-slate-900 rounded-full text-xs text-emerald-600 dark:text-emerald-400 border border-gray-200 dark:border-slate-800">Supabase</span>
+                             <span className="px-3 py-1 bg-gray-100 dark:bg-slate-900 rounded-full text-xs text-purple-600 dark:text-purple-400 border border-gray-200 dark:border-slate-800">GitHub OAuth</span>
                          </div>
                      </div>
                  </div>

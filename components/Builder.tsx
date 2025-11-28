@@ -995,16 +995,24 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                 </div>
             </div>
             {stack === 'flutter' || stack === 'python' || stack === 'java' ? (
-                <div className="flex-1 flex flex-col items-center justify-center bg-slate-50 text-slate-500">
+                <div className="flex-1 flex flex-col items-center justify-center bg-slate-50 text-slate-500 p-6">
                     <Smartphone className="w-16 h-16 mb-4 opacity-20" />
-                    <p className="text-sm mb-4">
-                        {stack === 'python' ? 'Python Runtime (Console Only)' : 
-                         stack === 'java' ? 'Java projects require external compilation' :
-                         'Flutter Preview requires Zapp!'}
+                    <p className="text-sm mb-2 font-medium text-slate-700">
+                        {stack === 'python' ? 'Python Runtime' : 
+                         stack === 'java' ? 'Java Application' :
+                         'Flutter App'}
                     </p>
-                    {stack === 'flutter' && <a href="https://zapp.run" target="_blank" rel="noreferrer" className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold shadow-lg hover:bg-blue-500">Open Zapp Compiler</a>}
-                    {stack === 'java' && <a href="https://www.jdoodle.com/online-java-compiler/" target="_blank" rel="noreferrer" className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-bold shadow-lg hover:bg-red-500">Open Java Compiler</a>}
-                    {stack === 'python' && <a href="https://www.online-python.com/" target="_blank" rel="noreferrer" className="px-4 py-2 bg-yellow-600 text-white rounded-lg text-sm font-bold shadow-lg hover:bg-yellow-500">Open Python Console</a>}
+                    <p className="text-xs text-slate-500 mb-4 text-center max-w-xs">
+                        {stack === 'python' ? 'Run Python code in an external environment' : 
+                         stack === 'java' ? 'Compile & run Java with Maven/Gradle' :
+                         'Flutter requires Dart VM for live preview'}
+                    </p>
+                    <div className="flex flex-col gap-2">
+                        {stack === 'flutter' && <a href="https://zapp.run" target="_blank" rel="noreferrer" className="px-4 py-2 bg-cyan-600 text-white rounded-lg text-sm font-bold shadow-lg hover:bg-cyan-500 flex items-center gap-2"><Smartphone className="w-4 h-4"/>Open Zapp.run</a>}
+                        {stack === 'java' && <a href="https://www.jdoodle.com/online-java-compiler/" target="_blank" rel="noreferrer" className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-bold shadow-lg hover:bg-red-500 flex items-center gap-2"><FileCode className="w-4 h-4"/>Open JDoodle</a>}
+                        {stack === 'python' && <a href="https://www.online-python.com/" target="_blank" rel="noreferrer" className="px-4 py-2 bg-yellow-600 text-white rounded-lg text-sm font-bold shadow-lg hover:bg-yellow-500 flex items-center gap-2"><TerminalIcon className="w-4 h-4"/>Online Python</a>}
+                        <button onClick={handleDownload} className="px-4 py-2 bg-slate-700 text-white rounded-lg text-sm font-bold hover:bg-slate-600 flex items-center gap-2"><Download className="w-4 h-4"/>Download ZIP</button>
+                    </div>
                 </div>
             ) : (
                 <iframe key={previewKey} src={iframeSrc} className="flex-1 w-full border-none bg-white" title="Preview" />
