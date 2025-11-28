@@ -724,18 +724,30 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
         setHistoryStack(historyStack.slice(0, -1));
     };
 
-    const handleAddPackage = (pkgName: string) => {
+    const handleAddPackage = async (pkgName: string) => {
         if (!pkgName) return;
-        const newDeps = { ...dependencies, [pkgName]: 'latest' };
+        // Fetch actual version from npm registry
+        let version = 'latest';
+        try {
+            const res = await fetch(`https://registry.npmjs.org/${pkgName}/latest`);
+            if (res.ok) {
+                const data = await res.json();
+                version = `^${data.version}`;
+            }
+        } catch (e) {
+            console.log('Could not fetch version, using latest');
+        }
+        
+        const newDeps = { ...dependencies, [pkgName]: version };
         setDependencies(newDeps);
         const pkgFile = files.find(f => f.name === 'package.json');
         if (pkgFile) {
             try {
                 const json = JSON.parse(pkgFile.content);
-                json.dependencies = { ...json.dependencies, [pkgName]: 'latest' };
+                json.dependencies = { ...json.dependencies, [pkgName]: version };
                 const newFiles = files.map(f => f.name === 'package.json' ? { ...f, content: JSON.stringify(json, null, 2) } : f);
                 setFiles(newFiles);
-                if (shellRef.current) shellRef.current.log(`\x1b[32m+ ${pkgName}\x1b[0m`);
+                if (shellRef.current) shellRef.current.log(`\x1b[32m+ ${pkgName}@${version}\x1b[0m`);
             } catch (e) {}
         }
         setNewPackage('');
@@ -820,18 +832,21 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
             return;
         }
         
-        // Find App file for React/Vue stacks
-        const jsFiles = files.filter(f => f.name.match(/\.(js|jsx|ts|tsx|vue)$/));
-        const appFile = jsFiles.find(f => f.name.match(/App\.(js|jsx|ts|tsx|vue)$/));
+        // Find all JS/TS files for React stacks
+        const jsFiles = files.filter(f => f.name.match(/\.(js|jsx|ts|tsx)$/));
+        const appFile = jsFiles.find(f => f.name.match(/App\.(js|jsx|ts|tsx)$/));
         
         if (!appFile) {
-            const noAppHtml = `<!DOCTYPE html><html><body style="padding:20px;font-family:system-ui;"><p>No App file found. Create App.tsx, App.jsx, or App.vue.</p></body></html>`;
+            const noAppHtml = `<!DOCTYPE html><html><body style="padding:20px;font-family:system-ui;"><p>No App file found. Create App.tsx or App.jsx.</p></body></html>`;
             const blob = new Blob([noAppHtml], {type: 'text/html'});
             setIframeSrc(URL.createObjectURL(blob));
             setPreviewKey(p => p + 1);
             setTimeout(() => setIsRefreshing(false), 300);
             return;
         }
+        
+        // Get all component files (not App) to bundle them
+        const componentFiles = jsFiles.filter(f => !f.name.match(/App\.(js|jsx|ts|tsx)$/));
         
         // Vue 3 Preview
         if (stack === 'vue') {
@@ -920,6 +935,17 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
             return c;
         };
 
+        // Process all component files first
+        const componentCode = componentFiles.map(f => {
+            const code = cleanTS(f.content);
+            const name = f.name.replace(/^(src\/|components\/)?/, '').replace(/\.(js|jsx|ts|tsx)$/, '');
+            // Extract component name from file
+            const funcMatch = code.match(/function\s+(\w+)\s*\(/);
+            const constMatch = code.match(/(?:const|let)\s+(\w+)\s*=\s*(?:\([^)]*\)|)\s*=>/);
+            const compName = funcMatch?.[1] || constMatch?.[1] || name;
+            return { name, compName, code };
+        });
+        
         const appCode = cleanTS(appFile.content);
         
         // Find the component name
@@ -929,21 +955,49 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
         if (funcMatch) componentName = funcMatch[1];
         else if (constMatch) componentName = constMatch[1];
         
-        // Build dependencies import map for user packages
-        const depsMap = Object.keys(dependencies).reduce((acc, key) => ({ 
-            ...acc, 
-            [key]: `https://esm.sh/${key}` 
-        }), {});
+        // Common lucide icons as simple SVG components
+        const lucideIcons = `
+        // Common Lucide Icons as SVG components
+        const Sparkles = (props) => React.createElement('svg', {xmlns:'http://www.w3.org/2000/svg', width:24, height:24, viewBox:'0 0 24 24', fill:'none', stroke:'currentColor', strokeWidth:2, strokeLinecap:'round', strokeLinejoin:'round', ...props}, React.createElement('path', {d:'m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z'}), React.createElement('path', {d:'M5 3v4'}), React.createElement('path', {d:'M3 5h4'}), React.createElement('path', {d:'M19 17v4'}), React.createElement('path', {d:'M17 19h4'}));
+        const Star = (props) => React.createElement('svg', {xmlns:'http://www.w3.org/2000/svg', width:24, height:24, viewBox:'0 0 24 24', fill:'none', stroke:'currentColor', strokeWidth:2, strokeLinecap:'round', strokeLinejoin:'round', ...props}, React.createElement('polygon', {points:'12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2'}));
+        const Heart = (props) => React.createElement('svg', {xmlns:'http://www.w3.org/2000/svg', width:24, height:24, viewBox:'0 0 24 24', fill:'none', stroke:'currentColor', strokeWidth:2, strokeLinecap:'round', strokeLinejoin:'round', ...props}, React.createElement('path', {d:'M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z'}));
+        const Check = (props) => React.createElement('svg', {xmlns:'http://www.w3.org/2000/svg', width:24, height:24, viewBox:'0 0 24 24', fill:'none', stroke:'currentColor', strokeWidth:2, strokeLinecap:'round', strokeLinejoin:'round', ...props}, React.createElement('path', {d:'M20 6 9 17l-5-5'}));
+        const X = (props) => React.createElement('svg', {xmlns:'http://www.w3.org/2000/svg', width:24, height:24, viewBox:'0 0 24 24', fill:'none', stroke:'currentColor', strokeWidth:2, strokeLinecap:'round', strokeLinejoin:'round', ...props}, React.createElement('path', {d:'M18 6 6 18'}), React.createElement('path', {d:'m6 6 12 12'}));
+        const Menu = (props) => React.createElement('svg', {xmlns:'http://www.w3.org/2000/svg', width:24, height:24, viewBox:'0 0 24 24', fill:'none', stroke:'currentColor', strokeWidth:2, strokeLinecap:'round', strokeLinejoin:'round', ...props}, React.createElement('line', {x1:4, x2:20, y1:12, y2:12}), React.createElement('line', {x1:4, x2:20, y1:6, y2:6}), React.createElement('line', {x1:4, x2:20, y1:18, y2:18}));
+        const ChevronRight = (props) => React.createElement('svg', {xmlns:'http://www.w3.org/2000/svg', width:24, height:24, viewBox:'0 0 24 24', fill:'none', stroke:'currentColor', strokeWidth:2, strokeLinecap:'round', strokeLinejoin:'round', ...props}, React.createElement('path', {d:'m9 18 6-6-6-6'}));
+        const ChevronLeft = (props) => React.createElement('svg', {xmlns:'http://www.w3.org/2000/svg', width:24, height:24, viewBox:'0 0 24 24', fill:'none', stroke:'currentColor', strokeWidth:2, strokeLinecap:'round', strokeLinejoin:'round', ...props}, React.createElement('path', {d:'m15 18-6-6 6-6'}));
+        const ChevronDown = (props) => React.createElement('svg', {xmlns:'http://www.w3.org/2000/svg', width:24, height:24, viewBox:'0 0 24 24', fill:'none', stroke:'currentColor', strokeWidth:2, strokeLinecap:'round', strokeLinejoin:'round', ...props}, React.createElement('path', {d:'m6 9 6 6 6-6'}));
+        const ArrowRight = (props) => React.createElement('svg', {xmlns:'http://www.w3.org/2000/svg', width:24, height:24, viewBox:'0 0 24 24', fill:'none', stroke:'currentColor', strokeWidth:2, strokeLinecap:'round', strokeLinejoin:'round', ...props}, React.createElement('path', {d:'M5 12h14'}), React.createElement('path', {d:'m12 5 7 7-7 7'}));
+        const Search = (props) => React.createElement('svg', {xmlns:'http://www.w3.org/2000/svg', width:24, height:24, viewBox:'0 0 24 24', fill:'none', stroke:'currentColor', strokeWidth:2, strokeLinecap:'round', strokeLinejoin:'round', ...props}, React.createElement('circle', {cx:11, cy:11, r:8}), React.createElement('path', {d:'m21 21-4.3-4.3'}));
+        const User = (props) => React.createElement('svg', {xmlns:'http://www.w3.org/2000/svg', width:24, height:24, viewBox:'0 0 24 24', fill:'none', stroke:'currentColor', strokeWidth:2, strokeLinecap:'round', strokeLinejoin:'round', ...props}, React.createElement('path', {d:'M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2'}), React.createElement('circle', {cx:12, cy:7, r:4}));
+        const Settings = (props) => React.createElement('svg', {xmlns:'http://www.w3.org/2000/svg', width:24, height:24, viewBox:'0 0 24 24', fill:'none', stroke:'currentColor', strokeWidth:2, strokeLinecap:'round', strokeLinejoin:'round', ...props}, React.createElement('path', {d:'M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z'}), React.createElement('circle', {cx:12, cy:12, r:3}));
+        const Home = (props) => React.createElement('svg', {xmlns:'http://www.w3.org/2000/svg', width:24, height:24, viewBox:'0 0 24 24', fill:'none', stroke:'currentColor', strokeWidth:2, strokeLinecap:'round', strokeLinejoin:'round', ...props}, React.createElement('path', {d:'m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'}), React.createElement('polyline', {points:'9 22 9 12 15 12 15 22'}));
+        const Mail = (props) => React.createElement('svg', {xmlns:'http://www.w3.org/2000/svg', width:24, height:24, viewBox:'0 0 24 24', fill:'none', stroke:'currentColor', strokeWidth:2, strokeLinecap:'round', strokeLinejoin:'round', ...props}, React.createElement('rect', {width:20, height:16, x:2, y:4, rx:2}), React.createElement('path', {d:'m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7'}));
+        const Phone = (props) => React.createElement('svg', {xmlns:'http://www.w3.org/2000/svg', width:24, height:24, viewBox:'0 0 24 24', fill:'none', stroke:'currentColor', strokeWidth:2, strokeLinecap:'round', strokeLinejoin:'round', ...props}, React.createElement('path', {d:'M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z'}));
+        const Plus = (props) => React.createElement('svg', {xmlns:'http://www.w3.org/2000/svg', width:24, height:24, viewBox:'0 0 24 24', fill:'none', stroke:'currentColor', strokeWidth:2, strokeLinecap:'round', strokeLinejoin:'round', ...props}, React.createElement('path', {d:'M5 12h14'}), React.createElement('path', {d:'M12 5v14'}));
+        const Minus = (props) => React.createElement('svg', {xmlns:'http://www.w3.org/2000/svg', width:24, height:24, viewBox:'0 0 24 24', fill:'none', stroke:'currentColor', strokeWidth:2, strokeLinecap:'round', strokeLinejoin:'round', ...props}, React.createElement('path', {d:'M5 12h14'}));
+        const Zap = (props) => React.createElement('svg', {xmlns:'http://www.w3.org/2000/svg', width:24, height:24, viewBox:'0 0 24 24', fill:'none', stroke:'currentColor', strokeWidth:2, strokeLinecap:'round', strokeLinejoin:'round', ...props}, React.createElement('polygon', {points:'13 2 3 14 12 14 11 22 21 10 12 10 13 2'}));
+        const Sun = (props) => React.createElement('svg', {xmlns:'http://www.w3.org/2000/svg', width:24, height:24, viewBox:'0 0 24 24', fill:'none', stroke:'currentColor', strokeWidth:2, strokeLinecap:'round', strokeLinejoin:'round', ...props}, React.createElement('circle', {cx:12, cy:12, r:4}), React.createElement('path', {d:'M12 2v2'}), React.createElement('path', {d:'M12 20v2'}), React.createElement('path', {d:'m4.93 4.93 1.41 1.41'}), React.createElement('path', {d:'m17.66 17.66 1.41 1.41'}), React.createElement('path', {d:'M2 12h2'}), React.createElement('path', {d:'M20 12h2'}), React.createElement('path', {d:'m6.34 17.66-1.41 1.41'}), React.createElement('path', {d:'m19.07 4.93-1.41 1.41'}));
+        const Moon = (props) => React.createElement('svg', {xmlns:'http://www.w3.org/2000/svg', width:24, height:24, viewBox:'0 0 24 24', fill:'none', stroke:'currentColor', strokeWidth:2, strokeLinecap:'round', strokeLinejoin:'round', ...props}, React.createElement('path', {d:'M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z'}));
+        const Globe = (props) => React.createElement('svg', {xmlns:'http://www.w3.org/2000/svg', width:24, height:24, viewBox:'0 0 24 24', fill:'none', stroke:'currentColor', strokeWidth:2, strokeLinecap:'round', strokeLinejoin:'round', ...props}, React.createElement('circle', {cx:12, cy:12, r:10}), React.createElement('path', {d:'M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20'}), React.createElement('path', {d:'M2 12h20'}));
+        const Code = (props) => React.createElement('svg', {xmlns:'http://www.w3.org/2000/svg', width:24, height:24, viewBox:'0 0 24 24', fill:'none', stroke:'currentColor', strokeWidth:2, strokeLinecap:'round', strokeLinejoin:'round', ...props}, React.createElement('polyline', {points:'16 18 22 12 16 6'}), React.createElement('polyline', {points:'8 6 2 12 8 18'}));
+        const Terminal = (props) => React.createElement('svg', {xmlns:'http://www.w3.org/2000/svg', width:24, height:24, viewBox:'0 0 24 24', fill:'none', stroke:'currentColor', strokeWidth:2, strokeLinecap:'round', strokeLinejoin:'round', ...props}, React.createElement('polyline', {points:'4 17 10 11 4 5'}), React.createElement('line', {x1:12, x2:20, y1:19, y2:19}));
+        const Loader2 = (props) => React.createElement('svg', {xmlns:'http://www.w3.org/2000/svg', width:24, height:24, viewBox:'0 0 24 24', fill:'none', stroke:'currentColor', strokeWidth:2, strokeLinecap:'round', strokeLinejoin:'round', className:'animate-spin', ...props}, React.createElement('path', {d:'M21 12a9 9 0 1 1-6.219-8.56'}));
+        const AlertCircle = (props) => React.createElement('svg', {xmlns:'http://www.w3.org/2000/svg', width:24, height:24, viewBox:'0 0 24 24', fill:'none', stroke:'currentColor', strokeWidth:2, strokeLinecap:'round', strokeLinejoin:'round', ...props}, React.createElement('circle', {cx:12, cy:12, r:10}), React.createElement('line', {x1:12, x2:12, y1:8, y2:12}), React.createElement('line', {x1:12, x2:12.01, y1:16, y2:16}));
+        const Info = (props) => React.createElement('svg', {xmlns:'http://www.w3.org/2000/svg', width:24, height:24, viewBox:'0 0 24 24', fill:'none', stroke:'currentColor', strokeWidth:2, strokeLinecap:'round', strokeLinejoin:'round', ...props}, React.createElement('circle', {cx:12, cy:12, r:10}), React.createElement('path', {d:'M12 16v-4'}), React.createElement('path', {d:'M12 8h.01'}));
+        const Shield = (props) => React.createElement('svg', {xmlns:'http://www.w3.org/2000/svg', width:24, height:24, viewBox:'0 0 24 24', fill:'none', stroke:'currentColor', strokeWidth:2, strokeLinecap:'round', strokeLinejoin:'round', ...props}, React.createElement('path', {d:'M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z'}));
+        const Rocket = (props) => React.createElement('svg', {xmlns:'http://www.w3.org/2000/svg', width:24, height:24, viewBox:'0 0 24 24', fill:'none', stroke:'currentColor', strokeWidth:2, strokeLinecap:'round', strokeLinejoin:'round', ...props}, React.createElement('path', {d:'M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z'}), React.createElement('path', {d:'m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z'}), React.createElement('path', {d:'M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0'}), React.createElement('path', {d:'M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5'}));
+        `;
 
         const html = `<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="https://cdn.tailwindcss.com"><\/script>
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"><\/script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"><\/script>
-    <script src="https://unpkg.com/@babel/standalone@7.23.5/babel.min.js"><\/script>
+    <script src="https://cdn.tailwindcss.com"><\\/script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"><\\/script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"><\\/script>
+    <script src="https://unpkg.com/@babel/standalone@7.23.5/babel.min.js"><\\/script>
     <style>
         body { background-color: #ffffff; margin: 0; font-family: system-ui, -apple-system, sans-serif; }
         #root { min-height: 100vh; }
@@ -960,9 +1014,12 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
         };
         // Make React hooks available as globals
         const { useState, useEffect, useRef, useCallback, useMemo, useContext, useReducer, useLayoutEffect, createContext, Fragment, memo, forwardRef } = React;
-    <\/script>
+    <\\/script>
     
     <script type="text/babel" data-presets="react">
+        // Common Lucide Icons
+        ${lucideIcons}
+        
         // Error boundary
         class ErrorBoundary extends React.Component {
             constructor(props) {
@@ -977,13 +1034,16 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                     return React.createElement('div', {
                         style: {padding: '20px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', margin: '20px', fontFamily: 'monospace'}
                     }, [
-                        React.createElement('strong', {style: {color: '#dc2626'}}, 'Render Error:'),
-                        React.createElement('pre', {style: {color: '#7f1d1d', marginTop: '8px', whiteSpace: 'pre-wrap'}}, this.state.error?.message)
+                        React.createElement('strong', {key:'title', style: {color: '#dc2626'}}, 'Render Error:'),
+                        React.createElement('pre', {key:'msg', style: {color: '#7f1d1d', marginTop: '8px', whiteSpace: 'pre-wrap'}}, this.state.error?.message)
                     ]);
                 }
                 return this.props.children;
             }
         }
+        
+        // Component files
+        ${componentCode.map(c => `// ${c.name}\n${c.code}`).join('\\n\\n')}
 
         // User's App component
         ${appCode}
