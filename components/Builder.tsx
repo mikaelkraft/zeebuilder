@@ -958,6 +958,8 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
             document.getElementById('root').innerHTML = '<div style="padding:20px;color:#ef4444;font-family:monospace;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;margin:20px;"><strong>Error:</strong><br>' + msg + '</div>';
             return true;
         };
+        // Make React hooks available as globals
+        const { useState, useEffect, useRef, useCallback, useMemo, useContext, useReducer, useLayoutEffect, createContext, Fragment, memo, forwardRef } = React;
     <\/script>
     
     <script type="text/babel" data-presets="react">
@@ -1842,7 +1844,7 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                                         <div key={s.id} onClick={() => restoreSnapshot(s)} className="bg-slate-800 p-2 rounded cursor-pointer hover:bg-slate-700 group">
                                             <div className="flex justify-between items-center">
                                                 <span className="text-xs text-white font-bold">{s.name}</span>
-                                                <span className="text-[10px] text-slate-500">{new Date(s.timestamp).toLocaleTimeString()}</span>
+                                                <span className="text-[10px] text-slate-500">{new Date(s.timestamp).toLocaleDateString()} {new Date(s.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                                             </div>
                                             <p className="text-[10px] text-slate-400 mt-1">{s.files.length} files</p>
                                         </div>
