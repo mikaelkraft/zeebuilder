@@ -62,7 +62,7 @@ const EngagementChat = ({ onNavigate }: { onNavigate: (view: View) => void }) =>
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
                             placeholder="e.g., Build a Python script to scrape data..." 
-                            className="w-full bg-transparent border-none px-4 py-3 text-sm text-slate-900 dark:text-white focus:ring-0 placeholder:text-slate-500 p:text-xs"
+                            className="w-full bg-transparent border-none px-4 py-3 text-sm text-slate-900 dark:text-white focus:ring-0 placeholder:text-slate-500 placeholder:text-xs"
                             autoFocus={false}
                         />
                         <button 
