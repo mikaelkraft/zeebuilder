@@ -1175,16 +1175,25 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
         
         // For React stacks, ensure we have essential entry files
         if (stack === 'react' || stack === 'react-ts') {
-            const ext = stack === 'react-ts' ? 'tsx' : 'jsx';
+            const isTS = stack === 'react-ts';
+            const ext = isTS ? 'tsx' : 'jsx';
             
             // Check if user has index file, if not create one
             const hasIndex = files.some(f => f.name.match(/index\.(tsx|jsx|ts|js)$/));
             if (!hasIndex) {
-                const indexContent = `import React from 'react';
+                // Use proper syntax based on JS vs TS
+                const indexContent = isTS 
+                    ? `import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 
 const root = ReactDOM.createRoot(document.getElementById('root')!);
+root.render(<App />);`
+                    : `import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<App />);`;
                 sandpackFiles[`/index.${ext}`] = { code: indexContent };
             }
@@ -1281,28 +1290,21 @@ root.render(<App />);`;
                     </div>
                 </div>
             ) : canUseSandpack ? (
-                <div className="flex-1 w-full h-full overflow-hidden" key={previewKey} style={{ minHeight: 0 }}>
+                <div className="flex-1 w-full overflow-hidden" key={previewKey} style={{ height: 'calc(100% - 40px)' }}>
                     <SandpackProvider
                         template={getSandpackTemplate()}
                         files={getSandpackFiles()}
                         theme="light"
                         customSetup={{
                             dependencies: getSandpackDependencies(),
-                            entry: stack === 'html' ? '/index.html' : '/index.tsx'
+                            entry: stack === 'html' ? '/index.html' : (stack === 'react-ts' ? '/index.tsx' : '/index.jsx')
                         }}
                         options={{
-                            externalResources: ["https://cdn.tailwindcss.com"],
-                            classes: {
-                                'sp-wrapper': 'h-full',
-                                'sp-layout': 'h-full',
-                                'sp-preview': 'h-full',
-                                'sp-preview-container': 'h-full',
-                                'sp-preview-iframe': 'h-full'
-                            }
+                            externalResources: ["https://cdn.tailwindcss.com"]
                         }}
                     >
                         <SandpackPreview 
-                            style={{ height: '100%', width: '100%' }}
+                            style={{ height: '100%', width: '100%', border: 'none' }}
                             showNavigator={false}
                             showRefreshButton={false}
                         />
