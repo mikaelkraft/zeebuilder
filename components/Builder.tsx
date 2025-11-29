@@ -160,17 +160,59 @@ class Shell {
             case 'npm':
                 if (args[0] === 'install' || args[0] === 'i') {
                     if (args[1]) {
-                        this.term.writeln(`\x1b[33mFetching ${args[1]} from npm registry...\x1b[0m`);
-                        this.onNpmInstall(args[1]); 
+                        const pkg = args[1];
+                        // Simulate npm install with progress
+                        this.term.writeln('');
+                        this.term.writeln(`\x1b[90mnpm\x1b[0m \x1b[32minfo\x1b[0m using npm@10.2.0`);
+                        this.term.writeln(`\x1b[90mnpm\x1b[0m \x1b[32minfo\x1b[0m using node@v20.9.0`);
+                        
+                        setTimeout(() => {
+                            this.term.writeln(`\x1b[90mnpm\x1b[0m \x1b[32mhttp\x1b[0m fetch GET 200 https://registry.npmjs.org/${pkg} 125ms`);
+                        }, 300);
+                        
+                        setTimeout(() => {
+                            this.term.writeln(`\x1b[90mnpm\x1b[0m \x1b[32mhttp\x1b[0m fetch GET 200 https://registry.npmjs.org/${pkg}/-/${pkg}-1.0.0.tgz 89ms`);
+                        }, 600);
+                        
+                        setTimeout(() => {
+                            this.term.writeln('');
+                            this.term.writeln(`\x1b[32madded\x1b[0m 1 package, and audited 2 packages in 1s`);
+                        }, 1000);
+                        
+                        setTimeout(() => {
+                            this.term.writeln('');
+                            this.term.writeln(`\x1b[1mfound\x1b[0m \x1b[32m0 vulnerabilities\x1b[0m`);
+                            this.onNpmInstall(pkg);
+                            this.prompt();
+                        }, 1200);
+                        return; // Don't call prompt() below, we'll do it in setTimeout
                     } else {
                         this.term.writeln(`npm ERR! Missing package name.`);
                     }
                 }
                 break;
             case 'node':
-                 this.term.writeln(`\x1b[33mRunning node simulation...\x1b[0m`);
                  if (args[0]) {
-                     this.term.writeln(`Executing ${args[0]}... (Logs will appear in console)`);
+                     const jsFile = this.files.find(f => f.name === args[0] || f.name.endsWith(args[0]));
+                     if (jsFile) {
+                         this.term.writeln(`\x1b[32m> node ${args[0]}\x1b[0m`);
+                         try {
+                             // Execute JS file and capture console.log output
+                             const logs: string[] = [];
+                             const mockConsole = { log: (...a: any[]) => logs.push(a.map(String).join(' ')) };
+                             const fn = new Function('console', jsFile.content);
+                             fn(mockConsole);
+                             logs.forEach(l => this.term.writeln(l));
+                         } catch (e: any) {
+                             this.term.writeln(`\x1b[31mError: ${e.message}\x1b[0m`);
+                         }
+                     } else {
+                         this.term.writeln(`\x1b[31mError: Cannot find module '${args[0]}'\x1b[0m`);
+                     }
+                 } else {
+                     this.term.writeln(`\x1b[32mWelcome to Node.js v20.9.0\x1b[0m`);
+                     this.term.writeln(`Type ".help" for more information.`);
+                     this.term.writeln(`\x1b[90m> \x1b[0m`);
                  }
                  break;
             case 'python':
@@ -187,31 +229,103 @@ class Shell {
     updateFiles(newFiles: ProjectFile[]) { this.files = newFiles; }
 }
 
-const FileTreeNode: React.FC<{ node: TreeNode; level: number; activeFile: string; onSelect: (path: string) => void }> = ({ node, level, activeFile, onSelect }) => {
+// Enhanced FileTreeNode with rename and delete capabilities
+const FileTreeNode: React.FC<{ 
+    node: TreeNode; 
+    level: number; 
+    activeFile: string; 
+    onSelect: (path: string) => void;
+    onRename?: (oldPath: string, newPath: string) => void;
+    onDelete?: (path: string) => void;
+}> = ({ node, level, activeFile, onSelect, onRename, onDelete }) => {
     const [isOpen, setIsOpen] = useState(true);
+    const [isEditing, setIsEditing] = useState(false);
+    const [editName, setEditName] = useState(node.name);
+    const [showContextMenu, setShowContextMenu] = useState(false);
     const isFile = node.type === 'file';
     const isActive = isFile && activeFile === node.path;
 
+    const handleRename = () => {
+        if (editName.trim() && editName !== node.name && onRename) {
+            const pathParts = node.path.split('/');
+            pathParts[pathParts.length - 1] = editName.trim();
+            const newPath = pathParts.join('/');
+            onRename(node.path, newPath);
+        }
+        setIsEditing(false);
+    };
+
     return (
-        <div>
-            <button
-                onClick={() => isFile ? onSelect(node.path) : setIsOpen(!isOpen)}
-                className={`w-full flex items-center px-2 py-1.5 text-xs rounded-md transition-colors group ${isActive ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'}`}
+        <div className="relative group">
+            <div
+                className={`w-full flex items-center px-2 py-1.5 text-xs rounded-md transition-colors ${isActive ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'}`}
                 style={{ paddingLeft: `${level * 12 + 8}px` }}
             >
-                <span className="mr-1.5 opacity-70">
-                    {isFile ? (
-                        node.name.endsWith('.css') ? <CodeIcon className="w-3.5 h-3.5 text-blue-400" /> :
-                        node.name.match(/\.(ts|tsx)$/) ? <FileType className="w-3.5 h-3.5 text-blue-300" /> :
-                        node.name.endsWith('.json') ? <Database className="w-3.5 h-3.5 text-yellow-500" /> :
-                        node.name.endsWith('.py') ? <TerminalIcon className="w-3.5 h-3.5 text-yellow-400" /> :
-                        node.name.match(/\.(png|jpg|jpeg|svg|gif)$/) ? <Image className="w-3.5 h-3.5 text-purple-400" /> :
-                        <File className="w-3.5 h-3.5" />
-                    ) : (isOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />)}
-                </span>
-                <span className="truncate font-mono">{node.name}</span>
-            </button>
-            {!isFile && isOpen && node.children && <div>{node.children.map(child => <FileTreeNode key={child.path} node={child} level={level + 1} activeFile={activeFile} onSelect={onSelect} />)}</div>}
+                <button
+                    onClick={() => isFile ? onSelect(node.path) : setIsOpen(!isOpen)}
+                    className="flex items-center flex-1 min-w-0"
+                >
+                    <span className="mr-1.5 opacity-70 shrink-0">
+                        {isFile ? (
+                            node.name.endsWith('.css') ? <CodeIcon className="w-3.5 h-3.5 text-blue-400" /> :
+                            node.name.match(/\.(ts|tsx)$/) ? <FileType className="w-3.5 h-3.5 text-blue-300" /> :
+                            node.name.endsWith('.json') ? <Database className="w-3.5 h-3.5 text-yellow-500" /> :
+                            node.name.endsWith('.py') ? <TerminalIcon className="w-3.5 h-3.5 text-yellow-400" /> :
+                            node.name.match(/\.(png|jpg|jpeg|svg|gif)$/) ? <Image className="w-3.5 h-3.5 text-purple-400" /> :
+                            <File className="w-3.5 h-3.5" />
+                        ) : (isOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />)}
+                    </span>
+                    {isEditing ? (
+                        <input
+                            type="text"
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            onBlur={handleRename}
+                            onKeyDown={(e) => { if (e.key === 'Enter') handleRename(); if (e.key === 'Escape') setIsEditing(false); }}
+                            className="flex-1 bg-slate-900 border border-blue-500 rounded px-1 text-white text-xs font-mono focus:outline-none"
+                            autoFocus
+                            onClick={(e) => e.stopPropagation()}
+                        />
+                    ) : (
+                        <span className="truncate font-mono">{node.name}</span>
+                    )}
+                </button>
+                {isFile && (
+                    <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 ml-1">
+                        <button 
+                            onClick={(e) => { e.stopPropagation(); setEditName(node.name); setIsEditing(true); }}
+                            className="p-0.5 hover:bg-slate-700 rounded"
+                            title="Rename"
+                        >
+                            <Edit className="w-3 h-3" />
+                        </button>
+                        {onDelete && (
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); onDelete(node.path); }}
+                                className="p-0.5 hover:bg-red-900/50 rounded text-red-400"
+                                title="Delete"
+                            >
+                                <Trash2 className="w-3 h-3" />
+                            </button>
+                        )}
+                    </div>
+                )}
+            </div>
+            {!isFile && isOpen && node.children && (
+                <div>
+                    {node.children.map(child => (
+                        <FileTreeNode 
+                            key={child.path} 
+                            node={child} 
+                            level={level + 1} 
+                            activeFile={activeFile} 
+                            onSelect={onSelect}
+                            onRename={onRename}
+                            onDelete={onDelete}
+                        />
+                    ))}
+                </div>
+            )}
         </div>
     );
 };
@@ -488,6 +602,30 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
             setHistoryStack(prev => [...prev, files]); // Save current before restoring
             setFiles(JSON.parse(JSON.stringify(snapshot.files)));
             setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: `↺ Restored checkpoint: **${snapshot.name}**`, timestamp: Date.now() }]);
+        }
+    };
+
+    // File Management Functions
+    const handleRenameFile = (oldPath: string, newPath: string) => {
+        setFiles(prevFiles => prevFiles.map(f => 
+            f.name === oldPath ? { ...f, name: newPath } : f
+        ));
+        // If the renamed file was active, update activeFile
+        if (activeFile === oldPath) {
+            setActiveFile(newPath);
+        }
+    };
+
+    const handleDeleteFile = (path: string) => {
+        if (confirm(`Delete "${path}"? This cannot be undone.`)) {
+            setFiles(prevFiles => prevFiles.filter(f => f.name !== path));
+            // If the deleted file was active, switch to another file
+            if (activeFile === path) {
+                const remaining = files.filter(f => f.name !== path);
+                if (remaining.length > 0) {
+                    setActiveFile(remaining[0].name);
+                }
+            }
         }
     };
 
@@ -1551,7 +1689,7 @@ root.render(<App />);`;
                         ))}
                     </div>
                     <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
-                        {sidebarTab === 'files' && <div className="space-y-1 pt-2">{getFileTree(files).map(n => <FileTreeNode key={n.path} node={n} level={0} activeFile={activeFile} onSelect={setActiveFile} />)}</div>}
+                        {sidebarTab === 'files' && <div className="space-y-1 pt-2">{getFileTree(files).map(n => <FileTreeNode key={n.path} node={n} level={0} activeFile={activeFile} onSelect={setActiveFile} onRename={handleRenameFile} onDelete={handleDeleteFile} />)}</div>}
                         
                         {/* Code View Tab with Syntax Highlighting */}
                         {sidebarTab === 'code' && (
