@@ -105,11 +105,11 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
         "React & Vue Apps",
         "Flutter Mobile Apps",
         "Python Scripts",
-        "Node.js Backends",
-        "Java Applications",
         "Svelte Components",
         "AI-Powered Images",
-        "Audio & Transcripts"
+        "Audio & Transcripts",
+        "HTML5 Websites",
+        "Cross-Platform Apps"
     ];
 
     const stacks = [
@@ -119,9 +119,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
         { name: 'Svelte', icon: Zap, color: 'text-orange-500', description: 'Compiled' },
         { name: 'Flutter', icon: Smartphone, color: 'text-cyan-500', description: 'Cross-platform' },
         { name: 'Python', icon: Terminal, color: 'text-yellow-500', description: 'AI & Scripts' },
-        { name: 'Node.js', icon: Terminal, color: 'text-green-600', description: 'Server-side' },
-        { name: 'Java', icon: Cpu, color: 'text-red-500', description: 'Enterprise' },
-        { name: 'HTML/JS', icon: Globe, color: 'text-orange-400', description: 'Vanilla' },
+        { name: 'HTML/JS', icon: Globe, color: 'text-orange-400', description: 'Vanilla Web' },
     ];
 
     useEffect(() => {
@@ -283,11 +281,11 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                             </div>
                             <div className="flex items-start gap-3">
                                 <div className="p-2 bg-white/20 rounded-lg">
-                                    <Cpu className="w-5 h-5" />
+                                    <Smartphone className="w-5 h-5" />
                                 </div>
                                 <div>
-                                    <h3 className="font-bold">Java & Python Support</h3>
-                                    <p className="text-sm text-white/80">Create backend apps with AI assist</p>
+                                    <h3 className="font-bold">Flutter & Python</h3>
+                                    <p className="text-sm text-white/80">Mobile apps and scripts with AI assist</p>
                                 </div>
                             </div>
                         </div>
@@ -312,7 +310,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                 />
                 <FeatureCard 
                     title="App Builder IDE" 
-                    description="Full-featured IDE with terminal, package manager, and GitHub sync. Supports 9 languages."
+                    description="Full-featured IDE with terminal, package manager, and GitHub sync. Supports 7 stacks."
                     icon={Code}
                     color="bg-blue-600"
                     onClick={() => onNavigate(View.BUILDER)}

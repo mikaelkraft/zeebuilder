@@ -70,7 +70,7 @@ const ImageStudio: React.FC = () => {
                         }
                     }
                 } else {
-                    alert("Generation produced no content.");
+                    (window as any).swal("Generation Failed", "No content was generated. Please try a different prompt.", "error");
                 }
             } else if (mode === 'logo') {
                 const logoPrompt = `Design a ${logoStyle.toLowerCase()} logo for an application named "${appName}". Context/Description: ${prompt}. The logo should be high-quality, professional, iconic, and suitable for an app icon. Ensure a clean background.`;
@@ -85,7 +85,7 @@ const ImageStudio: React.FC = () => {
                         }
                     }
                 } else {
-                    alert("Logo generation failed.");
+                    (window as any).swal("Logo Generation Failed", "Could not generate logo. Please try again.", "error");
                 }
             } else if (mode === 'edit') {
                 if (!uploadedImage) return;
@@ -99,12 +99,12 @@ const ImageStudio: React.FC = () => {
                         }
                     }
                 } else {
-                    alert("Editing failed.");
+                    (window as any).swal("Edit Failed", "Image editing failed. Please try again.", "error");
                 }
             }
         } catch (error) {
             console.error(error);
-            alert("Error generating content.");
+            (window as any).swal("Error", "An error occurred while generating content.", "error");
         } finally {
             setIsLoading(false);
         }
@@ -115,7 +115,7 @@ const ImageStudio: React.FC = () => {
 
         const activeId = localStorage.getItem('zee_active_project_id');
         if (!activeId) {
-            alert("No active project found. Please open a project in the Builder first.");
+            (window as any).swal("No Active Project", "Please open a project in the Builder first.", "warning");
             return;
         }
 

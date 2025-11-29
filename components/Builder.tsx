@@ -583,12 +583,6 @@ export default function App() {
                 language: 'html' 
             }];
             setActiveFile('index.html');
-        } else if (type === 'node') {
-             initialFiles = [
-                 { name: 'package.json', content: JSON.stringify({ name: "node-app", version: "1.0.0", main: "index.js" }, null, 2), language: 'json' },
-                 { name: 'index.js', content: `console.log("Hello Node.js");`, language: 'javascript' }
-             ];
-             setActiveFile('index.js');
         } else if (type === 'python') {
              initialFiles = [
                  { name: 'main.py', content: `# Welcome to Zee Python Builder!
@@ -638,7 +632,7 @@ if __name__ == "__main__":
              setActiveFile('main.py');
         } else if (type === 'svelte') {
              initialFiles = [
-                 { name: 'package.json', content: JSON.stringify({ name: "svelte-app", version: "1.0.0", dependencies: { "svelte": "^4.0.0" } }, null, 2), language: 'json' },
+                 { name: 'package.json', content: JSON.stringify({ name: "svelte-app", version: "1.0.0", dependencies: { "svelte": "^3.59.2" } }, null, 2), language: 'json' },
                  { name: 'App.svelte', content: `<script>
   let count = 0;
   let title = 'Zee Svelte Builder';
@@ -669,12 +663,6 @@ if __name__ == "__main__":
 </style>`, language: 'html' }
              ];
              setActiveFile('App.svelte');
-        } else if (type === 'java') {
-             initialFiles = [
-                 { name: 'pom.xml', content: `<?xml version="1.0" encoding="UTF-8"?>\n<project xmlns="http://maven.apache.org/POM/4.0.0">\n  <modelVersion>4.0.0</modelVersion>\n  <groupId>com.zeebuilder</groupId>\n  <artifactId>app</artifactId>\n  <version>1.0.0</version>\n  <properties>\n    <maven.compiler.source>17</maven.compiler.source>\n    <maven.compiler.target>17</maven.compiler.target>\n  </properties>\n</project>`, language: 'xml' },
-                 { name: 'src/main/java/App.java', content: `public class App {\n    public static void main(String[] args) {\n        System.out.println("Hello from Java!");\n    }\n}`, language: 'java' }
-             ];
-             setActiveFile('src/main/java/App.java');
         } else {
             initialFiles = [{ name: 'index.html', content: '<html><body><h1>Hello World</h1></body></html>', language: 'html'}];
             setActiveFile('index.html');
@@ -701,15 +689,42 @@ if __name__ == "__main__":
     };
 
     const deleteProject = (id: string) => {
-        if (confirm("Are you sure you want to delete this project?")) {
-            const newProjects = savedProjects.filter(p => p.id !== id);
-            setSavedProjects(newProjects);
-            localStorage.setItem('zee_projects', JSON.stringify(newProjects));
-            if (currentProjectId === id) {
-                setCurrentProjectId(null);
-                setIsWizardOpen(true);
+        const project = savedProjects.find(p => p.id === id);
+        const projectName = project?.name || 'this project';
+        
+        // Use SweetAlert for confirmation
+        (window as any).swal({
+            title: "Delete Project?",
+            text: `Are you sure you want to delete "${projectName}"? This action cannot be undone.`,
+            icon: "warning",
+            buttons: {
+                cancel: {
+                    text: "Cancel",
+                    value: false,
+                    visible: true,
+                    closeModal: true,
+                },
+                confirm: {
+                    text: "Delete",
+                    value: true,
+                    visible: true,
+                    className: "swal-button--danger",
+                    closeModal: true
+                }
+            },
+            dangerMode: true,
+        }).then((willDelete: boolean) => {
+            if (willDelete) {
+                const newProjects = savedProjects.filter(p => p.id !== id);
+                setSavedProjects(newProjects);
+                localStorage.setItem('zee_projects', JSON.stringify(newProjects));
+                if (currentProjectId === id) {
+                    setCurrentProjectId(null);
+                    setIsWizardOpen(true);
+                }
+                (window as any).swal("Deleted!", `"${projectName}" has been deleted.`, "success");
             }
-        }
+        });
     };
 
     const createSnapshot = () => {
@@ -726,11 +741,20 @@ if __name__ == "__main__":
     };
 
     const restoreSnapshot = (snapshot: Snapshot) => {
-        if (confirm(`Restore to checkpoint "${snapshot.name}"? Current unsaved changes will be lost.`)) {
-            setHistoryStack(prev => [...prev, files]); // Save current before restoring
-            setFiles(JSON.parse(JSON.stringify(snapshot.files)));
-            setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: `↺ Restored checkpoint: **${snapshot.name}**`, timestamp: Date.now() }]);
-        }
+        (window as any).swal({
+            title: "Restore Checkpoint?",
+            text: `Restore to "${snapshot.name}"? Current unsaved changes will be lost.`,
+            icon: "warning",
+            buttons: ["Cancel", "Restore"],
+            dangerMode: true,
+        }).then((willRestore: boolean) => {
+            if (willRestore) {
+                setHistoryStack(prev => [...prev, files]);
+                setFiles(JSON.parse(JSON.stringify(snapshot.files)));
+                setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: `↺ Restored checkpoint: **${snapshot.name}**`, timestamp: Date.now() }]);
+                (window as any).swal("Restored!", `Checkpoint "${snapshot.name}" has been restored.`, "success");
+            }
+        });
     };
 
     // File Management Functions
@@ -745,16 +769,23 @@ if __name__ == "__main__":
     };
 
     const handleDeleteFile = (path: string) => {
-        if (confirm(`Delete "${path}"? This cannot be undone.`)) {
-            setFiles(prevFiles => prevFiles.filter(f => f.name !== path));
-            // If the deleted file was active, switch to another file
-            if (activeFile === path) {
-                const remaining = files.filter(f => f.name !== path);
-                if (remaining.length > 0) {
-                    setActiveFile(remaining[0].name);
+        (window as any).swal({
+            title: "Delete File?",
+            text: `Delete "${path}"? This cannot be undone.`,
+            icon: "warning",
+            buttons: ["Cancel", "Delete"],
+            dangerMode: true,
+        }).then((willDelete: boolean) => {
+            if (willDelete) {
+                setFiles(prevFiles => prevFiles.filter(f => f.name !== path));
+                if (activeFile === path) {
+                    const remaining = files.filter(f => f.name !== path);
+                    if (remaining.length > 0) {
+                        setActiveFile(remaining[0].name);
+                    }
                 }
             }
-        }
+        });
     };
 
     // Python Runtime Functions
@@ -841,7 +872,7 @@ if __name__ == "__main__":
             setGhStatus('');
         } catch (e: any) {
             setGhStatus('');
-            alert(e.message);
+            (window as any).swal("Connection Failed", e.message, "error");
         } finally {
             setGhLoading(false);
         }
@@ -892,7 +923,7 @@ if __name__ == "__main__":
             setGhStatus('');
         } catch (e: any) {
             setGhStatus('');
-            alert('Clone failed: ' + e.message);
+            (window as any).swal("Clone Failed", e.message, "error");
         } finally {
             setGhLoading(false);
         }
@@ -900,7 +931,7 @@ if __name__ == "__main__":
 
     const pushToRepo = async () => {
         if (!ghOctokit || !selectedRepo) {
-            alert('Please select a repository first');
+            (window as any).swal("No Repository", "Please select a repository first.", "warning");
             return;
         }
         setGhLoading(true);
@@ -928,7 +959,7 @@ if __name__ == "__main__":
             }]);
         } catch (e: any) {
             setGhStatus('');
-            alert('Push failed: ' + e.message);
+            (window as any).swal("Push Failed", e.message, "error");
         } finally {
             setGhLoading(false);
         }
@@ -959,7 +990,7 @@ if __name__ == "__main__":
             await pushToRepo();
         } catch (e: any) {
             setGhStatus('');
-            alert('Failed to create repo: ' + e.message);
+            (window as any).swal("Repository Creation Failed", e.message, "error");
         } finally {
             setGhLoading(false);
         }
@@ -967,8 +998,17 @@ if __name__ == "__main__":
 
     const pullFromRepo = async () => {
         if (!ghOctokit || !selectedRepo) return;
-        if (!confirm('Pull latest changes? This will overwrite local files.')) return;
-        await cloneRepo(selectedRepo.owner, selectedRepo.name);
+        (window as any).swal({
+            title: "Pull Changes?",
+            text: "This will overwrite your local files with the latest from the repository.",
+            icon: "warning",
+            buttons: ["Cancel", "Pull"],
+            dangerMode: true,
+        }).then(async (willPull: boolean) => {
+            if (willPull) {
+                await cloneRepo(selectedRepo.owner, selectedRepo.name);
+            }
+        });
     };
 
     const handleSendMessage = async () => {
@@ -1045,7 +1085,7 @@ if __name__ == "__main__":
                 };
                 mediaRecorder.start();
                 setIsRecording(true);
-            } catch (error) { alert("Microphone access denied."); }
+            } catch (error) { (window as any).swal("Microphone Error", "Microphone access denied. Please check permissions.", "error"); }
         }
     };
 
@@ -1126,7 +1166,7 @@ if __name__ == "__main__":
                 if (entry) setActiveFile(entry.name); else setActiveFile(newFiles[0].name);
                 updateWebPreview();
             }
-        } catch (error: any) { alert("Failed to import: " + error.message); }
+        } catch (error: any) { (window as any).swal("Import Failed", error.message, "error"); }
     };
 
     const updateWebPreview = () => {
@@ -1599,7 +1639,7 @@ root.render(<App />);`;
             };
         } else if (stack === 'svelte') {
             baseDeps = {
-                'svelte': '^4.0.0'
+                'svelte': '^3.59.2'
             };
         }
         // For html and vue with CDN, no deps needed
@@ -1710,21 +1750,6 @@ root.render(<App />);`;
                         title="DartPad Flutter Preview"
                         allow="clipboard-read; clipboard-write"
                     />
-                </div>
-            ) : stack === 'java' || stack === 'node' ? (
-                <div className="flex-1 flex flex-col items-center justify-center bg-slate-50 text-slate-500 p-6">
-                    <Smartphone className="w-16 h-16 mb-4 opacity-20" />
-                    <p className="text-sm mb-2 font-medium text-slate-700">
-                        {stack === 'java' ? 'Java Application' : 'Node.js Backend'}
-                    </p>
-                    <p className="text-xs text-slate-500 mb-4 text-center max-w-xs">
-                        {stack === 'java' ? 'Compile & run Java with Maven/Gradle' : 'Node.js runs on the server, not in browser'}
-                    </p>
-                    <div className="flex flex-col gap-2">
-                        {stack === 'java' && <a href="https://www.jdoodle.com/online-java-compiler/" target="_blank" rel="noreferrer" className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-bold shadow-lg hover:bg-red-500 flex items-center gap-2"><FileCode className="w-4 h-4"/>Open JDoodle</a>}
-                        {stack === 'node' && <a href="https://replit.com/languages/nodejs" target="_blank" rel="noreferrer" className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-bold shadow-lg hover:bg-green-500 flex items-center gap-2"><TerminalIcon className="w-4 h-4"/>Open Replit</a>}
-                        <button onClick={handleDownload} className="px-4 py-2 bg-slate-700 text-white rounded-lg text-sm font-bold hover:bg-slate-600 flex items-center gap-2"><Download className="w-4 h-4"/>Download ZIP</button>
-                    </div>
                 </div>
             ) : canUseSandpack ? (
                 <div className="flex-1 w-full" key={previewKey} style={{ height: 'calc(100% - 40px)', minHeight: '400px' }}>
@@ -1917,8 +1942,6 @@ root.render(<App />);`;
                             { id: 'svelte', label: 'Svelte', icon: Layers, color: 'text-orange-600' },
                             { id: 'flutter', label: 'Flutter', icon: Smartphone, color: 'text-cyan-500' },
                             { id: 'python', label: 'Python', icon: TerminalIcon, color: 'text-yellow-500' },
-                            { id: 'node', label: 'Node.js', icon: TerminalIcon, color: 'text-green-600' },
-                            { id: 'java', label: 'Java', icon: FileCode, color: 'text-red-500' },
                             { id: 'html', label: 'HTML/JS', icon: Globe, color: 'text-orange-500' },
                         ].map((s) => (
                             <button key={s.id} onClick={() => initProject(s.id as Stack)} className="p-6 bg-slate-800 rounded-xl border border-slate-700 hover:border-blue-500 hover:bg-slate-750 text-left transition-all group">
@@ -2318,7 +2341,7 @@ root.render(<App />);`;
                                             <h4 className="text-[10px] text-slate-400 font-bold uppercase">Quick Actions</h4>
                                             <button 
                                                 onClick={async()=>{
-                                                    if(!selectedRepo) return alert('Select a repository first');
+                                                    if(!selectedRepo) return (window as any).swal("No Repository", "Please select a repository first.", "warning");
                                                     await cloneRepo(selectedRepo.owner, selectedRepo.name);
                                                 }}
                                                 disabled={ghLoading || !selectedRepo}
@@ -2430,9 +2453,9 @@ root.render(<App />);`;
                                     
                                     <button 
                                         onClick={()=>{
-                                            if (newDbType === 'appwrite' && !newDbConfig.endpoint) return alert('Please enter Appwrite endpoint');
-                                            if (newDbType !== 'vercel' && !newDbConfig.url && !newDbConfig.endpoint) return alert('Please enter connection details');
-                                            if (newDbType === 'vercel' && !newDbConfig.key) return alert('Please enter Vercel token');
+                                            if (newDbType === 'appwrite' && !newDbConfig.endpoint) return (window as any).swal("Missing Field", "Please enter Appwrite endpoint.", "warning");
+                                            if (newDbType !== 'vercel' && !newDbConfig.url && !newDbConfig.endpoint) return (window as any).swal("Missing Field", "Please enter connection details.", "warning");
+                                            if (newDbType === 'vercel' && !newDbConfig.key) return (window as any).swal("Missing Field", "Please enter Vercel token.", "warning");
                                             
                                             const config: any = { key: newDbConfig.key };
                                             if (newDbConfig.url) config.url = newDbConfig.url;

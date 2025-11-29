@@ -37,17 +37,26 @@ const Projects: React.FC<ProjectsProps> = ({ onNavigate, setActiveProject }) => 
 
     const deleteProject = (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
-        if (confirm("Are you sure you want to delete this project? This cannot be undone.")) {
-            const updated = projects.filter(p => p.id !== id);
-            setProjects(updated);
-            localStorage.setItem('zee_projects', JSON.stringify(updated));
-            
-            // If active project is deleted, clear it
-            const activeId = localStorage.getItem('zee_active_project_id');
-            if (activeId === id) {
-                localStorage.removeItem('zee_active_project_id');
+        const project = projects.find(p => p.id === id);
+        (window as any).swal({
+            title: "Delete Project?",
+            text: `Are you sure you want to delete "${project?.name || 'this project'}"? This cannot be undone.`,
+            icon: "warning",
+            buttons: ["Cancel", "Delete"],
+            dangerMode: true,
+        }).then((willDelete: boolean) => {
+            if (willDelete) {
+                const updated = projects.filter(p => p.id !== id);
+                setProjects(updated);
+                localStorage.setItem('zee_projects', JSON.stringify(updated));
+                
+                const activeId = localStorage.getItem('zee_active_project_id');
+                if (activeId === id) {
+                    localStorage.removeItem('zee_active_project_id');
+                }
+                (window as any).swal("Deleted!", "Project has been deleted.", "success");
             }
-        }
+        });
     };
 
     const openProject = (id: string) => {
@@ -61,8 +70,8 @@ const Projects: React.FC<ProjectsProps> = ({ onNavigate, setActiveProject }) => 
         switch(stack) {
             case 'react': case 'react-ts': return <Code className="w-5 h-5 text-blue-500" />;
             case 'vue': return <Layout className="w-5 h-5 text-green-500" />;
+            case 'svelte': return <Layout className="w-5 h-5 text-orange-600" />;
             case 'flutter': return <Smartphone className="w-5 h-5 text-cyan-500" />;
-            case 'node': return <Terminal className="w-5 h-5 text-green-600" />;
             case 'python': return <Terminal className="w-5 h-5 text-yellow-500" />;
             default: return <Globe className="w-5 h-5 text-orange-500" />;
         }

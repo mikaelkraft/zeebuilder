@@ -68,9 +68,17 @@ const TaskBoard: React.FC = () => {
     };
 
     const deleteTask = (id: string) => {
-        if (confirm('Are you sure you want to delete this task?')) {
-            setTasks(tasks.filter(t => t.id !== id));
-        }
+        (window as any).swal({
+            title: "Delete Task?",
+            text: "Are you sure you want to delete this task?",
+            icon: "warning",
+            buttons: ["Cancel", "Delete"],
+            dangerMode: true,
+        }).then((willDelete: boolean) => {
+            if (willDelete) {
+                setTasks(tasks.filter(t => t.id !== id));
+            }
+        });
     };
 
     const moveTask = (id: string, status: 'todo' | 'in-progress' | 'done') => {

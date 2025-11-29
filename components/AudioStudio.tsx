@@ -46,10 +46,10 @@ const AudioStudio: React.FC<AudioStudioProps> = ({ onNavigate }) => {
                  const url = URL.createObjectURL(wavBlob);
                  setAudioDownloadUrl(url);
             } else {
-                alert("Failed to generate speech.");
+                (window as any).swal("Generation Failed", "Failed to generate speech. Please try again.", "error");
             }
         } catch (e: any) {
-            alert("TTS Error: " + (e as any).message);
+            (window as any).swal("TTS Error", (e as any).message, "error");
         } finally {
             setIsGeneratingTTS(false);
         }
@@ -125,7 +125,7 @@ const AudioStudio: React.FC<AudioStudioProps> = ({ onNavigate }) => {
                 setIsRecording(true);
             } catch (error) {
                 console.error("Error accessing microphone:", error);
-                alert("Could not access microphone. Please check permissions.");
+                (window as any).swal("Microphone Error", "Could not access microphone. Please check permissions.", "error");
             }
         }
     };

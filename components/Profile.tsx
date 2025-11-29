@@ -103,12 +103,20 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser }) => {
     };
 
     const handleDisconnectCloud = () => {
-        if (confirm('Disconnect cloud sync? Your local data will remain, but syncing will stop.')) {
-            const emptyConfig: CloudProviderConfig = { provider: 'supabase', enabled: false };
-            setCloudConfig(emptyConfig);
-            localStorage.removeItem('zee_cloud_config');
-            setMessage({ type: 'success', text: "Cloud sync disconnected." });
-        }
+        (window as any).swal({
+            title: "Disconnect Cloud Sync?",
+            text: "Your local data will remain, but syncing will stop.",
+            icon: "warning",
+            buttons: ["Cancel", "Disconnect"],
+            dangerMode: true,
+        }).then((willDisconnect: boolean) => {
+            if (willDisconnect) {
+                const emptyConfig: CloudProviderConfig = { provider: 'supabase', enabled: false };
+                setCloudConfig(emptyConfig);
+                localStorage.removeItem('zee_cloud_config');
+                setMessage({ type: 'success', text: "Cloud sync disconnected." });
+            }
+        });
     };
 
     const handleResetRequest = () => {

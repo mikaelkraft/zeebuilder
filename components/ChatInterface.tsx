@@ -183,12 +183,20 @@ const ChatInterface: React.FC = () => {
 
     const deleteSession = (e: React.MouseEvent, id: string) => {
         e.stopPropagation();
-        if (confirm('Delete this conversation?')) {
-            const newSessions = savedSessions.filter(s => s.id !== id);
-            setSavedSessions(newSessions);
-            localStorage.setItem('zee_chat_sessions', JSON.stringify(newSessions));
-            if (currentSessionId === id) startNewSession();
-        }
+        (window as any).swal({
+            title: "Delete Conversation?",
+            text: "This conversation will be permanently deleted.",
+            icon: "warning",
+            buttons: ["Cancel", "Delete"],
+            dangerMode: true,
+        }).then((willDelete: boolean) => {
+            if (willDelete) {
+                const newSessions = savedSessions.filter(s => s.id !== id);
+                setSavedSessions(newSessions);
+                localStorage.setItem('zee_chat_sessions', JSON.stringify(newSessions));
+                if (currentSessionId === id) startNewSession();
+            }
+        });
     };
 
     const initChat = async () => {
@@ -329,7 +337,7 @@ const ChatInterface: React.FC = () => {
                         }
                     } catch (error) {
                         console.error("Transcription failed:", error);
-                        alert("Failed to transcribe audio.");
+                        (window as any).swal("Transcription Failed", "Failed to transcribe audio. Please try again.", "error");
                     } finally {
                         setIsTranscribingAudio(false);
                     }
@@ -339,7 +347,7 @@ const ChatInterface: React.FC = () => {
                 setIsRecording(true);
             } catch (error) {
                 console.error("Error accessing microphone:", error);
-                alert("Could not access microphone. Please check permissions.");
+                (window as any).swal("Microphone Error", "Could not access microphone. Please check permissions.", "error");
             }
         }
     };
