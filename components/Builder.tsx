@@ -12,6 +12,8 @@ import {
     Mic, MicOff, UploadCloud, Copy, Save, History, GitBranch, GitCommit, ArrowUpFromLine, ArrowDownToLine, FolderGit2, Unlink, Edit
 } from 'lucide-react';
 import JSZip from 'jszip';
+import { SandpackProvider, SandpackPreview, SandpackLayout } from '@codesandbox/sandpack-react';
+import { sandpackDark } from '@codesandbox/sandpack-themes';
 
 interface BuilderProps {
     user: User | null;
@@ -1161,6 +1163,44 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
         return root.children || [];
     };
 
+    // Sandpack helpers - convert files to Sandpack format
+    const getSandpackFiles = () => {
+        const sandpackFiles: Record<string, string> = {};
+        files.forEach(f => {
+            // Ensure paths start with /
+            const path = f.name.startsWith('/') ? f.name : '/' + f.name;
+            sandpackFiles[path] = f.content;
+        });
+        return sandpackFiles;
+    };
+
+    const getSandpackTemplate = (): 'react' | 'react-ts' | 'vanilla' | 'vanilla-ts' | 'static' => {
+        if (stack === 'react') return 'react';
+        if (stack === 'react-ts') return 'react-ts';
+        if (stack === 'html') return 'static';
+        return 'react-ts'; // default
+    };
+
+    const getSandpackDependencies = () => {
+        const pkgFile = files.find(f => f.name === 'package.json');
+        if (pkgFile) {
+            try {
+                const pkg = JSON.parse(pkgFile.content);
+                return { ...pkg.dependencies, ...dependencies };
+            } catch (e) {
+                return dependencies;
+            }
+        }
+        // Default dependencies based on stack
+        if (stack === 'react' || stack === 'react-ts') {
+            return { 'lucide-react': 'latest', ...dependencies };
+        }
+        return dependencies;
+    };
+
+    // Check if stack can use Sandpack
+    const canUseSandpack = ['react', 'react-ts', 'html', 'vue'].includes(stack) && files.length > 0;
+
     // Inlined Panels
     const renderPreviewPanel = (fullScreen = false) => (
         <div className={`flex flex-col bg-white h-full relative ${fullScreen ? 'fixed inset-0 z-50' : ''}`}>
@@ -1170,7 +1210,7 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                     Live Preview
                 </span>
                 <div className="flex items-center space-x-2">
-                    <button onClick={updateWebPreview} className="p-1 hover:bg-slate-200 rounded" title="Refresh">
+                    <button onClick={() => { setIsRefreshing(true); setPreviewKey(p => p + 1); setTimeout(() => setIsRefreshing(false), 500); }} className="p-1 hover:bg-slate-200 rounded" title="Refresh">
                         <RefreshCw className={`w-4 h-4 text-slate-500 ${isRefreshing ? 'animate-spin' : ''}`} />
                     </button>
                     <button onClick={() => setIsFullScreenPreview(!isFullScreenPreview)} className="p-1 hover:bg-slate-200 rounded" title={fullScreen ? "Minimize" : "Maximize"}>
@@ -1203,6 +1243,28 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                         {stack === 'node' && <a href="https://replit.com/languages/nodejs" target="_blank" rel="noreferrer" className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-bold shadow-lg hover:bg-green-500 flex items-center gap-2"><TerminalIcon className="w-4 h-4"/>Open Replit</a>}
                         <button onClick={handleDownload} className="px-4 py-2 bg-slate-700 text-white rounded-lg text-sm font-bold hover:bg-slate-600 flex items-center gap-2"><Download className="w-4 h-4"/>Download ZIP</button>
                     </div>
+                </div>
+            ) : canUseSandpack ? (
+                <div className="flex-1 w-full" key={previewKey}>
+                    <SandpackProvider
+                        template={getSandpackTemplate()}
+                        files={getSandpackFiles()}
+                        theme={sandpackDark}
+                        customSetup={{
+                            dependencies: getSandpackDependencies()
+                        }}
+                        options={{
+                            externalResources: ["https://cdn.tailwindcss.com"]
+                        }}
+                    >
+                        <SandpackLayout style={{ height: '100%', border: 'none' }}>
+                            <SandpackPreview 
+                                style={{ height: '100%' }}
+                                showNavigator={false}
+                                showRefreshButton={false}
+                            />
+                        </SandpackLayout>
+                    </SandpackProvider>
                 </div>
             ) : (
                 <iframe key={previewKey} src={iframeSrc} className="flex-1 w-full border-none bg-white" title="Preview" />
