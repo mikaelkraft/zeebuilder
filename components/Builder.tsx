@@ -505,18 +505,32 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
         setMessages([{ id: 'init', role: 'model', text: `Initialized ${type} project.`, timestamp: Date.now() }]);
         let initialFiles: ProjectFile[] = [];
         
-        const pkgJson = { name: "app", version: "1.0.0", dependencies: { "react": "latest", "react-dom": "latest", "lucide-react": "latest" } };
-        const tsConfig = { compilerOptions: { jsx: "react-jsx", target: "ES2020", moduleResolution: "node" } };
+        const pkgJson = { name: "app", version: "1.0.0", dependencies: { "react": "^18.2.0", "react-dom": "^18.2.0", "lucide-react": "latest" } };
+        const tsConfig = { compilerOptions: { jsx: "react-jsx", target: "ES2020", moduleResolution: "node", esModuleInterop: true, strict: true } };
 
         if (type === 'react' || type === 'react-ts') {
             const isTs = type === 'react-ts';
+            const ext = isTs ? 'tsx' : 'jsx';
             initialFiles = [
                 { name: 'package.json', content: JSON.stringify(pkgJson, null, 2), language: 'json' },
-                { name: 'public/index.html', content: '<div id="root"></div>', language: 'html' },
-                { name: `src/App.${isTs?'tsx':'js'}`, content: `import React from 'react';\nimport { Sparkles } from 'lucide-react';\nexport default function App() {\n  return (\n    <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center">\n      <Sparkles className="w-12 h-12 text-blue-500 mb-4" />\n      <h1 className="text-3xl font-bold">Zee Builder</h1>\n      <p className="text-slate-400">Start editing to see magic happen.</p>\n    </div>\n  );\n}`, language: isTs?'typescript':'javascript' }
+                { name: `App.${ext}`, content: `import React from 'react';
+import { Sparkles } from 'lucide-react';
+
+export default function App() {
+  return (
+    <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center">
+      <Sparkles className="w-12 h-12 text-blue-500 mb-4" />
+      <h1 className="text-3xl font-bold">Zee Builder</h1>
+      <p className="text-slate-400">Start editing to see magic happen.</p>
+    </div>
+  );
+}`, language: isTs ? 'typescript' : 'javascript' },
+                { name: `index.${ext}`, content: isTs 
+                    ? `import React from 'react';\nimport ReactDOM from 'react-dom/client';\nimport App from './App';\n\nconst root = ReactDOM.createRoot(document.getElementById('root')!);\nroot.render(<App />);`
+                    : `import React from 'react';\nimport ReactDOM from 'react-dom/client';\nimport App from './App';\n\nconst root = ReactDOM.createRoot(document.getElementById('root'));\nroot.render(<App />);`, language: isTs ? 'typescript' : 'javascript' }
             ];
             if(isTs) initialFiles.push({ name: 'tsconfig.json', content: JSON.stringify(tsConfig,null,2), language: 'json' });
-            setActiveFile(initialFiles[2].name);
+            setActiveFile(`App.${ext}`);
         } else if (type === 'flutter') {
              initialFiles = [{ name: 'lib/main.dart', content: `import 'package:flutter/material.dart';\nvoid main() => runApp(const MyApp());\nclass MyApp extends StatelessWidget {\n  const MyApp({super.key});\n  @override\n  Widget build(BuildContext context) {\n    return MaterialApp(\n      home: Scaffold(\n        appBar: AppBar(title: const Text('Zee Flutter')),\n        body: const Center(child: Text('Hello World')),\n      ),\n    );\n  }\n}`, language: 'dart' }];
              setActiveFile('lib/main.dart');
@@ -1304,10 +1318,14 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
     const getSandpackFiles = () => {
         const sandpackFiles: Record<string, { code: string; active?: boolean }> = {};
         
-        // Add all user files
+        // Add all user files with normalized paths
         files.forEach(f => {
-            // Ensure paths start with /
-            const path = f.name.startsWith('/') ? f.name : '/' + f.name;
+            // Normalize path: remove src/ prefix, ensure starts with /
+            let path = f.name;
+            // Remove src/ prefix if present
+            if (path.startsWith('src/')) path = path.slice(4);
+            // Ensure path starts with /
+            if (!path.startsWith('/')) path = '/' + path;
             sandpackFiles[path] = { code: f.content };
         });
         
@@ -1316,10 +1334,9 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
             const isTS = stack === 'react-ts';
             const ext = isTS ? 'tsx' : 'jsx';
             
-            // Check if user has index file, if not create one
-            const hasIndex = files.some(f => f.name.match(/index\.(tsx|jsx|ts|js)$/));
+            // Check if user has index entry file
+            const hasIndex = Object.keys(sandpackFiles).some(p => p.match(/\/index\.(tsx|jsx|ts|js)$/));
             if (!hasIndex) {
-                // Use proper syntax based on JS vs TS
                 const indexContent = isTS 
                     ? `import React from 'react';
 import ReactDOM from 'react-dom/client';
@@ -1336,8 +1353,8 @@ root.render(<App />);`;
                 sandpackFiles[`/index.${ext}`] = { code: indexContent };
             }
             
-            // Ensure App file is marked as active if it exists
-            const appPath = Object.keys(sandpackFiles).find(p => p.match(/\/App\.(tsx|jsx|ts|js)$/));
+            // Check if there's an App file and mark it active
+            const appPath = Object.keys(sandpackFiles).find(p => p.match(/\/App\.(tsx|jsx|ts|js)$/i));
             if (appPath) {
                 sandpackFiles[appPath] = { ...sandpackFiles[appPath], active: true };
             }
@@ -1345,9 +1362,9 @@ root.render(<App />);`;
         
         // For HTML stack, ensure index.html exists
         if (stack === 'html') {
-            const hasHtml = files.some(f => f.name.endsWith('.html'));
+            const hasHtml = Object.keys(sandpackFiles).some(p => p.endsWith('.html'));
             if (!hasHtml) {
-                sandpackFiles['/index.html'] = { code: '<!DOCTYPE html><html><head><title>Preview</title></head><body><h1>Hello World</h1></body></html>' };
+                sandpackFiles['/index.html'] = { code: '<!DOCTYPE html>\n<html>\n<head>\n  <title>Preview</title>\n</head>\n<body>\n  <h1>Hello World</h1>\n</body>\n</html>' };
             }
         }
         
@@ -1428,7 +1445,7 @@ root.render(<App />);`;
                     </div>
                 </div>
             ) : canUseSandpack ? (
-                <div className="flex-1 w-full overflow-hidden" key={previewKey} style={{ height: 'calc(100% - 40px)' }}>
+                <div className="flex-1 w-full" key={previewKey} style={{ height: 'calc(100% - 40px)', minHeight: '400px' }}>
                     <SandpackProvider
                         template={getSandpackTemplate()}
                         files={getSandpackFiles()}
@@ -1438,11 +1455,17 @@ root.render(<App />);`;
                             entry: stack === 'html' ? '/index.html' : (stack === 'react-ts' ? '/index.tsx' : '/index.jsx')
                         }}
                         options={{
-                            externalResources: ["https://cdn.tailwindcss.com"]
+                            externalResources: ["https://cdn.tailwindcss.com"],
+                            classes: {
+                                'sp-wrapper': 'h-full',
+                                'sp-preview': 'h-full',
+                                'sp-preview-container': 'h-full',
+                                'sp-preview-iframe': 'h-full'
+                            }
                         }}
                     >
                         <SandpackPreview 
-                            style={{ height: '100%', width: '100%', border: 'none' }}
+                            style={{ height: '100%', width: '100%' }}
                             showNavigator={false}
                             showRefreshButton={false}
                         />

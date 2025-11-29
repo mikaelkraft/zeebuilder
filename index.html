@@ -72,6 +72,19 @@
       .xterm-viewport {
         overflow-y: auto !important;
       }
+      /* Fix Sandpack preview height */
+      .sp-wrapper,
+      .sp-layout,
+      .sp-preview,
+      .sp-preview-container,
+      .sp-preview-iframe,
+      .sp-stack {
+        height: 100% !important;
+        min-height: 100% !important;
+      }
+      .sp-preview-container iframe {
+        height: 100% !important;
+      }
     </style>
   <script type="importmap">
 {
