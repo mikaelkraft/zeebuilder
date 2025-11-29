@@ -227,75 +227,55 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
             {/* Engagement Chat (Inline) */}
             <EngagementChat onNavigate={onNavigate} />
 
-            {/* NEW: Builder Features Highlight */}
+            {/* NEW: Builder Features Timeline */}
             <div className="mb-12 px-4">
-                <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-8 text-white relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-                    <div className="relative z-10">
-                        <h2 className="text-2xl md:text-3xl font-bold mb-4">🚀 New in Builder</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div className="flex items-start gap-3">
-                                <div className="p-2 bg-white/20 rounded-lg">
-                                    <Terminal className="w-5 h-5" />
-                                </div>
-                                <div>
-                                    <h3 className="font-bold">Integrated Terminal</h3>
-                                    <p className="text-sm text-white/80">Run commands, install packages, view files</p>
-                                </div>
-                            </div>
-                            <div className="flex items-start gap-3">
-                                <div className="p-2 bg-white/20 rounded-lg">
-                                    <Code className="w-5 h-5" />
-                                </div>
-                                <div>
-                                    <h3 className="font-bold">Code View with Line Numbers</h3>
-                                    <p className="text-sm text-white/80">Edit any file with syntax highlighting</p>
-                                </div>
-                            </div>
-                            <div className="flex items-start gap-3">
-                                <div className="p-2 bg-white/20 rounded-lg">
-                                    <Package className="w-5 h-5" />
-                                </div>
-                                <div>
-                                    <h3 className="font-bold">Dependency Manager</h3>
-                                    <p className="text-sm text-white/80">Add, remove npm packages with one click</p>
-                                </div>
-                            </div>
-                            <div className="flex items-start gap-3">
-                                <div className="p-2 bg-white/20 rounded-lg">
-                                    <GitBranch className="w-5 h-5" />
-                                </div>
-                                <div>
-                                    <h3 className="font-bold">GitHub Integration</h3>
-                                    <p className="text-sm text-white/80">Push & pull from your repositories</p>
+                <div className="text-center mb-8">
+                    <h2 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white mb-2">🚀 New in Builder</h2>
+                    <p className="text-slate-500 dark:text-slate-400">Everything you need to build amazing apps</p>
+                </div>
+                
+                <div className="relative">
+                    {/* Timeline Line */}
+                    <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-gradient-to-b from-blue-500 via-purple-500 to-pink-500 hidden md:block"></div>
+                    
+                    {/* Timeline Items */}
+                    <div className="space-y-8 md:space-y-0">
+                        {[
+                            { icon: Terminal, title: 'Integrated Terminal', desc: 'Run commands, install packages, view files', color: 'bg-blue-500', side: 'left' },
+                            { icon: Code, title: 'Code View with Line Numbers', desc: 'Edit any file with syntax highlighting', color: 'bg-indigo-500', side: 'right' },
+                            { icon: Package, title: 'Dependency Manager', desc: 'Add, remove npm packages with one click', color: 'bg-purple-500', side: 'left' },
+                            { icon: GitBranch, title: 'GitHub Integration', desc: 'Push & pull from your repositories', color: 'bg-violet-500', side: 'right' },
+                            { icon: Play, title: 'Live Preview', desc: 'See React, Vue, Svelte apps in real-time', color: 'bg-fuchsia-500', side: 'left' },
+                            { icon: Smartphone, title: 'Flutter & Python', desc: 'Mobile apps and scripts with AI assist', color: 'bg-pink-500', side: 'right' },
+                        ].map((item, index) => (
+                            <div key={index} className={`relative flex items-center md:justify-${item.side === 'left' ? 'start' : 'end'} ${index > 0 ? 'md:mt-8' : ''}`}>
+                                {/* Timeline Dot */}
+                                <div className="absolute left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-white dark:bg-slate-950 border-4 border-blue-500 hidden md:block z-10"></div>
+                                
+                                {/* Card */}
+                                <div className={`w-full md:w-[calc(50%-2rem)] ${item.side === 'right' ? 'md:ml-auto' : ''} p-4 bg-white dark:bg-slate-900/80 border border-gray-200 dark:border-slate-800 rounded-xl hover:border-blue-500 dark:hover:border-blue-500 transition-all group shadow-lg`}>
+                                    <div className="flex items-start gap-4">
+                                        <div className={`p-2.5 ${item.color} rounded-lg text-white shrink-0 group-hover:scale-110 transition-transform shadow-lg`}>
+                                            <item.icon className="w-5 h-5" />
+                                        </div>
+                                        <div>
+                                            <h3 className="font-bold text-slate-900 dark:text-white group-hover:text-blue-500 transition-colors">{item.title}</h3>
+                                            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{item.desc}</p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                            <div className="flex items-start gap-3">
-                                <div className="p-2 bg-white/20 rounded-lg">
-                                    <Play className="w-5 h-5" />
-                                </div>
-                                <div>
-                                    <h3 className="font-bold">Live Preview</h3>
-                                    <p className="text-sm text-white/80">See React, Vue, Svelte apps in real-time</p>
-                                </div>
-                            </div>
-                            <div className="flex items-start gap-3">
-                                <div className="p-2 bg-white/20 rounded-lg">
-                                    <Smartphone className="w-5 h-5" />
-                                </div>
-                                <div>
-                                    <h3 className="font-bold">Flutter & Python</h3>
-                                    <p className="text-sm text-white/80">Mobile apps and scripts with AI assist</p>
-                                </div>
-                            </div>
-                        </div>
-                        <button 
-                            onClick={() => onNavigate(View.BUILDER)}
-                            className="mt-6 px-6 py-2 bg-white text-blue-600 font-bold rounded-full hover:bg-blue-50 transition-colors"
-                        >
-                            Try Builder Now →
-                        </button>
+                        ))}
                     </div>
+                </div>
+                
+                <div className="text-center mt-8">
+                    <button 
+                        onClick={() => onNavigate(View.BUILDER)}
+                        className="px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold rounded-full hover:from-blue-500 hover:to-purple-500 transition-all shadow-lg hover:shadow-xl hover:scale-105"
+                    >
+                        Try Builder Now →
+                    </button>
                 </div>
             </div>
 
