@@ -386,6 +386,12 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [isTerminalOpen, setIsTerminalOpen] = useState(true);
     
+    // Python runtime state
+    const [pythonOutput, setPythonOutput] = useState<string[]>([]);
+    const [isPythonRunning, setIsPythonRunning] = useState(false);
+    const [pyodideReady, setPyodideReady] = useState(false);
+    const pyodideRef = useRef<any>(null);
+    
     const terminalRef = useRef<HTMLDivElement>(null);
     const xtermRef = useRef<any>(null);
     const shellRef = useRef<Shell | null>(null);
@@ -535,7 +541,47 @@ export default function App() {
              initialFiles = [{ name: 'lib/main.dart', content: `import 'package:flutter/material.dart';\nvoid main() => runApp(const MyApp());\nclass MyApp extends StatelessWidget {\n  const MyApp({super.key});\n  @override\n  Widget build(BuildContext context) {\n    return MaterialApp(\n      home: Scaffold(\n        appBar: AppBar(title: const Text('Zee Flutter')),\n        body: const Center(child: Text('Hello World')),\n      ),\n    );\n  }\n}`, language: 'dart' }];
              setActiveFile('lib/main.dart');
         } else if (type === 'vue') {
-            initialFiles = [{ name: 'index.html', content: `<!DOCTYPE html><html><head><script src="https://unpkg.com/vue@3/dist/vue.global.js"></script></head><body><div id="app">{{ message }}</div><script>const { createApp } = Vue; createApp({ data() { return { message: 'Hello Vue!' } } }).mount('#app')</script></body></html>`, language: 'html' }];
+            initialFiles = [{ 
+                name: 'index.html', 
+                content: `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vue App</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 min-h-screen">
+  <div id="app" class="min-h-screen flex flex-col items-center justify-center">
+    <div class="text-center">
+      <svg class="w-16 h-16 text-emerald-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+      </svg>
+      <h1 class="text-3xl font-bold text-white mb-2">{{ title }}</h1>
+      <p class="text-slate-400 mb-6">{{ description }}</p>
+      <button @click="count++" class="px-6 py-2 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-500 transition">
+        Count: {{ count }}
+      </button>
+    </div>
+  </div>
+  <script>
+    const { createApp, ref } = Vue;
+    
+    createApp({
+      setup() {
+        const title = ref('Zee Vue Builder');
+        const description = ref('Start editing to see your changes live.');
+        const count = ref(0);
+        
+        return { title, description, count };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>`, 
+                language: 'html' 
+            }];
             setActiveFile('index.html');
         } else if (type === 'node') {
              initialFiles = [
@@ -545,16 +591,84 @@ export default function App() {
              setActiveFile('index.js');
         } else if (type === 'python') {
              initialFiles = [
-                 { name: 'main.py', content: `print("Hello from Python!")`, language: 'python' },
-                 { name: 'requirements.txt', content: ``, language: 'html' }
+                 { name: 'main.py', content: `# Welcome to Zee Python Builder!
+# Click "Run Code" in the preview to execute this file
+
+def greet(name):
+    """A simple greeting function"""
+    return f"Hello, {name}! 🐍"
+
+def fibonacci(n):
+    """Generate Fibonacci sequence up to n terms"""
+    sequence = []
+    a, b = 0, 1
+    for _ in range(n):
+        sequence.append(a)
+        a, b = b, a + b
+    return sequence
+
+# Main execution
+if __name__ == "__main__":
+    print("=" * 40)
+    print(greet("Zee Builder"))
+    print("=" * 40)
+    print()
+    
+    # Fibonacci sequence
+    n = 10
+    print(f"First {n} Fibonacci numbers:")
+    print(fibonacci(n))
+    print()
+    
+    # Simple list comprehension
+    squares = [x**2 for x in range(1, 6)]
+    print(f"Squares of 1-5: {squares}")
+    print()
+    
+    # Dictionary example
+    fruits = {"apple": "🍎", "banana": "🍌", "cherry": "🍒"}
+    for fruit, emoji in fruits.items():
+        print(f"{fruit}: {emoji}")
+`, language: 'python' },
+                 { name: 'requirements.txt', content: `# Add Python packages here
+# numpy
+# pandas
+# matplotlib`, language: 'html' }
              ];
              setActiveFile('main.py');
         } else if (type === 'svelte') {
              initialFiles = [
-                 { name: 'package.json', content: JSON.stringify({ name: "svelte-app", version: "1.0.0", dependencies: { "svelte": "latest" } }, null, 2), language: 'json' },
-                 { name: 'src/App.svelte', content: `<script>\n  let count = 0;\n  function increment() {\n    count += 1;\n  }\n</script>\n\n<main class="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center">\n  <h1 class="text-3xl font-bold mb-4">Hello Svelte!</h1>\n  <button class="px-4 py-2 bg-orange-600 rounded hover:bg-orange-500" on:click={increment}>\n    Clicked {count} times\n  </button>\n</main>\n\n<style>\n  main { font-family: system-ui, sans-serif; }\n</style>`, language: 'html' }
+                 { name: 'package.json', content: JSON.stringify({ name: "svelte-app", version: "1.0.0", dependencies: { "svelte": "^4.0.0" } }, null, 2), language: 'json' },
+                 { name: 'App.svelte', content: `<script>
+  let count = 0;
+  let title = 'Zee Svelte Builder';
+  
+  function increment() {
+    count += 1;
+  }
+</script>
+
+<main class="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center font-sans">
+  <svg class="w-16 h-16 text-orange-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z"></path>
+  </svg>
+  <h1 class="text-3xl font-bold mb-2">{title}</h1>
+  <p class="text-slate-400 mb-6">Start editing to see your changes live.</p>
+  <button 
+    class="px-6 py-2 bg-orange-600 rounded-lg font-semibold hover:bg-orange-500 transition"
+    on:click={increment}
+  >
+    Clicked {count} {count === 1 ? 'time' : 'times'}
+  </button>
+</main>
+
+<style>
+  main {
+    font-family: system-ui, -apple-system, sans-serif;
+  }
+</style>`, language: 'html' }
              ];
-             setActiveFile('src/App.svelte');
+             setActiveFile('App.svelte');
         } else if (type === 'java') {
              initialFiles = [
                  { name: 'pom.xml', content: `<?xml version="1.0" encoding="UTF-8"?>\n<project xmlns="http://maven.apache.org/POM/4.0.0">\n  <modelVersion>4.0.0</modelVersion>\n  <groupId>com.zeebuilder</groupId>\n  <artifactId>app</artifactId>\n  <version>1.0.0</version>\n  <properties>\n    <maven.compiler.source>17</maven.compiler.source>\n    <maven.compiler.target>17</maven.compiler.target>\n  </properties>\n</project>`, language: 'xml' },
@@ -640,6 +754,72 @@ export default function App() {
                     setActiveFile(remaining[0].name);
                 }
             }
+        }
+    };
+
+    // Python Runtime Functions
+    const initPyodide = async () => {
+        if (pyodideRef.current) return pyodideRef.current;
+        
+        try {
+            setPythonOutput(prev => [...prev, '🐍 Loading Python runtime (Pyodide)...']);
+            // Load Pyodide from CDN
+            const pyodide = await (window as any).loadPyodide({
+                indexURL: "https://cdn.jsdelivr.net/pyodide/v0.24.1/full/",
+                stdout: (text: string) => {
+                    setPythonOutput(prev => [...prev, text]);
+                },
+                stderr: (text: string) => {
+                    setPythonOutput(prev => [...prev, `❌ ${text}`]);
+                }
+            });
+            pyodideRef.current = pyodide;
+            setPyodideReady(true);
+            setPythonOutput(prev => [...prev, '✅ Python runtime ready!', '']);
+            return pyodide;
+        } catch (e: any) {
+            setPythonOutput(prev => [...prev, `❌ Failed to load Pyodide: ${e.message}`]);
+            return null;
+        }
+    };
+
+    const runPythonCode = async () => {
+        setIsPythonRunning(true);
+        setPythonOutput(['--- Running Python ---', '']);
+        
+        try {
+            const pyodide = await initPyodide();
+            if (!pyodide) {
+                setIsPythonRunning(false);
+                return;
+            }
+            
+            // Get main Python file content
+            const mainPy = files.find(f => f.name.endsWith('.py'));
+            if (!mainPy) {
+                setPythonOutput(prev => [...prev, '❌ No Python file found']);
+                setIsPythonRunning(false);
+                return;
+            }
+            
+            // Install any packages from requirements.txt
+            const reqFile = files.find(f => f.name === 'requirements.txt');
+            if (reqFile && reqFile.content.trim()) {
+                const packages = reqFile.content.split('\n').filter(p => p.trim() && !p.startsWith('#'));
+                if (packages.length > 0) {
+                    setPythonOutput(prev => [...prev, `📦 Installing packages: ${packages.join(', ')}...`]);
+                    await pyodide.loadPackagesFromImports(mainPy.content);
+                }
+            }
+            
+            // Run the code
+            setPythonOutput(prev => [...prev, `▶️ Running ${mainPy.name}...`, '']);
+            await pyodide.runPythonAsync(mainPy.content);
+            setPythonOutput(prev => [...prev, '', '✅ Execution complete']);
+        } catch (e: any) {
+            setPythonOutput(prev => [...prev, `❌ Error: ${e.message}`]);
+        } finally {
+            setIsPythonRunning(false);
         }
     };
 
@@ -1320,10 +1500,10 @@ export default function App() {
         
         // Add all user files with normalized paths
         files.forEach(f => {
-            // Normalize path: remove src/ prefix, ensure starts with /
+            // Normalize path: ensure starts with /
             let path = f.name;
-            // Remove src/ prefix if present
-            if (path.startsWith('src/')) path = path.slice(4);
+            // For Svelte, keep src/ structure
+            if (stack !== 'svelte' && path.startsWith('src/')) path = path.slice(4);
             // Ensure path starts with /
             if (!path.startsWith('/')) path = '/' + path;
             sandpackFiles[path] = { code: f.content };
@@ -1360,32 +1540,69 @@ root.render(<App />);`;
             }
         }
         
-        // For HTML stack, ensure index.html exists
-        if (stack === 'html') {
+        // For HTML/Vue stack, ensure index.html exists
+        if (stack === 'html' || stack === 'vue') {
             const hasHtml = Object.keys(sandpackFiles).some(p => p.endsWith('.html'));
             if (!hasHtml) {
                 sandpackFiles['/index.html'] = { code: '<!DOCTYPE html>\n<html>\n<head>\n  <title>Preview</title>\n</head>\n<body>\n  <h1>Hello World</h1>\n</body>\n</html>' };
+            }
+            // Mark index.html as active for static template
+            if (sandpackFiles['/index.html']) {
+                sandpackFiles['/index.html'].active = true;
+            }
+        }
+        
+        // For Svelte stack
+        if (stack === 'svelte') {
+            // Ensure App.svelte exists at the right path
+            const hasApp = Object.keys(sandpackFiles).some(p => p.includes('App.svelte'));
+            if (!hasApp) {
+                sandpackFiles['/App.svelte'] = {
+                    code: `<script>
+  let count = 0;
+</script>
+
+<main class="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center">
+  <h1 class="text-3xl font-bold mb-4">Hello Svelte!</h1>
+  <button class="px-4 py-2 bg-orange-600 rounded hover:bg-orange-500" on:click={() => count++}>
+    Clicked {count} times
+  </button>
+</main>`,
+                    active: true
+                };
             }
         }
         
         return sandpackFiles;
     };
 
-    const getSandpackTemplate = (): 'react' | 'react-ts' | 'vanilla' | 'vanilla-ts' | 'static' | undefined => {
-        // Return undefined to not use template defaults - we provide all files
+    const getSandpackTemplate = (): 'react' | 'react-ts' | 'vanilla' | 'vanilla-ts' | 'static' | 'vue' | 'svelte' | undefined => {
+        // Return appropriate template for each stack
         if (stack === 'react' || stack === 'react-ts') return undefined;
-        if (stack === 'html') return 'static';
+        if (stack === 'html' || stack === 'vue') return 'static'; // Vue CDN uses static template
+        if (stack === 'svelte') return 'svelte';
         return undefined;
     };
 
     const getSandpackDependencies = () => {
         const pkgFile = files.find(f => f.name === 'package.json');
-        const baseDeps: Record<string, string> = {
-            'react': '^18.2.0',
-            'react-dom': '^18.2.0',
-            'lucide-react': 'latest',
-            ...dependencies
-        };
+        
+        // Base dependencies differ by stack
+        let baseDeps: Record<string, string> = {};
+        
+        if (stack === 'react' || stack === 'react-ts') {
+            baseDeps = {
+                'react': '^18.2.0',
+                'react-dom': '^18.2.0',
+                'lucide-react': 'latest',
+                ...dependencies
+            };
+        } else if (stack === 'svelte') {
+            baseDeps = {
+                'svelte': '^4.0.0'
+            };
+        }
+        // For html and vue with CDN, no deps needed
         
         if (pkgFile) {
             try {
@@ -1399,7 +1616,7 @@ root.render(<App />);`;
     };
 
     // Check if stack can use Sandpack
-    const canUseSandpack = ['react', 'react-ts', 'html', 'vue'].includes(stack) && files.length > 0;
+    const canUseSandpack = ['react', 'react-ts', 'html', 'vue', 'svelte'].includes(stack) && files.length > 0;
 
     // Inlined Panels
     const renderPreviewPanel = (fullScreen = false) => (
@@ -1418,28 +1635,93 @@ root.render(<App />);`;
                     </button>
                 </div>
             </div>
-            {stack === 'flutter' || stack === 'python' || stack === 'java' || stack === 'svelte' || stack === 'node' ? (
+            {stack === 'python' ? (
+                // Python Inline Runtime with Pyodide
+                <div className="flex-1 flex flex-col bg-slate-900">
+                    <div className="flex items-center justify-between px-4 py-2 bg-slate-800 border-b border-slate-700">
+                        <span className="text-xs text-yellow-400 font-mono flex items-center gap-2">
+                            <span className="text-lg">🐍</span> Python Runtime (Pyodide)
+                        </span>
+                        <button 
+                            onClick={runPythonCode}
+                            disabled={isPythonRunning}
+                            className={`px-3 py-1 rounded text-xs font-bold flex items-center gap-1 transition ${
+                                isPythonRunning 
+                                    ? 'bg-slate-600 text-slate-400 cursor-not-allowed' 
+                                    : 'bg-green-600 text-white hover:bg-green-500'
+                            }`}
+                        >
+                            {isPythonRunning ? (
+                                <><RefreshCw className="w-3 h-3 animate-spin" /> Running...</>
+                            ) : (
+                                <><Play className="w-3 h-3" /> Run Code</>
+                            )}
+                        </button>
+                    </div>
+                    <div className="flex-1 overflow-auto p-4 font-mono text-sm">
+                        {pythonOutput.length === 0 ? (
+                            <div className="text-slate-500 text-center mt-8">
+                                <p className="text-lg mb-2">Click "Run Code" to execute your Python file</p>
+                                <p className="text-xs">Powered by Pyodide - Python runs directly in your browser!</p>
+                            </div>
+                        ) : (
+                            pythonOutput.map((line, i) => (
+                                <div key={i} className={`${
+                                    line.startsWith('❌') ? 'text-red-400' : 
+                                    line.startsWith('✅') ? 'text-green-400' :
+                                    line.startsWith('📦') || line.startsWith('🐍') ? 'text-blue-400' :
+                                    line.startsWith('▶️') ? 'text-yellow-400' :
+                                    'text-slate-300'
+                                }`}>
+                                    {line || '\u00A0'}
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+            ) : stack === 'flutter' ? (
+                // Flutter preview with DartPad embed
+                <div className="flex-1 flex flex-col bg-slate-900">
+                    <div className="flex items-center justify-between px-4 py-2 bg-slate-800 border-b border-slate-700">
+                        <span className="text-xs text-cyan-400 font-mono flex items-center gap-2">
+                            <Smartphone className="w-4 h-4" /> Flutter / DartPad Preview
+                        </span>
+                        <div className="flex items-center gap-2">
+                            <a 
+                                href="https://zapp.run" 
+                                target="_blank" 
+                                rel="noreferrer" 
+                                className="px-3 py-1 bg-cyan-600 text-white rounded text-xs font-bold hover:bg-cyan-500 flex items-center gap-1"
+                            >
+                                <Smartphone className="w-3 h-3" /> Open Zapp.run
+                            </a>
+                            <button 
+                                onClick={handleDownload}
+                                className="px-3 py-1 bg-slate-600 text-white rounded text-xs font-bold hover:bg-slate-500 flex items-center gap-1"
+                            >
+                                <Download className="w-3 h-3" /> Download
+                            </button>
+                        </div>
+                    </div>
+                    <iframe 
+                        key={previewKey}
+                        src={`https://dartpad.dev/embed-flutter.html?theme=dark&run=true`}
+                        className="flex-1 w-full border-none"
+                        title="DartPad Flutter Preview"
+                        allow="clipboard-read; clipboard-write"
+                    />
+                </div>
+            ) : stack === 'java' || stack === 'node' ? (
                 <div className="flex-1 flex flex-col items-center justify-center bg-slate-50 text-slate-500 p-6">
                     <Smartphone className="w-16 h-16 mb-4 opacity-20" />
                     <p className="text-sm mb-2 font-medium text-slate-700">
-                        {stack === 'python' ? 'Python Runtime' : 
-                         stack === 'java' ? 'Java Application' :
-                         stack === 'svelte' ? 'Svelte App' :
-                         stack === 'node' ? 'Node.js Backend' :
-                         'Flutter App'}
+                        {stack === 'java' ? 'Java Application' : 'Node.js Backend'}
                     </p>
                     <p className="text-xs text-slate-500 mb-4 text-center max-w-xs">
-                        {stack === 'python' ? 'Run Python code in an external environment' : 
-                         stack === 'java' ? 'Compile & run Java with Maven/Gradle' :
-                         stack === 'svelte' ? 'Svelte requires a build step to compile' :
-                         stack === 'node' ? 'Node.js runs on the server, not in browser' :
-                         'Flutter requires Dart VM for live preview'}
+                        {stack === 'java' ? 'Compile & run Java with Maven/Gradle' : 'Node.js runs on the server, not in browser'}
                     </p>
                     <div className="flex flex-col gap-2">
-                        {stack === 'flutter' && <a href="https://zapp.run" target="_blank" rel="noreferrer" className="px-4 py-2 bg-cyan-600 text-white rounded-lg text-sm font-bold shadow-lg hover:bg-cyan-500 flex items-center gap-2"><Smartphone className="w-4 h-4"/>Open Zapp.run</a>}
                         {stack === 'java' && <a href="https://www.jdoodle.com/online-java-compiler/" target="_blank" rel="noreferrer" className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-bold shadow-lg hover:bg-red-500 flex items-center gap-2"><FileCode className="w-4 h-4"/>Open JDoodle</a>}
-                        {stack === 'python' && <a href="https://www.online-python.com/" target="_blank" rel="noreferrer" className="px-4 py-2 bg-yellow-600 text-white rounded-lg text-sm font-bold shadow-lg hover:bg-yellow-500 flex items-center gap-2"><TerminalIcon className="w-4 h-4"/>Online Python</a>}
-                        {stack === 'svelte' && <a href="https://svelte.dev/repl" target="_blank" rel="noreferrer" className="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-bold shadow-lg hover:bg-orange-500 flex items-center gap-2"><FileCode className="w-4 h-4"/>Open Svelte REPL</a>}
                         {stack === 'node' && <a href="https://replit.com/languages/nodejs" target="_blank" rel="noreferrer" className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-bold shadow-lg hover:bg-green-500 flex items-center gap-2"><TerminalIcon className="w-4 h-4"/>Open Replit</a>}
                         <button onClick={handleDownload} className="px-4 py-2 bg-slate-700 text-white rounded-lg text-sm font-bold hover:bg-slate-600 flex items-center gap-2"><Download className="w-4 h-4"/>Download ZIP</button>
                     </div>
@@ -1452,7 +1734,9 @@ root.render(<App />);`;
                         theme="light"
                         customSetup={{
                             dependencies: getSandpackDependencies(),
-                            entry: stack === 'html' ? '/index.html' : (stack === 'react-ts' ? '/index.tsx' : '/index.jsx')
+                            entry: stack === 'html' || stack === 'vue' ? '/index.html' : 
+                                   stack === 'svelte' ? '/App.svelte' :
+                                   (stack === 'react-ts' ? '/index.tsx' : '/index.jsx')
                         }}
                         options={{
                             externalResources: ["https://cdn.tailwindcss.com"],
