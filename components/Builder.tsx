@@ -12,8 +12,7 @@ import {
     Mic, MicOff, UploadCloud, Copy, Save, History, GitBranch, GitCommit, ArrowUpFromLine, ArrowDownToLine, FolderGit2, Unlink, Edit
 } from 'lucide-react';
 import JSZip from 'jszip';
-import { SandpackProvider, SandpackPreview, SandpackLayout } from '@codesandbox/sandpack-react';
-import { sandpackDark } from '@codesandbox/sandpack-themes';
+import { SandpackProvider, SandpackPreview } from '@codesandbox/sandpack-react';
 
 interface BuilderProps {
     user: User | null;
@@ -1165,37 +1164,74 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
 
     // Sandpack helpers - convert files to Sandpack format
     const getSandpackFiles = () => {
-        const sandpackFiles: Record<string, string> = {};
+        const sandpackFiles: Record<string, { code: string; active?: boolean }> = {};
+        
+        // Add all user files
         files.forEach(f => {
             // Ensure paths start with /
             const path = f.name.startsWith('/') ? f.name : '/' + f.name;
-            sandpackFiles[path] = f.content;
+            sandpackFiles[path] = { code: f.content };
         });
+        
+        // For React stacks, ensure we have essential entry files
+        if (stack === 'react' || stack === 'react-ts') {
+            const ext = stack === 'react-ts' ? 'tsx' : 'jsx';
+            
+            // Check if user has index file, if not create one
+            const hasIndex = files.some(f => f.name.match(/index\.(tsx|jsx|ts|js)$/));
+            if (!hasIndex) {
+                const indexContent = `import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+
+const root = ReactDOM.createRoot(document.getElementById('root')!);
+root.render(<App />);`;
+                sandpackFiles[`/index.${ext}`] = { code: indexContent };
+            }
+            
+            // Ensure App file is marked as active if it exists
+            const appPath = Object.keys(sandpackFiles).find(p => p.match(/\/App\.(tsx|jsx|ts|js)$/));
+            if (appPath) {
+                sandpackFiles[appPath] = { ...sandpackFiles[appPath], active: true };
+            }
+        }
+        
+        // For HTML stack, ensure index.html exists
+        if (stack === 'html') {
+            const hasHtml = files.some(f => f.name.endsWith('.html'));
+            if (!hasHtml) {
+                sandpackFiles['/index.html'] = { code: '<!DOCTYPE html><html><head><title>Preview</title></head><body><h1>Hello World</h1></body></html>' };
+            }
+        }
+        
         return sandpackFiles;
     };
 
-    const getSandpackTemplate = (): 'react' | 'react-ts' | 'vanilla' | 'vanilla-ts' | 'static' => {
-        if (stack === 'react') return 'react';
-        if (stack === 'react-ts') return 'react-ts';
+    const getSandpackTemplate = (): 'react' | 'react-ts' | 'vanilla' | 'vanilla-ts' | 'static' | undefined => {
+        // Return undefined to not use template defaults - we provide all files
+        if (stack === 'react' || stack === 'react-ts') return undefined;
         if (stack === 'html') return 'static';
-        return 'react-ts'; // default
+        return undefined;
     };
 
     const getSandpackDependencies = () => {
         const pkgFile = files.find(f => f.name === 'package.json');
+        const baseDeps: Record<string, string> = {
+            'react': '^18.2.0',
+            'react-dom': '^18.2.0',
+            'lucide-react': 'latest',
+            ...dependencies
+        };
+        
         if (pkgFile) {
             try {
                 const pkg = JSON.parse(pkgFile.content);
-                return { ...pkg.dependencies, ...dependencies };
+                return { ...baseDeps, ...pkg.dependencies };
             } catch (e) {
-                return dependencies;
+                return baseDeps;
             }
         }
-        // Default dependencies based on stack
-        if (stack === 'react' || stack === 'react-ts') {
-            return { 'lucide-react': 'latest', ...dependencies };
-        }
-        return dependencies;
+        return baseDeps;
     };
 
     // Check if stack can use Sandpack
@@ -1245,25 +1281,31 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                     </div>
                 </div>
             ) : canUseSandpack ? (
-                <div className="flex-1 w-full" key={previewKey}>
+                <div className="flex-1 w-full h-full overflow-hidden" key={previewKey} style={{ minHeight: 0 }}>
                     <SandpackProvider
                         template={getSandpackTemplate()}
                         files={getSandpackFiles()}
-                        theme={sandpackDark}
+                        theme="light"
                         customSetup={{
-                            dependencies: getSandpackDependencies()
+                            dependencies: getSandpackDependencies(),
+                            entry: stack === 'html' ? '/index.html' : '/index.tsx'
                         }}
                         options={{
-                            externalResources: ["https://cdn.tailwindcss.com"]
+                            externalResources: ["https://cdn.tailwindcss.com"],
+                            classes: {
+                                'sp-wrapper': 'h-full',
+                                'sp-layout': 'h-full',
+                                'sp-preview': 'h-full',
+                                'sp-preview-container': 'h-full',
+                                'sp-preview-iframe': 'h-full'
+                            }
                         }}
                     >
-                        <SandpackLayout style={{ height: '100%', border: 'none' }}>
-                            <SandpackPreview 
-                                style={{ height: '100%' }}
-                                showNavigator={false}
-                                showRefreshButton={false}
-                            />
-                        </SandpackLayout>
+                        <SandpackPreview 
+                            style={{ height: '100%', width: '100%' }}
+                            showNavigator={false}
+                            showRefreshButton={false}
+                        />
                     </SandpackProvider>
                 </div>
             ) : (
