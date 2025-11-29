@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { User, SupabaseConfig } from '../types';
-import { User as UserIcon, Mail, Shield, Save, Loader2, Lock, KeyRound, AlertCircle, Cloud, Database, Check, Unlink, Info } from 'lucide-react';
+import { User, SupabaseConfig, CloudProviderType, CloudProviderConfig } from '../types';
+import { User as UserIcon, Mail, Shield, Save, Loader2, Lock, KeyRound, AlertCircle, Cloud, Database, Check, Unlink, Info, Server, Flame, Zap } from 'lucide-react';
 import { authService } from '../services/authService';
 import { storageService } from '../services/storageService';
 
@@ -22,7 +22,11 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser }) => {
         confirm: ''
     });
 
-    const [cloudConfig, setCloudConfig] = useState<SupabaseConfig>({ url: '', key: '', enabled: false });
+    const [cloudProvider, setCloudProvider] = useState<CloudProviderType>('supabase');
+    const [cloudConfig, setCloudConfig] = useState<CloudProviderConfig>({ 
+        provider: 'supabase', 
+        enabled: false 
+    });
     
     const [isLoading, setIsLoading] = useState(false);
     const [message, setMessage] = useState<{type: 'success'|'error', text: string} | null>(null);
@@ -35,8 +39,12 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser }) => {
                 email: user.email
             });
             
-            const savedCloud = storageService.getConfig();
-            if (savedCloud) setCloudConfig(savedCloud);
+            const savedCloud = localStorage.getItem('zee_cloud_config');
+            if (savedCloud) {
+                const config = JSON.parse(savedCloud);
+                setCloudConfig(config);
+                setCloudProvider(config.provider || 'supabase');
+            }
         }
     }, [user]);
 
@@ -88,14 +96,17 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser }) => {
 
     const handleSaveCloud = (e: React.FormEvent) => {
         e.preventDefault();
-        storageService.saveConfig(cloudConfig);
-        setMessage({ type: 'success', text: "Cloud storage settings saved." });
+        const configToSave = { ...cloudConfig, provider: cloudProvider, enabled: true };
+        localStorage.setItem('zee_cloud_config', JSON.stringify(configToSave));
+        setCloudConfig(configToSave);
+        setMessage({ type: 'success', text: `${cloudProvider.charAt(0).toUpperCase() + cloudProvider.slice(1)} cloud sync connected!` });
     };
 
     const handleDisconnectCloud = () => {
         if (confirm('Disconnect cloud sync? Your local data will remain, but syncing will stop.')) {
-            setCloudConfig({ url: '', key: '', enabled: false });
-            storageService.saveConfig({ url: '', key: '', enabled: false });
+            const emptyConfig: CloudProviderConfig = { provider: 'supabase', enabled: false };
+            setCloudConfig(emptyConfig);
+            localStorage.removeItem('zee_cloud_config');
             setMessage({ type: 'success', text: "Cloud sync disconnected." });
         }
     };
@@ -230,17 +241,17 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser }) => {
                                 <div className="flex items-start gap-2 my-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                                     <Info className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
                                     <p className="text-xs text-blue-700 dark:text-blue-300">
-                                        This syncs your <strong>Zee account data</strong> to your own Supabase. For project databases, use the App Builder's DB panel instead.
+                                        Sync your <strong>Zee account data</strong> to your own cloud backend. Choose a provider below.
                                     </p>
                                 </div>
                                 
-                                {cloudConfig.enabled && cloudConfig.url ? (
+                                {cloudConfig.enabled ? (
                                     <div className="space-y-3">
                                         <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center text-green-700 dark:text-green-400">
                                                     <Check className="w-4 h-4 mr-2" />
-                                                    <span className="text-sm font-medium">Connected</span>
+                                                    <span className="text-sm font-medium">Connected to {cloudConfig.provider}</span>
                                                 </div>
                                                 <button 
                                                     onClick={handleDisconnectCloud}
@@ -249,38 +260,122 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser }) => {
                                                     <Unlink className="w-3 h-3 mr-1" /> Disconnect
                                                 </button>
                                             </div>
-                                            <p className="text-xs text-green-600 dark:text-green-500 mt-2 truncate">{cloudConfig.url}</p>
                                         </div>
                                     </div>
                                 ) : (
-                                    <form onSubmit={handleSaveCloud} className="space-y-3">
-                                        <input 
-                                            type="text"
-                                            value={cloudConfig.url}
-                                            onChange={(e) => setCloudConfig({...cloudConfig, url: e.target.value})}
-                                            className="w-full px-3 py-2 bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-lg text-sm"
-                                            placeholder="Supabase URL"
-                                        />
-                                        <input 
-                                            type="password"
-                                            value={cloudConfig.key}
-                                            onChange={(e) => setCloudConfig({...cloudConfig, key: e.target.value})}
-                                            className="w-full px-3 py-2 bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-lg text-sm"
-                                            placeholder="Supabase Anon Key"
-                                        />
-                                        <div className="flex items-center">
-                                            <input 
-                                                type="checkbox" 
-                                                id="cloudEnabled"
-                                                checked={cloudConfig.enabled}
-                                                onChange={(e) => setCloudConfig({...cloudConfig, enabled: e.target.checked})}
-                                                className="mr-2 rounded text-blue-600 focus:ring-blue-500"
-                                            />
-                                            <label htmlFor="cloudEnabled" className="text-sm text-slate-700 dark:text-slate-300">Enable Cloud Sync</label>
-                                            <button type="submit" className="ml-auto flex items-center px-3 py-1.5 bg-green-600 text-white rounded text-xs font-bold">
-                                                <Database className="w-3 h-3 mr-1" /> Connect
-                                            </button>
+                                    <form onSubmit={handleSaveCloud} className="space-y-3 mt-3">
+                                        {/* Provider Selection */}
+                                        <div className="grid grid-cols-4 gap-2">
+                                            {[
+                                                { id: 'supabase', label: 'Supabase', icon: Database, color: 'text-green-500' },
+                                                { id: 'firebase', label: 'Firebase', icon: Flame, color: 'text-orange-500' },
+                                                { id: 'neon', label: 'Neon', icon: Zap, color: 'text-cyan-500' },
+                                                { id: 'appwrite', label: 'Appwrite', icon: Server, color: 'text-pink-500' }
+                                            ].map(p => (
+                                                <button
+                                                    key={p.id}
+                                                    type="button"
+                                                    onClick={() => setCloudProvider(p.id as CloudProviderType)}
+                                                    className={`p-2 rounded-lg border text-center transition-all ${
+                                                        cloudProvider === p.id 
+                                                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
+                                                            : 'border-gray-200 dark:border-slate-700 hover:border-gray-300'
+                                                    }`}
+                                                >
+                                                    <p.icon className={`w-4 h-4 mx-auto ${p.color}`} />
+                                                    <span className="text-[10px] text-slate-600 dark:text-slate-400">{p.label}</span>
+                                                </button>
+                                            ))}
                                         </div>
+
+                                        {/* Supabase Fields */}
+                                        {cloudProvider === 'supabase' && (
+                                            <>
+                                                <input 
+                                                    type="text"
+                                                    value={cloudConfig.supabaseUrl || ''}
+                                                    onChange={(e) => setCloudConfig({...cloudConfig, supabaseUrl: e.target.value})}
+                                                    className="w-full px-3 py-2 bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-lg text-sm"
+                                                    placeholder="Supabase Project URL"
+                                                />
+                                                <input 
+                                                    type="password"
+                                                    value={cloudConfig.supabaseKey || ''}
+                                                    onChange={(e) => setCloudConfig({...cloudConfig, supabaseKey: e.target.value})}
+                                                    className="w-full px-3 py-2 bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-lg text-sm"
+                                                    placeholder="Supabase Anon Key"
+                                                />
+                                            </>
+                                        )}
+
+                                        {/* Firebase Fields */}
+                                        {cloudProvider === 'firebase' && (
+                                            <>
+                                                <input 
+                                                    type="text"
+                                                    value={cloudConfig.firebaseProjectId || ''}
+                                                    onChange={(e) => setCloudConfig({...cloudConfig, firebaseProjectId: e.target.value})}
+                                                    className="w-full px-3 py-2 bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-lg text-sm"
+                                                    placeholder="Firebase Project ID"
+                                                />
+                                                <input 
+                                                    type="password"
+                                                    value={cloudConfig.firebaseApiKey || ''}
+                                                    onChange={(e) => setCloudConfig({...cloudConfig, firebaseApiKey: e.target.value})}
+                                                    className="w-full px-3 py-2 bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-lg text-sm"
+                                                    placeholder="Firebase API Key"
+                                                />
+                                                <input 
+                                                    type="text"
+                                                    value={cloudConfig.firebaseAppId || ''}
+                                                    onChange={(e) => setCloudConfig({...cloudConfig, firebaseAppId: e.target.value})}
+                                                    className="w-full px-3 py-2 bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-lg text-sm"
+                                                    placeholder="Firebase App ID"
+                                                />
+                                            </>
+                                        )}
+
+                                        {/* Neon Fields */}
+                                        {cloudProvider === 'neon' && (
+                                            <input 
+                                                type="password"
+                                                value={cloudConfig.neonConnectionString || ''}
+                                                onChange={(e) => setCloudConfig({...cloudConfig, neonConnectionString: e.target.value})}
+                                                className="w-full px-3 py-2 bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-lg text-sm"
+                                                placeholder="Neon Connection String (postgres://...)"
+                                            />
+                                        )}
+
+                                        {/* Appwrite Fields */}
+                                        {cloudProvider === 'appwrite' && (
+                                            <>
+                                                <input 
+                                                    type="text"
+                                                    value={cloudConfig.appwriteEndpoint || ''}
+                                                    onChange={(e) => setCloudConfig({...cloudConfig, appwriteEndpoint: e.target.value})}
+                                                    className="w-full px-3 py-2 bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-lg text-sm"
+                                                    placeholder="Appwrite Endpoint (https://cloud.appwrite.io/v1)"
+                                                />
+                                                <input 
+                                                    type="text"
+                                                    value={cloudConfig.appwriteProjectId || ''}
+                                                    onChange={(e) => setCloudConfig({...cloudConfig, appwriteProjectId: e.target.value})}
+                                                    className="w-full px-3 py-2 bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-lg text-sm"
+                                                    placeholder="Appwrite Project ID"
+                                                />
+                                                <input 
+                                                    type="password"
+                                                    value={cloudConfig.appwriteApiKey || ''}
+                                                    onChange={(e) => setCloudConfig({...cloudConfig, appwriteApiKey: e.target.value})}
+                                                    className="w-full px-3 py-2 bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-lg text-sm"
+                                                    placeholder="Appwrite API Key"
+                                                />
+                                            </>
+                                        )}
+
+                                        <button type="submit" className="w-full flex items-center justify-center px-3 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg text-sm font-bold transition-colors">
+                                            <Database className="w-4 h-4 mr-2" /> Connect {cloudProvider.charAt(0).toUpperCase() + cloudProvider.slice(1)}
+                                        </button>
                                     </form>
                                 )}
                             </div>

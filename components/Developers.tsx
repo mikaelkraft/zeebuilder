@@ -1,13 +1,38 @@
 
 import React, { useState, useEffect } from 'react';
-import { User, ApiKey } from '../types';
-import { Terminal, Key, Copy, Plus, Trash2, Book, Server, ShieldCheck, Code, Play, Loader2, Activity, CreditCard } from 'lucide-react';
+import { User, ApiKey, ApiQuota } from '../types';
+import { Terminal, Key, Copy, Plus, Trash2, Book, Server, ShieldCheck, Code, Play, Loader2, Activity, CreditCard, AlertTriangle, Clock, Zap, Image, Mic, FileCode, RefreshCw } from 'lucide-react';
 import { simulateApiCall } from '../services/geminiService';
 import { usageService, UsageStats } from '../services/usageService';
 
 interface DevelopersProps {
     user: User | null;
 }
+
+// API Quota Plans
+const QUOTA_PLANS: Record<string, ApiQuota['limits']> = {
+    free: {
+        requestsPerDay: 100,
+        requestsPerMinute: 10,
+        codeGenerations: 50,
+        imageGenerations: 10,
+        audioMinutes: 5
+    },
+    pro: {
+        requestsPerDay: 5000,
+        requestsPerMinute: 60,
+        codeGenerations: 2000,
+        imageGenerations: 500,
+        audioMinutes: 120
+    },
+    enterprise: {
+        requestsPerDay: 100000,
+        requestsPerMinute: 500,
+        codeGenerations: 50000,
+        imageGenerations: 10000,
+        audioMinutes: 1000
+    }
+};
 
 const Developers: React.FC<DevelopersProps> = ({ user }) => {
     const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
@@ -19,8 +44,59 @@ const Developers: React.FC<DevelopersProps> = ({ user }) => {
     // Playground State
     const [testKey, setTestKey] = useState('');
     const [testPrompt, setTestPrompt] = useState('Create a login screen with React');
+    const [testEndpoint, setTestEndpoint] = useState('/api/v1/generate');
     const [isTesting, setIsTesting] = useState(false);
     const [testResponse, setTestResponse] = useState<string | null>(null);
+
+    // Quota State
+    const [quota, setQuota] = useState<ApiQuota | null>(null);
+    const [quotaWarning, setQuotaWarning] = useState<string | null>(null);
+
+    const loadQuota = (email: string) => {
+        const savedQuota = localStorage.getItem(`zee_api_quota_${email}`);
+        if (savedQuota) {
+            const q = JSON.parse(savedQuota);
+            // Reset daily usage if new day
+            const today = new Date().toDateString();
+            const lastReset = new Date(q.usage.lastReset).toDateString();
+            if (today !== lastReset) {
+                q.usage = { requestsToday: 0, codeGenerationsToday: 0, imageGenerationsToday: 0, audioMinutesToday: 0, lastReset: Date.now() };
+                localStorage.setItem(`zee_api_quota_${email}`, JSON.stringify(q));
+            }
+            setQuota(q);
+        } else {
+            // Initialize with free plan
+            const newQuota: ApiQuota = {
+                plan: 'free',
+                limits: QUOTA_PLANS.free,
+                usage: { requestsToday: 0, codeGenerationsToday: 0, imageGenerationsToday: 0, audioMinutesToday: 0, lastReset: Date.now() }
+            };
+            localStorage.setItem(`zee_api_quota_${email}`, JSON.stringify(newQuota));
+            setQuota(newQuota);
+        }
+    };
+
+    const checkQuota = (type: 'request' | 'code' | 'image' | 'audio'): boolean => {
+        if (!quota) return false;
+        switch (type) {
+            case 'request': return quota.usage.requestsToday < quota.limits.requestsPerDay;
+            case 'code': return quota.usage.codeGenerationsToday < quota.limits.codeGenerations;
+            case 'image': return quota.usage.imageGenerationsToday < quota.limits.imageGenerations;
+            case 'audio': return quota.usage.audioMinutesToday < quota.limits.audioMinutes;
+            default: return true;
+        }
+    };
+
+    const incrementUsage = (type: 'request' | 'code' | 'image' | 'audio') => {
+        if (!quota || !user) return;
+        const updated = { ...quota };
+        updated.usage.requestsToday++;
+        if (type === 'code') updated.usage.codeGenerationsToday++;
+        if (type === 'image') updated.usage.imageGenerationsToday++;
+        if (type === 'audio') updated.usage.audioMinutesToday++;
+        setQuota(updated);
+        localStorage.setItem(`zee_api_quota_${user.email}`, JSON.stringify(updated));
+    };
 
     useEffect(() => {
         if (user) {
@@ -30,6 +106,8 @@ const Developers: React.FC<DevelopersProps> = ({ user }) => {
             }
             // Load Usage Stats
             setStats(usageService.getStats(user.email));
+            // Load Quota
+            loadQuota(user.email);
         }
         if (typeof window !== 'undefined') {
             setBaseUrl(window.location.origin);
@@ -77,20 +155,68 @@ const Developers: React.FC<DevelopersProps> = ({ user }) => {
         if (!testKey || !testPrompt) return;
         
         if (!testKey.startsWith('zee_live_')) {
-             setTestResponse(JSON.stringify({ error: "Invalid API Key format" }, null, 2));
+             setTestResponse(JSON.stringify({ error: "Invalid API Key format. Keys must start with 'zee_live_'" }, null, 2));
              return;
+        }
+
+        // Check quota
+        const requestType = testEndpoint.includes('image') ? 'image' : testEndpoint.includes('audio') ? 'audio' : 'code';
+        if (!checkQuota('request')) {
+            setTestResponse(JSON.stringify({ 
+                error: "Rate limit exceeded", 
+                message: `You've reached your daily limit of ${quota?.limits.requestsPerDay} requests. Upgrade to Pro for more.`,
+                code: 429
+            }, null, 2));
+            return;
+        }
+        if (!checkQuota(requestType)) {
+            setTestResponse(JSON.stringify({ 
+                error: "Quota exceeded", 
+                message: `You've reached your daily ${requestType} generation limit. Upgrade to Pro for more.`,
+                code: 429
+            }, null, 2));
+            return;
         }
 
         setIsTesting(true);
         setTestResponse(null);
         try {
+            // Increment usage
+            incrementUsage(requestType);
+
             const result = await simulateApiCall(testPrompt);
-            setTestResponse(JSON.stringify(result, null, 2));
             
-            // Simulate usage tracking update
+            // Format response based on endpoint
+            let response: any = {
+                success: true,
+                endpoint: testEndpoint,
+                timestamp: new Date().toISOString(),
+                usage: {
+                    requestsRemaining: quota ? quota.limits.requestsPerDay - quota.usage.requestsToday - 1 : 0,
+                    plan: quota?.plan || 'free'
+                }
+            };
+
+            if (testEndpoint === '/api/v1/generate') {
+                response.data = { files: result.files || [], message: result.message };
+            } else if (testEndpoint === '/api/v1/chat') {
+                response.data = { reply: result.message || "AI response here", model: "gemini-2.5-flash" };
+            } else if (testEndpoint === '/api/v1/image') {
+                response.data = { imageUrl: "https://example.com/generated-image.png", prompt: testPrompt };
+            } else if (testEndpoint === '/api/v1/audio/transcribe') {
+                response.data = { transcript: "Transcribed audio text would appear here", duration: 0 };
+            } else if (testEndpoint === '/api/v1/audio/tts') {
+                response.data = { audioUrl: "https://example.com/generated-audio.mp3", text: testPrompt };
+            } else {
+                response.data = result;
+            }
+
+            setTestResponse(JSON.stringify(response, null, 2));
+            
+            // Update key usage count
             if (user) {
-                usageService.trackRequest(user.email, 'code');
-                setStats(usageService.getStats(user.email)); // Refresh stats
+                usageService.trackRequest(user.email, requestType);
+                setStats(usageService.getStats(user.email));
                 
                 const keyIndex = apiKeys.findIndex(k => k.key === testKey);
                 if (keyIndex >= 0) {
@@ -102,7 +228,7 @@ const Developers: React.FC<DevelopersProps> = ({ user }) => {
             }
 
         } catch (error: any) {
-            setTestResponse(JSON.stringify({ error: error.message }, null, 2));
+            setTestResponse(JSON.stringify({ success: false, error: error.message }, null, 2));
         } finally {
             setIsTesting(false);
         }
@@ -206,23 +332,39 @@ const Developers: React.FC<DevelopersProps> = ({ user }) => {
                             <span className="text-[10px] text-slate-500">Test your keys</span>
                         </div>
                         <div className="p-6 space-y-4">
-                            <div>
-                                <label className="block text-xs font-mono text-slate-500 mb-1">X-API-Key</label>
-                                <input 
-                                    value={testKey}
-                                    onChange={(e) => setTestKey(e.target.value)}
-                                    className="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-xs text-white font-mono"
-                                    placeholder="Paste your zee_live_... key here"
-                                />
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-xs font-mono text-slate-500 mb-1">Endpoint</label>
+                                    <select 
+                                        value={testEndpoint}
+                                        onChange={(e) => setTestEndpoint(e.target.value)}
+                                        className="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-xs text-white font-mono"
+                                    >
+                                        <option value="/api/v1/generate">POST /api/v1/generate</option>
+                                        <option value="/api/v1/chat">POST /api/v1/chat</option>
+                                        <option value="/api/v1/image">POST /api/v1/image</option>
+                                        <option value="/api/v1/audio/transcribe">POST /api/v1/audio/transcribe</option>
+                                        <option value="/api/v1/audio/tts">POST /api/v1/audio/tts</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-mono text-slate-500 mb-1">X-API-Key</label>
+                                    <input 
+                                        value={testKey}
+                                        onChange={(e) => setTestKey(e.target.value)}
+                                        className="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-xs text-white font-mono"
+                                        placeholder="zee_live_..."
+                                    />
+                                </div>
                             </div>
                             <div>
-                                <label className="block text-xs font-mono text-slate-500 mb-1">Body (JSON)</label>
+                                <label className="block text-xs font-mono text-slate-500 mb-1">Request Body</label>
                                 <div className="flex space-x-2">
                                     <input 
                                         value={testPrompt}
                                         onChange={(e) => setTestPrompt(e.target.value)}
                                         className="flex-1 bg-slate-950 border border-slate-700 rounded px-3 py-2 text-xs text-white font-mono"
-                                        placeholder='{"prompt": "..."}'
+                                        placeholder={testEndpoint.includes('image') ? 'A beautiful sunset...' : 'Create a login screen...'}
                                     />
                                     <button 
                                         onClick={handleTestApi}
@@ -233,6 +375,14 @@ const Developers: React.FC<DevelopersProps> = ({ user }) => {
                                     </button>
                                 </div>
                             </div>
+                            {quota && (
+                                <div className="flex items-center justify-between text-xs py-2 px-3 bg-slate-950 rounded border border-slate-800">
+                                    <span className="text-slate-500">Requests remaining today:</span>
+                                    <span className={`font-mono font-bold ${quota.usage.requestsToday >= quota.limits.requestsPerDay * 0.9 ? 'text-red-400' : 'text-green-400'}`}>
+                                        {quota.limits.requestsPerDay - quota.usage.requestsToday} / {quota.limits.requestsPerDay}
+                                    </span>
+                                </div>
+                            )}
                             <div className="bg-black rounded-lg p-4 min-h-[150px] max-h-[300px] overflow-y-auto custom-scrollbar">
                                 <pre className="text-xs font-mono text-green-400">
                                     {testResponse || '// Response will appear here...'}
@@ -289,27 +439,74 @@ const Developers: React.FC<DevelopersProps> = ({ user }) => {
                         <h3 className="font-bold text-slate-900 dark:text-white mb-4 flex items-center">
                             <Book className="w-4 h-4 mr-2 text-blue-500" /> API Reference
                         </h3>
-                        <ul className="space-y-3">
-                            <li>
-                                <a href="#" className="block p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors group">
-                                    <div className="flex items-center justify-between mb-1">
-                                        <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{baseUrl}/api/v1/generate</span>
-                                        <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded uppercase">POST</span>
-                                    </div>
-                                    <p className="text-xs text-slate-500">Generate full project structures.</p>
-                                </a>
-                            </li>
-                            <li>
-                                <a href="#" className="block p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors group">
-                                    <div className="flex items-center justify-between mb-1">
-                                        <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{baseUrl}/api/v1/image</span>
-                                        <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded uppercase">POST</span>
-                                    </div>
-                                    <p className="text-xs text-slate-500">Create images with Zee Pro.</p>
-                                </a>
-                            </li>
+                        <ul className="space-y-2">
+                            {[
+                                { path: '/api/v1/generate', method: 'POST', desc: 'Generate full project structures', icon: FileCode, color: 'text-blue-500' },
+                                { path: '/api/v1/chat', method: 'POST', desc: 'Chat completions with AI', icon: Terminal, color: 'text-green-500' },
+                                { path: '/api/v1/image', method: 'POST', desc: 'Generate images from text', icon: Image, color: 'text-purple-500' },
+                                { path: '/api/v1/audio/transcribe', method: 'POST', desc: 'Transcribe audio to text', icon: Mic, color: 'text-orange-500' },
+                                { path: '/api/v1/audio/tts', method: 'POST', desc: 'Text-to-speech synthesis', icon: Mic, color: 'text-cyan-500' },
+                                { path: '/api/v1/usage', method: 'GET', desc: 'Get usage statistics', icon: Activity, color: 'text-yellow-500' },
+                            ].map((endpoint, i) => (
+                                <li key={i}>
+                                    <button 
+                                        onClick={() => setTestEndpoint(endpoint.path)}
+                                        className="w-full text-left p-2.5 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors group"
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            <endpoint.icon className={`w-3.5 h-3.5 ${endpoint.color}`} />
+                                            <span className="text-xs font-mono text-slate-600 dark:text-slate-300 flex-1">{endpoint.path}</span>
+                                            <span className={`text-[9px] px-1.5 py-0.5 rounded uppercase font-bold ${endpoint.method === 'GET' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>{endpoint.method}</span>
+                                        </div>
+                                        <p className="text-[10px] text-slate-400 mt-1 ml-5">{endpoint.desc}</p>
+                                    </button>
+                                </li>
+                            ))}
                         </ul>
                     </div>
+
+                    {/* Quota & Limits */}
+                    {quota && (
+                        <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-6">
+                            <h3 className="font-bold text-slate-900 dark:text-white mb-4 flex items-center">
+                                <Zap className="w-4 h-4 mr-2 text-yellow-500" /> Rate Limits
+                            </h3>
+                            <div className="space-y-3">
+                                <div className="flex justify-between items-center text-xs">
+                                    <span className="text-slate-500">Requests/day</span>
+                                    <span className="font-mono text-slate-700 dark:text-white">{quota.limits.requestsPerDay.toLocaleString()}</span>
+                                </div>
+                                <div className="flex justify-between items-center text-xs">
+                                    <span className="text-slate-500">Requests/min</span>
+                                    <span className="font-mono text-slate-700 dark:text-white">{quota.limits.requestsPerMinute}</span>
+                                </div>
+                                <div className="flex justify-between items-center text-xs">
+                                    <span className="text-slate-500">Code generations</span>
+                                    <span className="font-mono text-slate-700 dark:text-white">{quota.limits.codeGenerations.toLocaleString()}</span>
+                                </div>
+                                <div className="flex justify-between items-center text-xs">
+                                    <span className="text-slate-500">Image generations</span>
+                                    <span className="font-mono text-slate-700 dark:text-white">{quota.limits.imageGenerations.toLocaleString()}</span>
+                                </div>
+                                <div className="flex justify-between items-center text-xs">
+                                    <span className="text-slate-500">Audio minutes</span>
+                                    <span className="font-mono text-slate-700 dark:text-white">{quota.limits.audioMinutes}</span>
+                                </div>
+                                <div className="pt-2 border-t border-gray-100 dark:border-slate-800">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-xs font-bold text-slate-500">Plan</span>
+                                        <span className={`text-xs font-bold px-2 py-1 rounded uppercase ${
+                                            quota.plan === 'enterprise' ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white' :
+                                            quota.plan === 'pro' ? 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400' : 
+                                            'bg-gray-200 text-gray-600 dark:bg-slate-700 dark:text-slate-400'
+                                        }`}>
+                                            {quota.plan}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     <div className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-xl p-6 text-white shadow-lg">
                         <Server className="w-8 h-8 mb-4 opacity-80" />

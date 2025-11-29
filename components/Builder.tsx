@@ -377,7 +377,7 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
     const [ghStatus, setGhStatus] = useState<string>('');
     const [dependencies, setDependencies] = useState<{[key: string]: string}>({});
     const [dbConfigs, setDbConfigs] = useState<DatabaseConfig[]>([]);
-    const [newDbType, setNewDbType] = useState<'firebase' | 'supabase' | 'neon'>('firebase');
+    const [newDbType, setNewDbType] = useState<'firebase' | 'supabase' | 'neon' | 'appwrite' | 'vercel'>('supabase');
     const [newDbConfig, setNewDbConfig] = useState<any>({});
     const [newPackage, setNewPackage] = useState('');
 
@@ -2058,18 +2058,25 @@ root.render(<App />);`;
                         )}
                         {sidebarTab === 'db' && (
                             <div className="p-2 space-y-3">
-                                <h3 className="text-xs font-bold text-slate-500 uppercase">Project Databases</h3>
-                                <p className="text-[10px] text-slate-600">Connect databases to this project. Credentials are injected into generated code.</p>
+                                <h3 className="text-xs font-bold text-slate-500 uppercase">Databases & Hosting</h3>
+                                <p className="text-[10px] text-slate-600">Connect databases or hosting platforms. Credentials are injected into generated code.</p>
                                 {dbConfigs.map((db,i) => (
                                     <div key={i} className="bg-slate-800 p-3 rounded text-xs text-white space-y-2">
                                         <div className="flex justify-between items-center">
                                             <span className="capitalize font-bold flex items-center">
-                                                <Database className="w-3 h-3 mr-1.5 text-green-500"/>
+                                                {db.type === 'vercel' ? (
+                                                    <Globe className="w-3 h-3 mr-1.5 text-white"/>
+                                                ) : db.type === 'appwrite' ? (
+                                                    <Layers className="w-3 h-3 mr-1.5 text-pink-500"/>
+                                                ) : (
+                                                    <Database className="w-3 h-3 mr-1.5 text-green-500"/>
+                                                )}
                                                 {db.name || db.type}
                                             </span>
                                             <Trash2 className="w-3 h-3 cursor-pointer text-red-400 hover:text-red-300" onClick={()=>{const n=[...dbConfigs];n.splice(i,1);setDbConfigs(n)}}/>
                                         </div>
                                         {db.config?.url && <p className="text-[10px] text-slate-400 truncate">{db.config.url}</p>}
+                                        {db.config?.endpoint && <p className="text-[10px] text-slate-400 truncate">{db.config.endpoint}</p>}
                                         <span className={`text-[10px] px-1.5 py-0.5 rounded ${db.connected ? 'bg-green-900/50 text-green-400' : 'bg-yellow-900/50 text-yellow-400'}`}>
                                             {db.connected ? 'Connected' : 'Not Connected'}
                                         </span>
@@ -2077,15 +2084,27 @@ root.render(<App />);`;
                                 ))}
                                 <div className="pt-3 border-t border-slate-800 space-y-2">
                                     <h4 className="text-[10px] text-slate-400 font-bold uppercase">Add Connection</h4>
-                                    <select 
-                                        value={newDbType}
-                                        onChange={e=>setNewDbType(e.target.value as any)} 
-                                        className="w-full bg-slate-950 text-white text-xs p-2 rounded border border-slate-800"
-                                    >
-                                        <option value="supabase">Supabase</option>
-                                        <option value="firebase">Firebase</option>
-                                        <option value="neon">Neon Postgres</option>
-                                    </select>
+                                    <div className="grid grid-cols-5 gap-1">
+                                        {[
+                                            { id: 'supabase', label: 'Supabase', color: 'bg-green-600' },
+                                            { id: 'firebase', label: 'Firebase', color: 'bg-orange-500' },
+                                            { id: 'neon', label: 'Neon', color: 'bg-cyan-500' },
+                                            { id: 'appwrite', label: 'Appwrite', color: 'bg-pink-500' },
+                                            { id: 'vercel', label: 'Vercel', color: 'bg-white text-black' }
+                                        ].map(p => (
+                                            <button
+                                                key={p.id}
+                                                onClick={() => setNewDbType(p.id as any)}
+                                                className={`p-1.5 rounded text-[9px] font-bold transition-all ${
+                                                    newDbType === p.id 
+                                                        ? `${p.color} ring-2 ring-blue-400` 
+                                                        : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
+                                                }`}
+                                            >
+                                                {p.label}
+                                            </button>
+                                        ))}
+                                    </div>
                                     <input 
                                         type="text"
                                         value={newDbConfig.name || ''}
@@ -2093,40 +2112,76 @@ root.render(<App />);`;
                                         placeholder="Connection Name"
                                         className="w-full bg-slate-950 text-white text-xs p-2 rounded border border-slate-800"
                                     />
-                                    <input 
-                                        type="text"
-                                        value={newDbConfig.url || ''}
-                                        onChange={e => setNewDbConfig({...newDbConfig, url: e.target.value})}
-                                        placeholder={newDbType === 'supabase' ? 'Supabase URL' : newDbType === 'firebase' ? 'Firebase Project ID' : 'Connection String'}
-                                        className="w-full bg-slate-950 text-white text-xs p-2 rounded border border-slate-800"
-                                    />
-                                    <input 
-                                        type="password"
-                                        value={newDbConfig.key || ''}
-                                        onChange={e => setNewDbConfig({...newDbConfig, key: e.target.value})}
-                                        placeholder={newDbType === 'supabase' ? 'Anon Key' : newDbType === 'firebase' ? 'API Key' : 'Password'}
-                                        className="w-full bg-slate-950 text-white text-xs p-2 rounded border border-slate-800"
-                                    />
+                                    
+                                    {/* Dynamic fields based on provider */}
+                                    {newDbType === 'supabase' && (
+                                        <>
+                                            <input type="text" value={newDbConfig.url || ''} onChange={e => setNewDbConfig({...newDbConfig, url: e.target.value})} placeholder="Supabase Project URL" className="w-full bg-slate-950 text-white text-xs p-2 rounded border border-slate-800" />
+                                            <input type="password" value={newDbConfig.key || ''} onChange={e => setNewDbConfig({...newDbConfig, key: e.target.value})} placeholder="Supabase Anon Key" className="w-full bg-slate-950 text-white text-xs p-2 rounded border border-slate-800" />
+                                        </>
+                                    )}
+                                    {newDbType === 'firebase' && (
+                                        <>
+                                            <input type="text" value={newDbConfig.url || ''} onChange={e => setNewDbConfig({...newDbConfig, url: e.target.value})} placeholder="Firebase Project ID" className="w-full bg-slate-950 text-white text-xs p-2 rounded border border-slate-800" />
+                                            <input type="password" value={newDbConfig.key || ''} onChange={e => setNewDbConfig({...newDbConfig, key: e.target.value})} placeholder="Firebase API Key" className="w-full bg-slate-950 text-white text-xs p-2 rounded border border-slate-800" />
+                                        </>
+                                    )}
+                                    {newDbType === 'neon' && (
+                                        <input type="password" value={newDbConfig.url || ''} onChange={e => setNewDbConfig({...newDbConfig, url: e.target.value})} placeholder="Neon Connection String (postgres://...)" className="w-full bg-slate-950 text-white text-xs p-2 rounded border border-slate-800" />
+                                    )}
+                                    {newDbType === 'appwrite' && (
+                                        <>
+                                            <input type="text" value={newDbConfig.endpoint || ''} onChange={e => setNewDbConfig({...newDbConfig, endpoint: e.target.value})} placeholder="Appwrite Endpoint (https://cloud.appwrite.io/v1)" className="w-full bg-slate-950 text-white text-xs p-2 rounded border border-slate-800" />
+                                            <input type="text" value={newDbConfig.url || ''} onChange={e => setNewDbConfig({...newDbConfig, url: e.target.value})} placeholder="Project ID" className="w-full bg-slate-950 text-white text-xs p-2 rounded border border-slate-800" />
+                                            <input type="password" value={newDbConfig.key || ''} onChange={e => setNewDbConfig({...newDbConfig, key: e.target.value})} placeholder="API Key" className="w-full bg-slate-950 text-white text-xs p-2 rounded border border-slate-800" />
+                                        </>
+                                    )}
+                                    {newDbType === 'vercel' && (
+                                        <>
+                                            <input type="password" value={newDbConfig.key || ''} onChange={e => setNewDbConfig({...newDbConfig, key: e.target.value})} placeholder="Vercel Token" className="w-full bg-slate-950 text-white text-xs p-2 rounded border border-slate-800" />
+                                            <input type="text" value={newDbConfig.url || ''} onChange={e => setNewDbConfig({...newDbConfig, url: e.target.value})} placeholder="Team ID (optional)" className="w-full bg-slate-950 text-white text-xs p-2 rounded border border-slate-800" />
+                                            <p className="text-[9px] text-slate-500">Connect to deploy your project directly to Vercel.</p>
+                                        </>
+                                    )}
+                                    
                                     <button 
                                         onClick={()=>{
-                                            if (!newDbConfig.url) return alert('Please enter connection details');
+                                            if (newDbType === 'appwrite' && !newDbConfig.endpoint) return alert('Please enter Appwrite endpoint');
+                                            if (newDbType !== 'vercel' && !newDbConfig.url && !newDbConfig.endpoint) return alert('Please enter connection details');
+                                            if (newDbType === 'vercel' && !newDbConfig.key) return alert('Please enter Vercel token');
+                                            
+                                            const config: any = { key: newDbConfig.key };
+                                            if (newDbConfig.url) config.url = newDbConfig.url;
+                                            if (newDbConfig.endpoint) config.endpoint = newDbConfig.endpoint;
+                                            
                                             setDbConfigs([...dbConfigs, {
                                                 type: newDbType, 
                                                 name: newDbConfig.name || newDbType, 
                                                 connected: true, 
-                                                config: { url: newDbConfig.url, key: newDbConfig.key }
+                                                config
                                             }]);
                                             setNewDbConfig({});
+                                            
+                                            const msgText = newDbType === 'vercel' 
+                                                ? `🚀 **Vercel connected!** You can now deploy your project directly.`
+                                                : newDbType === 'appwrite'
+                                                ? `✅ **Appwrite connected!** Database, Auth, and Storage are now available.`
+                                                : `✅ **${newDbType} connected!** I'll use these credentials when generating backend code.`;
+                                            
                                             setMessages(prev => [...prev, { 
                                                 id: Date.now().toString(), 
                                                 role: 'model', 
-                                                text: `✅ **${newDbType} database connected!** I'll use these credentials when generating backend code.`, 
+                                                text: msgText, 
                                                 timestamp: Date.now() 
                                             }]);
                                         }} 
-                                        className="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs py-2 rounded font-bold transition-colors"
+                                        className={`w-full text-white text-xs py-2 rounded font-bold transition-colors ${
+                                            newDbType === 'vercel' ? 'bg-black hover:bg-gray-800' :
+                                            newDbType === 'appwrite' ? 'bg-pink-600 hover:bg-pink-500' :
+                                            'bg-blue-600 hover:bg-blue-500'
+                                        }`}
                                     >
-                                        Connect Database
+                                        {newDbType === 'vercel' ? 'Connect Vercel' : newDbType === 'appwrite' ? 'Connect Appwrite' : 'Connect Database'}
                                     </button>
                                 </div>
                             </div>

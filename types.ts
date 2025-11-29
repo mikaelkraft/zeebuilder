@@ -112,7 +112,7 @@ export interface Task {
 }
 
 export interface DatabaseConfig {
-  type: 'firebase' | 'supabase' | 'neon';
+  type: 'firebase' | 'supabase' | 'neon' | 'appwrite' | 'vercel';
   name: string;
   connected: boolean;
   config?: any;
@@ -122,4 +122,42 @@ export interface SupabaseConfig {
     url: string;
     key: string;
     enabled: boolean;
+}
+
+export type CloudProviderType = 'supabase' | 'firebase' | 'neon' | 'appwrite';
+
+export interface CloudProviderConfig {
+    provider: CloudProviderType;
+    enabled: boolean;
+    // Supabase
+    supabaseUrl?: string;
+    supabaseKey?: string;
+    // Firebase
+    firebaseApiKey?: string;
+    firebaseProjectId?: string;
+    firebaseAppId?: string;
+    // Neon
+    neonConnectionString?: string;
+    // Appwrite
+    appwriteEndpoint?: string;
+    appwriteProjectId?: string;
+    appwriteApiKey?: string;
+}
+
+export interface ApiQuota {
+    plan: 'free' | 'pro' | 'enterprise';
+    limits: {
+        requestsPerDay: number;
+        requestsPerMinute: number;
+        codeGenerations: number;
+        imageGenerations: number;
+        audioMinutes: number;
+    };
+    usage: {
+        requestsToday: number;
+        codeGenerationsToday: number;
+        imageGenerationsToday: number;
+        audioMinutesToday: number;
+        lastReset: number;
+    };
 }
