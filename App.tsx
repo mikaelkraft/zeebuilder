@@ -17,7 +17,8 @@ import {
   Home as HomeIcon,
   Settings,
   Terminal,
-  FolderOpen
+  FolderOpen,
+  Workflow
 } from 'lucide-react';
 
 // Components
@@ -33,6 +34,7 @@ import Profile from './components/Profile';
 import LegalDocs from './components/LegalDocs';
 import Developers from './components/Developers';
 import Projects from './components/Projects';
+import Integrations from './components/Integrations';
 import { usageService } from './services/usageService';
 import { supabase, onAuthStateChange } from './services/supabaseClient';
 
@@ -250,6 +252,7 @@ const App: React.FC = () => {
             <NavCategory label="Development" />
             <NavItem view={View.BUILDER} icon={Code} label="App Builder" />
             <NavItem view={View.PROJECTS} icon={FolderOpen} label="My Projects" />
+            <NavItem view={View.INTEGRATIONS} icon={Workflow} label="Integrations" />
             <NavItem view={View.TASKS} icon={Kanban} label="Task Board" />
             <NavItem view={View.DEVELOPERS} icon={Terminal} label="API & Developers" />
             <NavCategory label="AI Studios" />
@@ -362,6 +365,7 @@ const App: React.FC = () => {
                     />
                 )}
                 {currentView === View.TASKS && <TaskBoard />}
+                {currentView === View.INTEGRATIONS && <Integrations onNavigate={handleNavigation} />}
                 {currentView === View.CHAT && <ChatInterface />}
                 {currentView === View.IMAGE_STUDIO && <ImageStudio />}
                 {currentView === View.AUDIO_STUDIO && <AudioStudio onNavigate={handleNavigation} />}

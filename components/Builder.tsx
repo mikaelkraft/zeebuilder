@@ -9,7 +9,7 @@ import {
     RotateCcw, Image, FileCode, ChevronRight, ChevronDown, Database, Package as PackageIcon,
     Smartphone, Layers, Globe, Paperclip, MonitorPlay,
     Undo2, Redo2, Play, FileType, Eye, ArrowLeftRight, Check, AlertCircle, Maximize2, Minimize2, MessageSquare,
-    Mic, MicOff, UploadCloud, Copy, Save, History, GitBranch, GitCommit, ArrowUpFromLine, ArrowDownToLine, FolderGit2, Unlink, Edit
+    Mic, MicOff, UploadCloud, Copy, Save, History, GitBranch, GitCommit, ArrowUpFromLine, ArrowDownToLine, FolderGit2, Unlink, Edit, Zap
 } from 'lucide-react';
 import JSZip from 'jszip';
 import { SandpackProvider, SandpackPreview } from '@codesandbox/sandpack-react';
@@ -334,7 +334,7 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
     const [stack, setStack] = useState<Stack>('react');
     const [isWizardOpen, setIsWizardOpen] = useState(true);
     
-    const [sidebarTab, setSidebarTab] = useState<'files' | 'git' | 'db' | 'pkg' | 'snaps' | 'code' | 'term'>('files');
+    const [sidebarTab, setSidebarTab] = useState<'files' | 'git' | 'db' | 'pkg' | 'snaps' | 'code' | 'term' | 'services'>('files');
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [rightPanelTab, setRightPanelTab] = useState<'chat' | 'preview'>('chat');
     const [isFullScreenPreview, setIsFullScreenPreview] = useState(false);
@@ -358,6 +358,12 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
     const [chatAttachment, setChatAttachment] = useState<FileAttachment | null>(null);
     const [isGenerating, setIsGenerating] = useState(false);
     const [generationStatus, setGenerationStatus] = useState('');
+    const [completedFiles, setCompletedFiles] = useState<string[]>([]);
+    const [pendingFiles, setPendingFiles] = useState<string[]>([]);
+    const [savedServiceConfigs, setSavedServiceConfigs] = useState<{[serviceId: string]: {name: string, config: any, connectedAt: number}}>({});
+    const [newServiceType, setNewServiceType] = useState<string>('stripe');
+    const [newServiceConfig, setNewServiceConfig] = useState<any>({});
+    const progressStatusRef = useRef<NodeJS.Timeout | null>(null);
     const [model, setModel] = useState(ModelType.PRO_PREVIEW);
     const [useSearch, setUseSearch] = useState(true); // Enable search by default for up-to-date tools/libraries
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -402,10 +408,40 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
         if (storedProjects) {
             const parsed = JSON.parse(storedProjects);
             setSavedProjects(parsed);
-            const lastId = localStorage.getItem('zee_active_project_id');
+            
+            // Check if coming from Integrations with a specific project target
+            const integrationTarget = localStorage.getItem('zee_integration_target');
+            const lastId = integrationTarget || localStorage.getItem('zee_active_project_id');
+            
             if (lastId) {
                 const lastProj = parsed.find((p: SavedProject) => p.id === lastId);
-                if (lastProj) loadProject(lastProj);
+                if (lastProj) {
+                    loadProject(lastProj);
+                    
+                    // If this was an integration target, clear it and process the pending prompt
+                    if (integrationTarget) {
+                        localStorage.removeItem('zee_integration_target');
+                        // The pending prompt will be handled by the existing prompt handler
+                    }
+                }
+            }
+            
+            // Check if creating new project with integration
+            const newWithIntegration = localStorage.getItem('zee_create_new_with_integration');
+            if (newWithIntegration) {
+                localStorage.removeItem('zee_create_new_with_integration');
+                setIsWizardOpen(true);
+                // Pending prompt is already set
+            }
+        }
+        
+        // Load saved service configurations
+        const savedServices = localStorage.getItem('zee_service_configs');
+        if (savedServices) {
+            try {
+                setSavedServiceConfigs(JSON.parse(savedServices));
+            } catch (e) {
+                console.error('Failed to load saved service configs');
             }
         }
         
@@ -978,6 +1014,66 @@ if __name__ == "__main__":
         });
     };
 
+    // Progress status messages for generation
+    const progressMessages = [
+        'Analyzing request...',
+        'Understanding context...',
+        'Configuring inputs...',
+        'Structuring code...',
+        'Generating components...',
+        'Optimizing logic...',
+        'Building UI elements...',
+        'Adding interactions...',
+        'Finalizing structure...',
+        'Almost there...'
+    ];
+
+    // Start rotating progress messages
+    const startProgressRotation = () => {
+        let idx = 0;
+        setGenerationStatus(progressMessages[0]);
+        progressStatusRef.current = setInterval(() => {
+            idx = (idx + 1) % progressMessages.length;
+            setGenerationStatus(progressMessages[idx]);
+        }, 2500);
+    };
+
+    // Stop rotating progress messages
+    const stopProgressRotation = () => {
+        if (progressStatusRef.current) {
+            clearInterval(progressStatusRef.current);
+            progressStatusRef.current = null;
+        }
+    };
+
+    // Detect service integration requests in user message
+    const detectServiceRequest = (message: string): {detected: boolean, service: string | null, action: string | null} => {
+        const integrationPatterns = [
+            { pattern: /\b(add|integrate|setup|connect|use)\s+(stripe)\b/i, service: 'stripe', action: 'payments' },
+            { pattern: /\b(add|integrate|setup|connect|use)\s+(paystack)\b/i, service: 'paystack', action: 'payments' },
+            { pattern: /\b(add|integrate|setup|connect|use)\s+(flutterwave)\b/i, service: 'flutterwave', action: 'payments' },
+            { pattern: /\b(add|integrate|setup|connect|use)\s+(opay)\b/i, service: 'opay', action: 'payments' },
+            { pattern: /\b(add|integrate|setup|connect|use)\s+(resend)\b/i, service: 'resend', action: 'email' },
+            { pattern: /\b(add|integrate|setup|connect|use)\s+(sendgrid)\b/i, service: 'sendgrid', action: 'email' },
+            { pattern: /\b(add|integrate|setup|connect|use)\s+(twilio)\b/i, service: 'twilio', action: 'sms' },
+            { pattern: /\b(add|integrate|setup|connect|use)\s+(firebase)\b/i, service: 'firebase', action: 'database' },
+            { pattern: /\b(add|integrate|setup|connect|use)\s+(supabase)\b/i, service: 'supabase', action: 'database' },
+            { pattern: /\b(add|integrate|setup|connect|use)\s+(cloudinary)\b/i, service: 'cloudinary', action: 'storage' },
+            { pattern: /\b(add|integrate|setup|connect|use)\s+(aws\s*s3|s3)\b/i, service: 'aws-s3', action: 'storage' },
+            { pattern: /\b(add|integrate|setup|connect|use)\s+(openai|gpt)\b/i, service: 'openai', action: 'ai' },
+            { pattern: /\b(add|integrate|setup|connect|use)\s+(google\s*maps|maps)\b/i, service: 'google-maps', action: 'maps' },
+            { pattern: /\b(add|integrate|setup|connect|use)\s+(auth0)\b/i, service: 'auth0', action: 'auth' },
+            { pattern: /\b(add|integrate|setup|connect|use)\s+(clerk)\b/i, service: 'clerk', action: 'auth' },
+        ];
+
+        for (const {pattern, service, action} of integrationPatterns) {
+            if (pattern.test(message)) {
+                return {detected: true, service, action};
+            }
+        }
+        return {detected: false, service: null, action: null};
+    };
+
     const handleSendMessage = async () => {
         if ((!chatInput.trim() && !chatAttachment) || isGenerating) return;
         const userMsg: BuilderChatMessage = { id: Date.now().toString(), role: 'user', text: chatInput, attachment: chatAttachment || undefined, timestamp: Date.now() };
@@ -985,14 +1081,47 @@ if __name__ == "__main__":
         setChatInput('');
         setChatAttachment(null);
         setIsGenerating(true);
-        setGenerationStatus('Thinking...');
+        setCompletedFiles([]);
+        setPendingFiles([]);
+        
+        // Start rotating progress messages
+        startProgressRotation();
+
+        // Check if user is requesting a service integration
+        const serviceRequest = detectServiceRequest(userMsg.text);
+        if (serviceRequest.detected && serviceRequest.service) {
+            // Check if we have saved config for this service
+            const savedConfig = savedServiceConfigs[serviceRequest.service];
+            if (savedConfig) {
+                setGenerationStatus(`Using saved ${savedConfig.name} configuration...`);
+            }
+        }
         
         try {
             const snapshot = JSON.parse(JSON.stringify(files));
-            const result = await generateProject([...messages, userMsg], stack, model, files, dbConfigs, useSearch);
+            
+            // Inject saved service configs into the generation context if relevant
+            let enhancedDbConfigs = [...dbConfigs];
+            if (serviceRequest.detected && serviceRequest.service && savedServiceConfigs[serviceRequest.service]) {
+                const config = savedServiceConfigs[serviceRequest.service];
+                // Add service config to context (will be used by AI)
+                enhancedDbConfigs = [
+                    ...enhancedDbConfigs,
+                    {
+                        type: serviceRequest.service as any,
+                        ...config.config,
+                        name: config.name
+                    }
+                ];
+            }
+            
+            const result = await generateProject([...messages, userMsg], stack, model, files, enhancedDbConfigs, useSearch);
+            
+            // Stop progress rotation
+            stopProgressRotation();
             
             if (result.toolCall === 'generateLogo' || result.toolCall === 'generateImage') {
-                setGenerationStatus('Generating asset...');
+                setGenerationStatus('🎨 Generating asset...');
                 const imgPrompt = result.explanation || userMsg.text;
                 const response = await generateImage(imgPrompt, '1:1', '1K', ModelType.PRO_IMAGE);
                 const parts = response?.candidates?.[0]?.content?.parts;
@@ -1001,27 +1130,54 @@ if __name__ == "__main__":
                     const fileName = `src/assets/${result.toolCall === 'generateLogo' ? 'logo' : 'image'}-${Date.now()}.png`;
                     const imageFile: ProjectFile = { name: fileName, content: `data:image/png;base64,${base64}`, language: 'image' };
                     setFiles([...files, imageFile]);
+                    setCompletedFiles([fileName]);
                     setMessages(prev => [...prev, { 
                         id: Date.now().toString(), role: 'model', text: `Generated asset: ${fileName}.`,
                         attachment: { name: fileName, mimeType: 'image/png', data: base64 }, timestamp: Date.now() 
                     }]);
                 }
             } else if (result.files && result.files.length > 0) {
+                // Show files being worked on
+                const fileNames = result.files.map((f: ProjectFile) => f.name);
+                setPendingFiles(fileNames);
+                
                 setHistoryStack(prev => [...prev, snapshot]); 
                 setRedoStack([]);
                 const newFiles = [...files];
-                result.files.forEach((rf: ProjectFile) => {
+                const completed: string[] = [];
+                
+                // Process files one by one with visual feedback
+                for (const rf of result.files) {
+                    setGenerationStatus(`📝 Editing ${rf.name.split('/').pop()}...`);
                     const idx = newFiles.findIndex(f => f.name === rf.name);
                     if (idx >= 0) newFiles[idx] = rf; else newFiles.push(rf);
-                });
+                    completed.push(rf.name);
+                    setCompletedFiles([...completed]);
+                    // Small delay for visual effect
+                    await new Promise(resolve => setTimeout(resolve, 150));
+                }
+                
                 setFiles(newFiles);
-                setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: result.explanation || "Updated code.", timestamp: Date.now() }]);
+                setPendingFiles([]);
+                setGenerationStatus('✅ All files updated!');
+                
+                // Build completion message with file list
+                const fileListText = result.files.map((f: ProjectFile) => `✅ ${f.name}`).join('\n');
+                setMessages(prev => [...prev, { 
+                    id: Date.now().toString(), 
+                    role: 'model', 
+                    text: `${result.explanation || "Updated code."}\n\n**Files updated:**\n${fileListText}`, 
+                    timestamp: Date.now() 
+                }]);
             } else {
+                setGenerationStatus('');
                 setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: result.explanation || "No changes needed.", timestamp: Date.now() }]);
             }
         } catch (e: any) {
+            stopProgressRotation();
             setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: `Error: ${e.message}`, timestamp: Date.now() }]);
         } finally {
+            stopProgressRotation();
             setIsGenerating(false);
         }
     };
@@ -1763,7 +1919,30 @@ root.render(<App />);`;
                         </div>
                     </div>
                 ))}
-                {isGenerating && <div className="flex items-center text-xs text-blue-400 animate-pulse"><Loader2 className="w-3 h-3 animate-spin mr-2" />{generationStatus}</div>}
+                {isGenerating && (
+                    <div className="bg-slate-800/50 rounded-xl p-3 border border-slate-700/50">
+                        <div className="flex items-center text-xs text-blue-400 mb-2">
+                            <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" />
+                            <span className="animate-pulse">{generationStatus}</span>
+                        </div>
+                        {(pendingFiles.length > 0 || completedFiles.length > 0) && (
+                            <div className="mt-2 space-y-1 border-t border-slate-700/50 pt-2">
+                                {pendingFiles.map((file) => (
+                                    <div key={file} className={`flex items-center text-[10px] ${completedFiles.includes(file) ? 'text-green-400' : 'text-slate-500'}`}>
+                                        {completedFiles.includes(file) ? (
+                                            <svg className="w-3 h-3 mr-1.5 text-green-500" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                            </svg>
+                                        ) : (
+                                            <div className="w-3 h-3 mr-1.5 rounded-full border border-slate-600 animate-pulse" />
+                                        )}
+                                        <span className="truncate">{file.split('/').pop()}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
                 <div ref={messagesEndRef} />
             </div>
             <div className="p-3 border-t border-slate-800 shrink-0 bg-slate-900">
@@ -1942,7 +2121,7 @@ root.render(<App />);`;
                 {/* Left Sidebar */}
                 <div className={`${isSidebarCollapsed ? 'w-0 opacity-0' : 'w-64 md:w-64'} bg-slate-900 border-r border-slate-800 flex flex-col transition-all duration-300 flex-shrink-0 overflow-hidden`}>
                     <div className="flex border-b border-slate-800 overflow-x-auto custom-scrollbar">
-                        {[{id:'files',icon:File,label:'Files'}, {id:'code',icon:CodeIcon,label:'Code'}, {id:'term',icon:TerminalIcon,label:'Terminal'}, {id:'git',icon:Github,label:'Git'}, {id:'db',icon:Database,label:'DB'}, {id:'pkg',icon:PackageIcon,label:'Packages'}, {id:'snaps', icon:History,label:'Snaps'}].map((t:any) => (
+                        {[{id:'files',icon:File,label:'Files'}, {id:'code',icon:CodeIcon,label:'Code'}, {id:'term',icon:TerminalIcon,label:'Terminal'}, {id:'git',icon:Github,label:'Git'}, {id:'db',icon:Database,label:'DB'}, {id:'services',icon:Zap,label:'Services'}, {id:'pkg',icon:PackageIcon,label:'Packages'}, {id:'snaps', icon:History,label:'Snaps'}].map((t:any) => (
                             <button key={t.id} onClick={() => setSidebarTab(t.id)} className={`flex-shrink-0 px-3 py-3 flex flex-col items-center border-b-2 transition-colors ${sidebarTab === t.id ? 'border-blue-500 text-blue-500 bg-slate-800/50' : 'border-transparent text-slate-500 hover:text-slate-300'}`} title={t.label}>
                                 <t.icon className="w-4 h-4"/>
                                 <span className="text-[9px] mt-0.5 hidden md:block">{t.label}</span>
@@ -2420,6 +2599,165 @@ root.render(<App />);`;
                                         }`}
                                     >
                                         {newDbType === 'vercel' ? 'Connect Vercel' : newDbType === 'appwrite' ? 'Connect Appwrite' : 'Connect Database'}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                        {sidebarTab === 'services' && (
+                            <div className="p-2 space-y-3">
+                                <h3 className="text-xs font-bold text-slate-500 uppercase">Connected Services</h3>
+                                <p className="text-[10px] text-slate-600">Pre-configure services to use from chat. Say "add Stripe" and your saved credentials will be used automatically.</p>
+                                
+                                {/* Connected Services List */}
+                                {Object.entries(savedServiceConfigs).map(([id, svc]: [string, {name: string, config: any, connectedAt: number}]) => (
+                                    <div key={id} className="bg-slate-800 p-3 rounded text-xs text-white space-y-2">
+                                        <div className="flex justify-between items-center">
+                                            <span className="font-bold flex items-center capitalize">
+                                                <Zap className="w-3 h-3 mr-1.5 text-yellow-500"/>
+                                                {svc.name}
+                                            </span>
+                                            <Trash2 
+                                                className="w-3 h-3 cursor-pointer text-red-400 hover:text-red-300" 
+                                                onClick={() => {
+                                                    const newConfigs = {...savedServiceConfigs};
+                                                    delete newConfigs[id];
+                                                    setSavedServiceConfigs(newConfigs);
+                                                    localStorage.setItem('zee_service_configs', JSON.stringify(newConfigs));
+                                                }}
+                                            />
+                                        </div>
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-900/50 text-green-400">
+                                            Connected {new Date(svc.connectedAt).toLocaleDateString()}
+                                        </span>
+                                    </div>
+                                ))}
+                                
+                                {Object.keys(savedServiceConfigs).length === 0 && (
+                                    <p className="text-xs text-slate-600 italic py-2">No services connected yet.</p>
+                                )}
+                                
+                                {/* Add Service */}
+                                <div className="pt-3 border-t border-slate-800 space-y-2">
+                                    <h4 className="text-[10px] text-slate-400 font-bold uppercase">Add Service</h4>
+                                    <div className="grid grid-cols-4 gap-1">
+                                        {[
+                                            { id: 'stripe', label: 'Stripe', color: 'bg-purple-600' },
+                                            { id: 'paystack', label: 'Paystack', color: 'bg-cyan-500' },
+                                            { id: 'flutterwave', label: 'Flutter', color: 'bg-orange-500' },
+                                            { id: 'resend', label: 'Resend', color: 'bg-gray-700' },
+                                            { id: 'sendgrid', label: 'SendGrid', color: 'bg-blue-600' },
+                                            { id: 'twilio', label: 'Twilio', color: 'bg-red-500' },
+                                            { id: 'openai', label: 'OpenAI', color: 'bg-green-600' },
+                                            { id: 'cloudinary', label: 'Cloud', color: 'bg-blue-400' },
+                                        ].map(s => (
+                                            <button
+                                                key={s.id}
+                                                onClick={() => setNewServiceType(s.id)}
+                                                className={`p-1.5 rounded text-[8px] font-bold transition-all ${
+                                                    newServiceType === s.id 
+                                                        ? `${s.color} ring-2 ring-blue-400 text-white` 
+                                                        : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
+                                                }`}
+                                            >
+                                                {s.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    
+                                    <input 
+                                        type="text"
+                                        value={newServiceConfig.name || ''}
+                                        onChange={e => setNewServiceConfig({...newServiceConfig, name: e.target.value})}
+                                        placeholder="Connection Name (optional)"
+                                        className="w-full bg-slate-950 text-white text-xs p-2 rounded border border-slate-800"
+                                    />
+                                    
+                                    {/* API Key input (common for most services) */}
+                                    <input 
+                                        type="password"
+                                        value={newServiceConfig.apiKey || ''}
+                                        onChange={e => setNewServiceConfig({...newServiceConfig, apiKey: e.target.value})}
+                                        placeholder={`${newServiceType.charAt(0).toUpperCase() + newServiceType.slice(1)} API Key`}
+                                        className="w-full bg-slate-950 text-white text-xs p-2 rounded border border-slate-800"
+                                    />
+                                    
+                                    {/* Extra fields for specific services */}
+                                    {(newServiceType === 'stripe' || newServiceType === 'paystack' || newServiceType === 'flutterwave') && (
+                                        <input 
+                                            type="password"
+                                            value={newServiceConfig.secretKey || ''}
+                                            onChange={e => setNewServiceConfig({...newServiceConfig, secretKey: e.target.value})}
+                                            placeholder="Secret Key"
+                                            className="w-full bg-slate-950 text-white text-xs p-2 rounded border border-slate-800"
+                                        />
+                                    )}
+                                    
+                                    {newServiceType === 'twilio' && (
+                                        <>
+                                            <input 
+                                                type="text"
+                                                value={newServiceConfig.accountSid || ''}
+                                                onChange={e => setNewServiceConfig({...newServiceConfig, accountSid: e.target.value})}
+                                                placeholder="Account SID"
+                                                className="w-full bg-slate-950 text-white text-xs p-2 rounded border border-slate-800"
+                                            />
+                                            <input 
+                                                type="text"
+                                                value={newServiceConfig.phoneNumber || ''}
+                                                onChange={e => setNewServiceConfig({...newServiceConfig, phoneNumber: e.target.value})}
+                                                placeholder="Phone Number (+1...)"
+                                                className="w-full bg-slate-950 text-white text-xs p-2 rounded border border-slate-800"
+                                            />
+                                        </>
+                                    )}
+                                    
+                                    {newServiceType === 'cloudinary' && (
+                                        <>
+                                            <input 
+                                                type="text"
+                                                value={newServiceConfig.cloudName || ''}
+                                                onChange={e => setNewServiceConfig({...newServiceConfig, cloudName: e.target.value})}
+                                                placeholder="Cloud Name"
+                                                className="w-full bg-slate-950 text-white text-xs p-2 rounded border border-slate-800"
+                                            />
+                                            <input 
+                                                type="password"
+                                                value={newServiceConfig.apiSecret || ''}
+                                                onChange={e => setNewServiceConfig({...newServiceConfig, apiSecret: e.target.value})}
+                                                placeholder="API Secret"
+                                                className="w-full bg-slate-950 text-white text-xs p-2 rounded border border-slate-800"
+                                            />
+                                        </>
+                                    )}
+                                    
+                                    <button 
+                                        onClick={() => {
+                                            if (!newServiceConfig.apiKey) {
+                                                return (window as any).swal("Missing Field", "Please enter an API key.", "warning");
+                                            }
+                                            
+                                            const newConfigs = {
+                                                ...savedServiceConfigs,
+                                                [newServiceType]: {
+                                                    name: newServiceConfig.name || newServiceType,
+                                                    config: {...newServiceConfig},
+                                                    connectedAt: Date.now()
+                                                }
+                                            };
+                                            setSavedServiceConfigs(newConfigs);
+                                            localStorage.setItem('zee_service_configs', JSON.stringify(newConfigs));
+                                            setNewServiceConfig({});
+                                            
+                                            setMessages(prev => [...prev, { 
+                                                id: Date.now().toString(), 
+                                                role: 'model', 
+                                                text: `⚡ **${newServiceType} connected!** You can now say "add ${newServiceType}" in chat and I'll use your saved credentials automatically.`, 
+                                                timestamp: Date.now() 
+                                            }]);
+                                        }} 
+                                        className="w-full bg-yellow-600 hover:bg-yellow-500 text-white text-xs py-2 rounded font-bold transition-colors"
+                                    >
+                                        Connect Service
                                     </button>
                                 </div>
                             </div>

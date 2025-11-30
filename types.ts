@@ -12,7 +12,8 @@ export enum View {
   POLICY = 'POLICY',
   TERMS = 'TERMS',
   DOCS = 'DOCS',
-  DEVELOPERS = 'DEVELOPERS'
+  DEVELOPERS = 'DEVELOPERS',
+  INTEGRATIONS = 'INTEGRATIONS'
 }
 
 export enum ModelType {
