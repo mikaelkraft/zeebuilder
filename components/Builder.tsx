@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { generateProject, blobToBase64, generateImage, transcribeAudio, ensureApiKey } from '../services/geminiService';
 import { githubService } from '../services/githubService';
+import { cloudStorage, ServiceConfig } from '../services/cloudStorage';
 import { DatabaseConfig, User, ModelType, ProjectFile, Stack, BuilderChatMessage, SavedProject, FileAttachment, Snapshot } from '../types';
 import { 
     Code as CodeIcon, Download, Plus, Trash2, Github, Bot, Send, Loader2,
@@ -9,7 +10,7 @@ import {
     RotateCcw, Image, FileCode, ChevronRight, ChevronDown, Database, Package as PackageIcon,
     Smartphone, Layers, Globe, Paperclip, MonitorPlay,
     Undo2, Redo2, Play, FileType, Eye, ArrowLeftRight, Check, AlertCircle, Maximize2, Minimize2, MessageSquare,
-    Mic, MicOff, UploadCloud, Copy, Save, History, GitBranch, GitCommit, ArrowUpFromLine, ArrowDownToLine, FolderGit2, Unlink, Edit, Zap
+    Mic, MicOff, UploadCloud, Copy, Save, History, GitBranch, GitCommit, ArrowUpFromLine, ArrowDownToLine, FolderGit2, Unlink, Edit, Zap, Cloud, Link
 } from 'lucide-react';
 import JSZip from 'jszip';
 import { SandpackProvider, SandpackPreview } from '@codesandbox/sandpack-react';
@@ -360,9 +361,11 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
     const [generationStatus, setGenerationStatus] = useState('');
     const [completedFiles, setCompletedFiles] = useState<string[]>([]);
     const [pendingFiles, setPendingFiles] = useState<string[]>([]);
-    const [savedServiceConfigs, setSavedServiceConfigs] = useState<{[serviceId: string]: {name: string, config: any, connectedAt: number}}>({});
+    const [savedServiceConfigs, setSavedServiceConfigs] = useState<Record<string, ServiceConfig>>({});
     const [newServiceType, setNewServiceType] = useState<string>('stripe');
     const [newServiceConfig, setNewServiceConfig] = useState<any>({});
+    const [serviceCategory, setServiceCategory] = useState<'api' | 'integration'>('api');
+    const [isSyncing, setIsSyncing] = useState(false);
     const progressStatusRef = useRef<NodeJS.Timeout | null>(null);
     const [model, setModel] = useState(ModelType.PRO_PREVIEW);
     const [useSearch, setUseSearch] = useState(true); // Enable search by default for up-to-date tools/libraries
@@ -386,6 +389,138 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
     const [newDbType, setNewDbType] = useState<'firebase' | 'supabase' | 'neon' | 'appwrite' | 'vercel'>('supabase');
     const [newDbConfig, setNewDbConfig] = useState<any>({});
     const [newPackage, setNewPackage] = useState('');
+
+    // All available services - API services (require keys) and Integrations (no keys)
+    const ALL_SERVICES = {
+        api: [
+            // Payments
+            { id: 'stripe', name: 'Stripe', category: 'Payments', color: 'bg-purple-600', fields: ['apiKey', 'secretKey'] },
+            { id: 'paystack', name: 'Paystack', category: 'Payments', color: 'bg-cyan-500', fields: ['apiKey', 'secretKey'] },
+            { id: 'flutterwave', name: 'Flutterwave', category: 'Payments', color: 'bg-orange-500', fields: ['apiKey', 'secretKey'] },
+            { id: 'opay', name: 'OPay', category: 'Payments', color: 'bg-green-500', fields: ['apiKey', 'secretKey'] },
+            { id: 'paypal', name: 'PayPal', category: 'Payments', color: 'bg-blue-600', fields: ['clientId', 'clientSecret'] },
+            { id: 'square', name: 'Square', category: 'Payments', color: 'bg-black', fields: ['accessToken'] },
+            // Email
+            { id: 'resend', name: 'Resend', category: 'Email', color: 'bg-gray-700', fields: ['apiKey'] },
+            { id: 'sendgrid', name: 'SendGrid', category: 'Email', color: 'bg-blue-600', fields: ['apiKey'] },
+            { id: 'mailgun', name: 'Mailgun', category: 'Email', color: 'bg-red-600', fields: ['apiKey', 'domain'] },
+            { id: 'postmark', name: 'Postmark', category: 'Email', color: 'bg-yellow-500', fields: ['apiKey'] },
+            // SMS
+            { id: 'twilio', name: 'Twilio', category: 'SMS', color: 'bg-red-500', fields: ['accountSid', 'authToken', 'phoneNumber'] },
+            { id: 'vonage', name: 'Vonage', category: 'SMS', color: 'bg-purple-500', fields: ['apiKey', 'apiSecret'] },
+            { id: 'africastalking', name: 'Africa\'s Talking', category: 'SMS', color: 'bg-orange-600', fields: ['apiKey', 'username'] },
+            // AI
+            { id: 'openai', name: 'OpenAI', category: 'AI', color: 'bg-green-600', fields: ['apiKey'] },
+            { id: 'anthropic', name: 'Claude', category: 'AI', color: 'bg-orange-400', fields: ['apiKey'] },
+            { id: 'replicate', name: 'Replicate', category: 'AI', color: 'bg-gray-800', fields: ['apiKey'] },
+            { id: 'huggingface', name: 'Hugging Face', category: 'AI', color: 'bg-yellow-400', fields: ['apiKey'] },
+            // Storage
+            { id: 'cloudinary', name: 'Cloudinary', category: 'Storage', color: 'bg-blue-400', fields: ['cloudName', 'apiKey', 'apiSecret'] },
+            { id: 'uploadthing', name: 'UploadThing', category: 'Storage', color: 'bg-red-500', fields: ['secret'] },
+            { id: 'aws-s3', name: 'AWS S3', category: 'Storage', color: 'bg-orange-500', fields: ['accessKeyId', 'secretAccessKey', 'bucket', 'region'] },
+            // Auth
+            { id: 'auth0', name: 'Auth0', category: 'Auth', color: 'bg-orange-600', fields: ['domain', 'clientId', 'clientSecret'] },
+            { id: 'clerk', name: 'Clerk', category: 'Auth', color: 'bg-purple-600', fields: ['publishableKey', 'secretKey'] },
+            // Analytics
+            { id: 'mixpanel', name: 'Mixpanel', category: 'Analytics', color: 'bg-purple-500', fields: ['token'] },
+            { id: 'amplitude', name: 'Amplitude', category: 'Analytics', color: 'bg-blue-500', fields: ['apiKey'] },
+            { id: 'posthog', name: 'PostHog', category: 'Analytics', color: 'bg-blue-600', fields: ['apiKey', 'host'] },
+            // Maps
+            { id: 'google-maps', name: 'Google Maps', category: 'Maps', color: 'bg-green-500', fields: ['apiKey'] },
+            { id: 'mapbox', name: 'Mapbox', category: 'Maps', color: 'bg-blue-600', fields: ['accessToken'] },
+        ],
+        integration: [
+            // UI Frameworks
+            { id: 'tailwindcss', name: 'Tailwind CSS', category: 'Styling', color: 'bg-cyan-500' },
+            { id: 'chakra-ui', name: 'Chakra UI', category: 'Styling', color: 'bg-teal-500' },
+            { id: 'shadcn', name: 'shadcn/ui', category: 'Styling', color: 'bg-slate-700' },
+            { id: 'radix-ui', name: 'Radix UI', category: 'Styling', color: 'bg-purple-600' },
+            { id: 'material-ui', name: 'Material UI', category: 'Styling', color: 'bg-blue-600' },
+            { id: 'ant-design', name: 'Ant Design', category: 'Styling', color: 'bg-blue-500' },
+            { id: 'bootstrap', name: 'Bootstrap', category: 'Styling', color: 'bg-purple-700' },
+            { id: 'daisyui', name: 'DaisyUI', category: 'Styling', color: 'bg-green-500' },
+            // Animation
+            { id: 'framer-motion', name: 'Framer Motion', category: 'Animation', color: 'bg-pink-500' },
+            { id: 'gsap', name: 'GSAP', category: 'Animation', color: 'bg-green-600' },
+            { id: 'lottie', name: 'Lottie', category: 'Animation', color: 'bg-cyan-400' },
+            { id: 'animejs', name: 'Anime.js', category: 'Animation', color: 'bg-red-500' },
+            // State Management
+            { id: 'zustand', name: 'Zustand', category: 'State', color: 'bg-brown-500' },
+            { id: 'redux', name: 'Redux Toolkit', category: 'State', color: 'bg-purple-600' },
+            { id: 'jotai', name: 'Jotai', category: 'State', color: 'bg-gray-700' },
+            { id: 'recoil', name: 'Recoil', category: 'State', color: 'bg-blue-500' },
+            { id: 'tanstack-query', name: 'TanStack Query', category: 'State', color: 'bg-red-500' },
+            // Forms
+            { id: 'react-hook-form', name: 'React Hook Form', category: 'Forms', color: 'bg-pink-600' },
+            { id: 'formik', name: 'Formik', category: 'Forms', color: 'bg-blue-600' },
+            { id: 'zod', name: 'Zod', category: 'Forms', color: 'bg-blue-500' },
+            { id: 'yup', name: 'Yup', category: 'Forms', color: 'bg-purple-500' },
+            // Charts & Visualization
+            { id: 'recharts', name: 'Recharts', category: 'Charts', color: 'bg-cyan-600' },
+            { id: 'chartjs', name: 'Chart.js', category: 'Charts', color: 'bg-pink-500' },
+            { id: 'd3', name: 'D3.js', category: 'Charts', color: 'bg-orange-500' },
+            { id: 'visx', name: 'Visx', category: 'Charts', color: 'bg-green-500' },
+            { id: 'nivo', name: 'Nivo', category: 'Charts', color: 'bg-yellow-500' },
+            // Tables
+            { id: 'tanstack-table', name: 'TanStack Table', category: 'Tables', color: 'bg-blue-600' },
+            { id: 'ag-grid', name: 'AG Grid', category: 'Tables', color: 'bg-red-600' },
+            // Date/Time
+            { id: 'date-fns', name: 'date-fns', category: 'Date', color: 'bg-purple-500' },
+            { id: 'dayjs', name: 'Day.js', category: 'Date', color: 'bg-red-400' },
+            { id: 'luxon', name: 'Luxon', category: 'Date', color: 'bg-yellow-600' },
+            // Rich Text
+            { id: 'tiptap', name: 'Tiptap', category: 'Editor', color: 'bg-purple-600' },
+            { id: 'slate', name: 'Slate', category: 'Editor', color: 'bg-gray-600' },
+            { id: 'lexical', name: 'Lexical', category: 'Editor', color: 'bg-blue-600' },
+            { id: 'quill', name: 'Quill', category: 'Editor', color: 'bg-yellow-500' },
+            // Markdown
+            { id: 'react-markdown', name: 'React Markdown', category: 'Markdown', color: 'bg-gray-700' },
+            { id: 'mdx', name: 'MDX', category: 'Markdown', color: 'bg-yellow-500' },
+            // Icons
+            { id: 'lucide', name: 'Lucide Icons', category: 'Icons', color: 'bg-orange-500' },
+            { id: 'heroicons', name: 'Heroicons', category: 'Icons', color: 'bg-indigo-500' },
+            { id: 'phosphor', name: 'Phosphor', category: 'Icons', color: 'bg-green-500' },
+            { id: 'tabler-icons', name: 'Tabler Icons', category: 'Icons', color: 'bg-blue-500' },
+            // Testing
+            { id: 'jest', name: 'Jest', category: 'Testing', color: 'bg-red-600' },
+            { id: 'vitest', name: 'Vitest', category: 'Testing', color: 'bg-yellow-500' },
+            { id: 'playwright', name: 'Playwright', category: 'Testing', color: 'bg-green-600' },
+            { id: 'cypress', name: 'Cypress', category: 'Testing', color: 'bg-gray-800' },
+            // Router
+            { id: 'react-router', name: 'React Router', category: 'Router', color: 'bg-red-500' },
+            { id: 'tanstack-router', name: 'TanStack Router', category: 'Router', color: 'bg-blue-500' },
+            // Utilities
+            { id: 'lodash', name: 'Lodash', category: 'Utils', color: 'bg-blue-700' },
+            { id: 'axios', name: 'Axios', category: 'Utils', color: 'bg-purple-600' },
+            { id: 'swr', name: 'SWR', category: 'Utils', color: 'bg-black' },
+            { id: 'immer', name: 'Immer', category: 'Utils', color: 'bg-teal-600' },
+            { id: 'uuid', name: 'UUID', category: 'Utils', color: 'bg-gray-600' },
+            // Drag & Drop
+            { id: 'dnd-kit', name: 'dnd kit', category: 'DnD', color: 'bg-indigo-600' },
+            { id: 'react-beautiful-dnd', name: 'react-beautiful-dnd', category: 'DnD', color: 'bg-blue-500' },
+            // PDF
+            { id: 'react-pdf', name: 'React PDF', category: 'PDF', color: 'bg-red-600' },
+            { id: 'pdfmake', name: 'PDFMake', category: 'PDF', color: 'bg-green-600' },
+            // Export
+            { id: 'xlsx', name: 'SheetJS', category: 'Export', color: 'bg-green-700' },
+            { id: 'papaparse', name: 'PapaParse', category: 'Export', color: 'bg-blue-500' },
+            // Notifications
+            { id: 'react-hot-toast', name: 'React Hot Toast', category: 'Toast', color: 'bg-orange-500' },
+            { id: 'sonner', name: 'Sonner', category: 'Toast', color: 'bg-gray-700' },
+            { id: 'react-toastify', name: 'React Toastify', category: 'Toast', color: 'bg-yellow-500' },
+            // Carousel
+            { id: 'swiper', name: 'Swiper', category: 'Carousel', color: 'bg-blue-600' },
+            { id: 'embla', name: 'Embla Carousel', category: 'Carousel', color: 'bg-purple-500' },
+            // Video
+            { id: 'react-player', name: 'React Player', category: 'Media', color: 'bg-red-500' },
+            { id: 'vidstack', name: 'Vidstack', category: 'Media', color: 'bg-purple-600' },
+            // SEO
+            { id: 'react-helmet', name: 'React Helmet', category: 'SEO', color: 'bg-gray-600' },
+            // Internationalization
+            { id: 'i18next', name: 'i18next', category: 'i18n', color: 'bg-blue-600' },
+            { id: 'react-intl', name: 'React Intl', category: 'i18n', color: 'bg-green-500' },
+        ]
+    };
 
     const [iframeSrc, setIframeSrc] = useState('');
     const [previewKey, setPreviewKey] = useState(0);
@@ -435,15 +570,21 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
             }
         }
         
-        // Load saved service configurations
-        const savedServices = localStorage.getItem('zee_service_configs');
-        if (savedServices) {
-            try {
-                setSavedServiceConfigs(JSON.parse(savedServices));
-            } catch (e) {
-                console.error('Failed to load saved service configs');
+        // Load saved service configurations from cloud (with localStorage fallback)
+        cloudStorage.loadServiceConfigs().then(configs => {
+            setSavedServiceConfigs(configs);
+        }).catch(e => {
+            console.error('Failed to load service configs:', e);
+            // Fallback to localStorage
+            const savedServices = localStorage.getItem('zee_service_configs');
+            if (savedServices) {
+                try {
+                    setSavedServiceConfigs(JSON.parse(savedServices));
+                } catch (e) {
+                    console.error('Failed to parse saved service configs');
+                }
             }
-        }
+        });
         
         // Check for saved GitHub token (from OAuth login)
         const savedGhToken = localStorage.getItem('zee_github_token');
@@ -2604,162 +2745,219 @@ root.render(<App />);`;
                             </div>
                         )}
                         {sidebarTab === 'services' && (
-                            <div className="p-2 space-y-3">
-                                <h3 className="text-xs font-bold text-slate-500 uppercase">Connected Services</h3>
-                                <p className="text-[10px] text-slate-600">Pre-configure services to use from chat. Say "add Stripe" and your saved credentials will be used automatically.</p>
-                                
-                                {/* Connected Services List */}
-                                {Object.entries(savedServiceConfigs).map(([id, svc]: [string, {name: string, config: any, connectedAt: number}]) => (
-                                    <div key={id} className="bg-slate-800 p-3 rounded text-xs text-white space-y-2">
-                                        <div className="flex justify-between items-center">
-                                            <span className="font-bold flex items-center capitalize">
-                                                <Zap className="w-3 h-3 mr-1.5 text-yellow-500"/>
-                                                {svc.name}
-                                            </span>
-                                            <Trash2 
-                                                className="w-3 h-3 cursor-pointer text-red-400 hover:text-red-300" 
-                                                onClick={() => {
-                                                    const newConfigs = {...savedServiceConfigs};
-                                                    delete newConfigs[id];
-                                                    setSavedServiceConfigs(newConfigs);
-                                                    localStorage.setItem('zee_service_configs', JSON.stringify(newConfigs));
-                                                }}
-                                            />
-                                        </div>
-                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-900/50 text-green-400">
-                                            Connected {new Date(svc.connectedAt).toLocaleDateString()}
-                                        </span>
-                                    </div>
-                                ))}
-                                
-                                {Object.keys(savedServiceConfigs).length === 0 && (
-                                    <p className="text-xs text-slate-600 italic py-2">No services connected yet.</p>
-                                )}
-                                
-                                {/* Add Service */}
-                                <div className="pt-3 border-t border-slate-800 space-y-2">
-                                    <h4 className="text-[10px] text-slate-400 font-bold uppercase">Add Service</h4>
-                                    <div className="grid grid-cols-4 gap-1">
-                                        {[
-                                            { id: 'stripe', label: 'Stripe', color: 'bg-purple-600' },
-                                            { id: 'paystack', label: 'Paystack', color: 'bg-cyan-500' },
-                                            { id: 'flutterwave', label: 'Flutter', color: 'bg-orange-500' },
-                                            { id: 'resend', label: 'Resend', color: 'bg-gray-700' },
-                                            { id: 'sendgrid', label: 'SendGrid', color: 'bg-blue-600' },
-                                            { id: 'twilio', label: 'Twilio', color: 'bg-red-500' },
-                                            { id: 'openai', label: 'OpenAI', color: 'bg-green-600' },
-                                            { id: 'cloudinary', label: 'Cloud', color: 'bg-blue-400' },
-                                        ].map(s => (
-                                            <button
-                                                key={s.id}
-                                                onClick={() => setNewServiceType(s.id)}
-                                                className={`p-1.5 rounded text-[8px] font-bold transition-all ${
-                                                    newServiceType === s.id 
-                                                        ? `${s.color} ring-2 ring-blue-400 text-white` 
-                                                        : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
-                                                }`}
-                                            >
-                                                {s.label}
-                                            </button>
-                                        ))}
-                                    </div>
-                                    
-                                    <input 
-                                        type="text"
-                                        value={newServiceConfig.name || ''}
-                                        onChange={e => setNewServiceConfig({...newServiceConfig, name: e.target.value})}
-                                        placeholder="Connection Name (optional)"
-                                        className="w-full bg-slate-950 text-white text-xs p-2 rounded border border-slate-800"
-                                    />
-                                    
-                                    {/* API Key input (common for most services) */}
-                                    <input 
-                                        type="password"
-                                        value={newServiceConfig.apiKey || ''}
-                                        onChange={e => setNewServiceConfig({...newServiceConfig, apiKey: e.target.value})}
-                                        placeholder={`${newServiceType.charAt(0).toUpperCase() + newServiceType.slice(1)} API Key`}
-                                        className="w-full bg-slate-950 text-white text-xs p-2 rounded border border-slate-800"
-                                    />
-                                    
-                                    {/* Extra fields for specific services */}
-                                    {(newServiceType === 'stripe' || newServiceType === 'paystack' || newServiceType === 'flutterwave') && (
-                                        <input 
-                                            type="password"
-                                            value={newServiceConfig.secretKey || ''}
-                                            onChange={e => setNewServiceConfig({...newServiceConfig, secretKey: e.target.value})}
-                                            placeholder="Secret Key"
-                                            className="w-full bg-slate-950 text-white text-xs p-2 rounded border border-slate-800"
-                                        />
-                                    )}
-                                    
-                                    {newServiceType === 'twilio' && (
-                                        <>
-                                            <input 
-                                                type="text"
-                                                value={newServiceConfig.accountSid || ''}
-                                                onChange={e => setNewServiceConfig({...newServiceConfig, accountSid: e.target.value})}
-                                                placeholder="Account SID"
-                                                className="w-full bg-slate-950 text-white text-xs p-2 rounded border border-slate-800"
-                                            />
-                                            <input 
-                                                type="text"
-                                                value={newServiceConfig.phoneNumber || ''}
-                                                onChange={e => setNewServiceConfig({...newServiceConfig, phoneNumber: e.target.value})}
-                                                placeholder="Phone Number (+1...)"
-                                                className="w-full bg-slate-950 text-white text-xs p-2 rounded border border-slate-800"
-                                            />
-                                        </>
-                                    )}
-                                    
-                                    {newServiceType === 'cloudinary' && (
-                                        <>
-                                            <input 
-                                                type="text"
-                                                value={newServiceConfig.cloudName || ''}
-                                                onChange={e => setNewServiceConfig({...newServiceConfig, cloudName: e.target.value})}
-                                                placeholder="Cloud Name"
-                                                className="w-full bg-slate-950 text-white text-xs p-2 rounded border border-slate-800"
-                                            />
-                                            <input 
-                                                type="password"
-                                                value={newServiceConfig.apiSecret || ''}
-                                                onChange={e => setNewServiceConfig({...newServiceConfig, apiSecret: e.target.value})}
-                                                placeholder="API Secret"
-                                                className="w-full bg-slate-950 text-white text-xs p-2 rounded border border-slate-800"
-                                            />
-                                        </>
-                                    )}
-                                    
+                            <div className="p-2 space-y-3 overflow-y-auto custom-scrollbar" style={{maxHeight: 'calc(100vh - 200px)'}}>
+                                <div className="flex items-center justify-between">
+                                    <h3 className="text-xs font-bold text-slate-500 uppercase">Services & Integrations</h3>
                                     <button 
-                                        onClick={() => {
-                                            if (!newServiceConfig.apiKey) {
-                                                return (window as any).swal("Missing Field", "Please enter an API key.", "warning");
+                                        onClick={async () => {
+                                            setIsSyncing(true);
+                                            const result = await cloudStorage.syncAll();
+                                            setIsSyncing(false);
+                                            if (result.success) {
+                                                (window as any).swal("Synced!", `Synced ${result.synced.join(', ')} to cloud.`, "success");
                                             }
-                                            
-                                            const newConfigs = {
-                                                ...savedServiceConfigs,
-                                                [newServiceType]: {
-                                                    name: newServiceConfig.name || newServiceType,
-                                                    config: {...newServiceConfig},
-                                                    connectedAt: Date.now()
-                                                }
-                                            };
-                                            setSavedServiceConfigs(newConfigs);
-                                            localStorage.setItem('zee_service_configs', JSON.stringify(newConfigs));
-                                            setNewServiceConfig({});
-                                            
-                                            setMessages(prev => [...prev, { 
-                                                id: Date.now().toString(), 
-                                                role: 'model', 
-                                                text: `⚡ **${newServiceType} connected!** You can now say "add ${newServiceType}" in chat and I'll use your saved credentials automatically.`, 
-                                                timestamp: Date.now() 
-                                            }]);
-                                        }} 
-                                        className="w-full bg-yellow-600 hover:bg-yellow-500 text-white text-xs py-2 rounded font-bold transition-colors"
+                                        }}
+                                        className="text-[10px] text-blue-400 hover:text-blue-300 flex items-center"
+                                        title="Sync to cloud"
                                     >
-                                        Connect Service
+                                        {isSyncing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Cloud className="w-3 h-3" />}
                                     </button>
                                 </div>
+                                <p className="text-[10px] text-slate-600">Connect API services (with keys) or quick integrations (libraries/tools). Data syncs to cloud when logged in.</p>
+                                
+                                {/* Toggle between API and Integration */}
+                                <div className="flex bg-slate-800 rounded-lg p-0.5">
+                                    <button 
+                                        onClick={() => setServiceCategory('api')}
+                                        className={`flex-1 py-1.5 text-[10px] font-bold rounded transition-colors ${serviceCategory === 'api' ? 'bg-yellow-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                                    >
+                                        ⚡ API Services ({ALL_SERVICES.api.length})
+                                    </button>
+                                    <button 
+                                        onClick={() => setServiceCategory('integration')}
+                                        className={`flex-1 py-1.5 text-[10px] font-bold rounded transition-colors ${serviceCategory === 'integration' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                                    >
+                                        🔗 Integrations ({ALL_SERVICES.integration.length})
+                                    </button>
+                                </div>
+                                
+                                {/* Connected Services List */}
+                                {Object.entries(savedServiceConfigs).filter(([_, svc]: [string, ServiceConfig]) => 
+                                    serviceCategory === 'api' ? svc.serviceType === 'api' : svc.serviceType === 'integration'
+                                ).length > 0 && (
+                                    <div className="space-y-2">
+                                        <h4 className="text-[10px] text-green-400 font-bold uppercase flex items-center">
+                                            <Check className="w-3 h-3 mr-1" /> Connected
+                                        </h4>
+                                        {Object.entries(savedServiceConfigs)
+                                            .filter(([_, svc]: [string, ServiceConfig]) => serviceCategory === 'api' ? svc.serviceType === 'api' : svc.serviceType === 'integration')
+                                            .map(([id, svc]: [string, ServiceConfig]) => (
+                                            <div key={id} className="bg-slate-800 p-2 rounded text-xs text-white flex justify-between items-center">
+                                                <div className="flex items-center">
+                                                    {svc.serviceType === 'api' ? (
+                                                        <Zap className="w-3 h-3 mr-1.5 text-yellow-500"/>
+                                                    ) : (
+                                                        <Link className="w-3 h-3 mr-1.5 text-blue-500"/>
+                                                    )}
+                                                    <span className="font-medium">{svc.serviceName}</span>
+                                                </div>
+                                                <Trash2 
+                                                    className="w-3 h-3 cursor-pointer text-red-400 hover:text-red-300" 
+                                                    onClick={async () => {
+                                                        await cloudStorage.deleteServiceConfig(id);
+                                                        const newConfigs = {...savedServiceConfigs};
+                                                        delete newConfigs[id];
+                                                        setSavedServiceConfigs(newConfigs);
+                                                    }}
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                
+                                {/* API Services Section */}
+                                {serviceCategory === 'api' && (
+                                    <div className="space-y-2">
+                                        <h4 className="text-[10px] text-slate-400 font-bold uppercase">Available API Services</h4>
+                                        <div className="grid grid-cols-3 gap-1">
+                                            {ALL_SERVICES.api.map(s => {
+                                                const isConnected = !!savedServiceConfigs[s.id];
+                                                return (
+                                                    <button
+                                                        key={s.id}
+                                                        onClick={() => {
+                                                            if (isConnected) return;
+                                                            setNewServiceType(s.id);
+                                                            setNewServiceConfig({});
+                                                        }}
+                                                        className={`p-1.5 rounded text-[8px] font-bold transition-all relative ${
+                                                            isConnected
+                                                                ? 'bg-green-900/30 text-green-400 ring-1 ring-green-600'
+                                                                : newServiceType === s.id 
+                                                                    ? `${s.color} ring-2 ring-blue-400 text-white` 
+                                                                    : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
+                                                        }`}
+                                                        title={s.category}
+                                                    >
+                                                        {s.name}
+                                                        {isConnected && <Check className="w-2 h-2 absolute top-0.5 right-0.5" />}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                        
+                                        {/* Config form for selected API service */}
+                                        {newServiceType && ALL_SERVICES.api.find(s => s.id === newServiceType) && !savedServiceConfigs[newServiceType] && (
+                                            <div className="bg-slate-800/50 p-2 rounded space-y-2 mt-2">
+                                                <h5 className="text-[10px] font-bold text-white capitalize">{newServiceType} Configuration</h5>
+                                                {ALL_SERVICES.api.find(s => s.id === newServiceType)?.fields.map(field => (
+                                                    <input 
+                                                        key={field}
+                                                        type={field.toLowerCase().includes('key') || field.toLowerCase().includes('secret') || field.toLowerCase().includes('token') ? 'password' : 'text'}
+                                                        value={newServiceConfig[field] || ''}
+                                                        onChange={e => setNewServiceConfig({...newServiceConfig, [field]: e.target.value})}
+                                                        placeholder={field.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                                                        className="w-full bg-slate-950 text-white text-xs p-2 rounded border border-slate-800"
+                                                    />
+                                                ))}
+                                                <button 
+                                                    onClick={async () => {
+                                                        const service = ALL_SERVICES.api.find(s => s.id === newServiceType);
+                                                        if (!service) return;
+                                                        
+                                                        // Check required fields
+                                                        const missing = service.fields.filter(f => !newServiceConfig[f]);
+                                                        if (missing.length > 0) {
+                                                            return (window as any).swal("Missing Fields", `Please fill in: ${missing.join(', ')}`, "warning");
+                                                        }
+                                                        
+                                                        const config: ServiceConfig = {
+                                                            serviceId: newServiceType,
+                                                            serviceName: service.name,
+                                                            serviceType: 'api',
+                                                            config: {...newServiceConfig},
+                                                            connectedAt: Date.now()
+                                                        };
+                                                        
+                                                        await cloudStorage.saveServiceConfig(config);
+                                                        setSavedServiceConfigs(prev => ({...prev, [newServiceType]: config}));
+                                                        setNewServiceConfig({});
+                                                        
+                                                        setMessages(prev => [...prev, { 
+                                                            id: Date.now().toString(), 
+                                                            role: 'model', 
+                                                            text: `⚡ **${service.name} connected!** You can now say "add ${service.name}" in chat and I'll use your saved credentials automatically.`, 
+                                                            timestamp: Date.now() 
+                                                        }]);
+                                                    }} 
+                                                    className="w-full bg-yellow-600 hover:bg-yellow-500 text-white text-xs py-2 rounded font-bold transition-colors"
+                                                >
+                                                    Connect {ALL_SERVICES.api.find(s => s.id === newServiceType)?.name}
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                                
+                                {/* Integration Services Section */}
+                                {serviceCategory === 'integration' && (
+                                    <div className="space-y-2">
+                                        <h4 className="text-[10px] text-slate-400 font-bold uppercase">Libraries & Tools (No Keys Needed)</h4>
+                                        <p className="text-[9px] text-slate-500">Click to add to your project. These get injected into AI context for better code generation.</p>
+                                        
+                                        {/* Group by category */}
+                                        {Array.from(new Set(ALL_SERVICES.integration.map(s => s.category))).map(category => (
+                                            <div key={category} className="space-y-1">
+                                                <h5 className="text-[9px] text-slate-500 uppercase font-bold mt-2">{category}</h5>
+                                                <div className="flex flex-wrap gap-1">
+                                                    {ALL_SERVICES.integration.filter(s => s.category === category).map(s => {
+                                                        const isConnected = !!savedServiceConfigs[s.id];
+                                                        return (
+                                                            <button
+                                                                key={s.id}
+                                                                onClick={async () => {
+                                                                    if (isConnected) {
+                                                                        // Remove
+                                                                        await cloudStorage.deleteServiceConfig(s.id);
+                                                                        const newConfigs = {...savedServiceConfigs};
+                                                                        delete newConfigs[s.id];
+                                                                        setSavedServiceConfigs(newConfigs);
+                                                                    } else {
+                                                                        // Add
+                                                                        const config: ServiceConfig = {
+                                                                            serviceId: s.id,
+                                                                            serviceName: s.name,
+                                                                            serviceType: 'integration',
+                                                                            config: {},
+                                                                            connectedAt: Date.now()
+                                                                        };
+                                                                        await cloudStorage.saveServiceConfig(config);
+                                                                        setSavedServiceConfigs(prev => ({...prev, [s.id]: config}));
+                                                                        
+                                                                        setMessages(prev => [...prev, { 
+                                                                            id: Date.now().toString(), 
+                                                                            role: 'model', 
+                                                                            text: `🔗 **${s.name} added!** I'll now consider this library when generating code for your project.`, 
+                                                                            timestamp: Date.now() 
+                                                                        }]);
+                                                                    }
+                                                                }}
+                                                                className={`px-2 py-1 rounded text-[9px] font-medium transition-all ${
+                                                                    isConnected
+                                                                        ? `${s.color} text-white ring-1 ring-green-400`
+                                                                        : 'bg-slate-700 text-slate-400 hover:bg-slate-600 hover:text-white'
+                                                                }`}
+                                                            >
+                                                                {isConnected && <span className="mr-1">✓</span>}
+                                                                {s.name}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         )}
                         {sidebarTab === 'pkg' && (

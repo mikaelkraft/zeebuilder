@@ -13,7 +13,8 @@ export enum View {
   TERMS = 'TERMS',
   DOCS = 'DOCS',
   DEVELOPERS = 'DEVELOPERS',
-  INTEGRATIONS = 'INTEGRATIONS'
+  INTEGRATIONS = 'INTEGRATIONS',
+  ADMIN = 'ADMIN'
 }
 
 export enum ModelType {
@@ -110,6 +111,8 @@ export interface Task {
   status: 'todo' | 'in-progress' | 'done';
   priority: 'low' | 'medium' | 'high';
   createdAt: number;
+  dueDate?: string;
+  projectId?: string;
 }
 
 export interface DatabaseConfig {

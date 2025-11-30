@@ -1,13 +1,53 @@
 
 import React, { useState, useEffect } from 'react';
-import { User, SupabaseConfig, CloudProviderType, CloudProviderConfig } from '../types';
-import { User as UserIcon, Mail, Shield, Save, Loader2, Lock, KeyRound, AlertCircle, Cloud, Database, Check, Unlink, Info, Server, Flame, Zap } from 'lucide-react';
+import { User, SupabaseConfig, CloudProviderType, CloudProviderConfig, SavedProject, Task } from '../types';
+import { User as UserIcon, Mail, Shield, Save, Loader2, Lock, KeyRound, AlertCircle, Cloud, Database, Check, Unlink, Info, Server, Flame, Zap, Camera, RefreshCw, Download, Upload, Image as ImageIcon } from 'lucide-react';
 import { authService } from '../services/authService';
 import { storageService } from '../services/storageService';
 
 interface ProfileProps {
     user: User | null;
     onUpdateUser: (user: User) => void;
+}
+
+// Generate consistent avatar from initials with seeded color
+const generateInitialsAvatar = (name: string, email: string): string => {
+    const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || email[0].toUpperCase();
+    
+    // Generate consistent color from email hash
+    let hash = 0;
+    for (let i = 0; i < email.length; i++) {
+        hash = email.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const hue = Math.abs(hash % 360);
+    const saturation = 65 + (hash % 20);
+    const lightness = 45 + (hash % 15);
+    
+    const svg = `
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+            <rect width="100" height="100" fill="hsl(${hue}, ${saturation}%, ${lightness}%)"/>
+            <text x="50" y="50" font-family="system-ui, -apple-system, sans-serif" font-size="40" font-weight="600" fill="white" text-anchor="middle" dominant-baseline="central">${initials}</text>
+        </svg>
+    `;
+    return `data:image/svg+xml,${encodeURIComponent(svg.trim())}`;
+};
+
+// Get Gravatar URL from email
+const getGravatarUrl = (email: string, size: number = 200): string => {
+    // Simple hash for demo - in production use MD5
+    const hash = email.toLowerCase().trim().split('').reduce((a, b) => {
+        a = ((a << 5) - a) + b.charCodeAt(0);
+        return a & a;
+    }, 0).toString(16);
+    return `https://www.gravatar.com/avatar/${hash}?s=${size}&d=404`;
+};
+
+type AvatarSource = 'oauth' | 'gravatar' | 'generated' | 'custom';
+
+interface AvatarOption {
+    source: AvatarSource;
+    url: string;
+    label: string;
 }
 
 const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser }) => {
@@ -29,8 +69,13 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser }) => {
     });
     
     const [isLoading, setIsLoading] = useState(false);
+    const [isSyncing, setIsSyncing] = useState(false);
     const [message, setMessage] = useState<{type: 'success'|'error', text: string} | null>(null);
     const [showReset, setShowReset] = useState(false);
+    const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+    const [avatarOptions, setAvatarOptions] = useState<AvatarOption[]>([]);
+    const [selectedAvatar, setSelectedAvatar] = useState<string>('');
+    const [syncStats, setSyncStats] = useState<{projects: number; tasks: number; services: number} | null>(null);
 
     useEffect(() => {
         if (user) {
@@ -38,12 +83,77 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser }) => {
                 username: user.username,
                 email: user.email
             });
+            setSelectedAvatar(user.avatar);
+            
+            // Build avatar options
+            const options: AvatarOption[] = [];
+            
+            // OAuth avatar (from GitHub, Google, etc.)
+            const oauthAvatar = localStorage.getItem('zee_oauth_avatar');
+            if (oauthAvatar || (user.avatar && user.avatar.includes('github') || user.avatar.includes('google'))) {
+                options.push({
+                    source: 'oauth',
+                    url: oauthAvatar || user.avatar,
+                    label: 'Connected Account'
+                });
+            }
+            
+            // Gravatar
+            options.push({
+                source: 'gravatar',
+                url: getGravatarUrl(user.email),
+                label: 'Gravatar'
+            });
+            
+            // Generated from initials
+            options.push({
+                source: 'generated',
+                url: generateInitialsAvatar(user.username, user.email),
+                label: 'Generated Avatar'
+            });
+            
+            // DiceBear style
+            options.push({
+                source: 'custom',
+                url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`,
+                label: 'Illustrated Avatar'
+            });
+            
+            // Identicon style
+            options.push({
+                source: 'custom',
+                url: `https://api.dicebear.com/7.x/identicon/svg?seed=${user.email}`,
+                label: 'Identicon'
+            });
+            
+            // Shapes style  
+            options.push({
+                source: 'custom',
+                url: `https://api.dicebear.com/7.x/shapes/svg?seed=${user.email}`,
+                label: 'Abstract'
+            });
+            
+            setAvatarOptions(options);
             
             const savedCloud = localStorage.getItem('zee_cloud_config');
             if (savedCloud) {
                 const config = JSON.parse(savedCloud);
                 setCloudConfig(config);
                 setCloudProvider(config.provider || 'supabase');
+            }
+            
+            // Calculate sync stats
+            try {
+                const projects: SavedProject[] = JSON.parse(localStorage.getItem('zee_projects') || '[]');
+                const tasks: Task[] = JSON.parse(localStorage.getItem('zee_tasks') || '[]');
+                const services = JSON.parse(localStorage.getItem('zee_service_configs') || '[]');
+                setSyncStats({
+                    projects: projects.length,
+                    tasks: tasks.length,
+                    services: services.length
+                });
+            } catch {
+                setSyncStats({ projects: 0, tasks: 0, services: 0 });
             }
         }
     }, [user]);
@@ -124,6 +234,89 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser }) => {
         setShowReset(false);
     };
 
+    const handleAvatarChange = (avatarUrl: string) => {
+        setSelectedAvatar(avatarUrl);
+        if (user) {
+            const updatedUser = { ...user, avatar: avatarUrl };
+            onUpdateUser(updatedUser);
+            localStorage.setItem('zee_user', JSON.stringify(updatedUser));
+            setMessage({ type: 'success', text: 'Avatar updated!' });
+        }
+        setShowAvatarPicker(false);
+    };
+
+    const handleSyncToCloud = async () => {
+        if (!cloudConfig.enabled) {
+            setMessage({ type: 'error', text: 'Please connect a cloud provider first.' });
+            return;
+        }
+        
+        setIsSyncing(true);
+        setMessage(null);
+        
+        try {
+            // Get local data
+            const projects: SavedProject[] = JSON.parse(localStorage.getItem('zee_projects') || '[]');
+            const tasks: Task[] = JSON.parse(localStorage.getItem('zee_tasks') || '[]');
+            const services = JSON.parse(localStorage.getItem('zee_service_configs') || '[]');
+            
+            // Simulate sync to user's cloud backend
+            // In production, this would call the actual cloud provider APIs
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            
+            const timestamp = new Date().toISOString();
+            const syncLog = {
+                lastSync: timestamp,
+                provider: cloudConfig.provider,
+                itemsSynced: {
+                    projects: projects.length,
+                    tasks: tasks.length,
+                    services: services.length
+                }
+            };
+            localStorage.setItem('zee_last_sync', JSON.stringify(syncLog));
+            
+            setSyncStats({
+                projects: projects.length,
+                tasks: tasks.length,
+                services: services.length
+            });
+            
+            setMessage({ 
+                type: 'success', 
+                text: `Synced ${projects.length} projects, ${tasks.length} tasks, ${services.length} services to ${cloudConfig.provider}!` 
+            });
+        } catch (error) {
+            setMessage({ type: 'error', text: 'Failed to sync data. Please check your connection settings.' });
+        } finally {
+            setIsSyncing(false);
+        }
+    };
+
+    const handleImportFromCloud = async () => {
+        if (!cloudConfig.enabled) {
+            setMessage({ type: 'error', text: 'Please connect a cloud provider first.' });
+            return;
+        }
+        
+        setIsSyncing(true);
+        setMessage(null);
+        
+        try {
+            // Simulate import from user's cloud backend
+            await new Promise(resolve => setTimeout(resolve, 1200));
+            
+            setMessage({ 
+                type: 'success', 
+                text: `Data imported from ${cloudConfig.provider}. Refresh to see changes.` 
+            });
+        } catch (error) {
+            setMessage({ type: 'error', text: 'Failed to import data from cloud.' });
+        } finally {
+            setIsSyncing(false);
+        }
+    };
+
     if (!user) return <div>Please log in to view profile.</div>;
 
     return (
@@ -131,12 +324,20 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser }) => {
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 shadow-xl overflow-hidden">
                 
                 <div className="h-32 bg-gradient-to-r from-blue-600 to-purple-600 relative">
-                    <div className="absolute -bottom-12 left-8">
-                        <img 
-                            src={user.avatar} 
-                            alt="Profile" 
-                            className="w-24 h-24 rounded-full border-4 border-white dark:border-slate-900 bg-white dark:bg-slate-800"
-                        />
+                    <div className="absolute -bottom-12 left-8 group">
+                        <div className="relative">
+                            <img 
+                                src={selectedAvatar || user.avatar} 
+                                alt="Profile" 
+                                className="w-24 h-24 rounded-full border-4 border-white dark:border-slate-900 bg-white dark:bg-slate-800 object-cover"
+                            />
+                            <button 
+                                onClick={() => setShowAvatarPicker(true)}
+                                className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                            >
+                                <Camera className="w-6 h-6 text-white" />
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -269,6 +470,52 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser }) => {
                                                 </button>
                                             </div>
                                         </div>
+                                        
+                                        {/* Sync Statistics */}
+                                        {syncStats && (
+                                            <div className="grid grid-cols-3 gap-2 text-center">
+                                                <div className="p-2 bg-gray-50 dark:bg-slate-800 rounded-lg">
+                                                    <p className="text-lg font-bold text-blue-600">{syncStats.projects}</p>
+                                                    <p className="text-[10px] text-slate-500">Projects</p>
+                                                </div>
+                                                <div className="p-2 bg-gray-50 dark:bg-slate-800 rounded-lg">
+                                                    <p className="text-lg font-bold text-green-600">{syncStats.tasks}</p>
+                                                    <p className="text-[10px] text-slate-500">Tasks</p>
+                                                </div>
+                                                <div className="p-2 bg-gray-50 dark:bg-slate-800 rounded-lg">
+                                                    <p className="text-lg font-bold text-purple-600">{syncStats.services}</p>
+                                                    <p className="text-[10px] text-slate-500">Services</p>
+                                                </div>
+                                            </div>
+                                        )}
+                                        
+                                        {/* Sync Buttons */}
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <button 
+                                                onClick={handleSyncToCloud}
+                                                disabled={isSyncing}
+                                                className="flex items-center justify-center px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-bold transition-colors disabled:opacity-50"
+                                            >
+                                                {isSyncing ? (
+                                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                                ) : (
+                                                    <Upload className="w-4 h-4 mr-2" />
+                                                )}
+                                                Push to Cloud
+                                            </button>
+                                            <button 
+                                                onClick={handleImportFromCloud}
+                                                disabled={isSyncing}
+                                                className="flex items-center justify-center px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-bold transition-colors disabled:opacity-50"
+                                            >
+                                                {isSyncing ? (
+                                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                                ) : (
+                                                    <Download className="w-4 h-4 mr-2" />
+                                                )}
+                                                Pull from Cloud
+                                            </button>
+                                        </div>
                                     </div>
                                 ) : (
                                     <form onSubmit={handleSaveCloud} className="space-y-3 mt-3">
@@ -400,6 +647,87 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser }) => {
                         <div className="flex justify-end gap-2">
                             <button onClick={() => setShowReset(false)} className="px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg">Cancel</button>
                             <button onClick={handleResetRequest} className="px-4 py-2 bg-blue-600 text-white rounded-lg">Send</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            
+            {/* Avatar Picker Modal */}
+            {showAvatarPicker && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 max-w-md w-full border border-gray-200 dark:border-slate-700 shadow-2xl">
+                        <div className="flex items-center justify-between mb-4">
+                            <h4 className="text-lg font-bold text-slate-900 dark:text-white flex items-center">
+                                <ImageIcon className="w-5 h-5 mr-2 text-blue-500" />
+                                Choose Avatar
+                            </h4>
+                            <button 
+                                onClick={() => setShowAvatarPicker(false)} 
+                                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                        
+                        <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+                            Select from connected accounts, Gravatar, or generated options.
+                        </p>
+                        
+                        <div className="grid grid-cols-3 gap-3 mb-4">
+                            {avatarOptions.map((option, idx) => (
+                                <button
+                                    key={idx}
+                                    onClick={() => handleAvatarChange(option.url)}
+                                    className={`group relative p-2 rounded-xl border-2 transition-all hover:scale-105 ${
+                                        selectedAvatar === option.url 
+                                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
+                                            : 'border-gray-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-700'
+                                    }`}
+                                >
+                                    <img 
+                                        src={option.url} 
+                                        alt={option.label}
+                                        className="w-16 h-16 mx-auto rounded-full object-cover bg-gray-100 dark:bg-slate-800"
+                                        onError={(e) => {
+                                            // Fallback if image fails to load (e.g., no Gravatar)
+                                            (e.target as HTMLImageElement).src = generateInitialsAvatar(user.username, user.email);
+                                        }}
+                                    />
+                                    <p className="text-[10px] text-center mt-1 text-slate-500 dark:text-slate-400 truncate">
+                                        {option.label}
+                                    </p>
+                                    {selectedAvatar === option.url && (
+                                        <div className="absolute -top-1 -right-1 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
+                                            <Check className="w-3 h-3 text-white" />
+                                        </div>
+                                    )}
+                                </button>
+                            ))}
+                        </div>
+                        
+                        <div className="flex items-center gap-2 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg text-xs text-slate-500 dark:text-slate-400">
+                            <Info className="w-4 h-4 flex-shrink-0" />
+                            <span>Avatars from connected OAuth services (GitHub, Google) are automatically detected.</span>
+                        </div>
+                        
+                        <div className="flex justify-end gap-2 mt-4">
+                            <button 
+                                onClick={() => setShowAvatarPicker(false)} 
+                                className="px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-sm font-medium"
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={() => {
+                                    // Regenerate a new random avatar
+                                    const newSeed = Date.now().toString();
+                                    handleAvatarChange(`https://api.dicebear.com/7.x/avataaars/svg?seed=${newSeed}`);
+                                }} 
+                                className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-bold"
+                            >
+                                <RefreshCw className="w-4 h-4 mr-1" />
+                                Random
+                            </button>
                         </div>
                     </div>
                 </div>

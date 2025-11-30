@@ -18,7 +18,8 @@ import {
   Settings,
   Terminal,
   FolderOpen,
-  Workflow
+  Workflow,
+  Shield
 } from 'lucide-react';
 
 // Components
@@ -35,6 +36,7 @@ import LegalDocs from './components/LegalDocs';
 import Developers from './components/Developers';
 import Projects from './components/Projects';
 import Integrations from './components/Integrations';
+import AdminAnalytics from './components/AdminAnalytics';
 import { usageService } from './services/usageService';
 import { supabase, onAuthStateChange } from './services/supabaseClient';
 
@@ -62,12 +64,24 @@ const ZeeLogo = () => (
 );
 
 const App: React.FC = () => {
-  const [currentView, setCurrentView] = useState<View>(View.HOME);
+  // Restore view from localStorage, default to HOME
+  const [currentView, setCurrentView] = useState<View>(() => {
+    const savedView = localStorage.getItem('zee_current_view');
+    if (savedView && Object.values(View).includes(savedView as View)) {
+      return savedView as View;
+    }
+    return View.HOME;
+  });
   const [user, setUser] = useState<User | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [pendingView, setPendingView] = useState<View | null>(null);
+
+  // Persist current view to localStorage
+  useEffect(() => {
+    localStorage.setItem('zee_current_view', currentView);
+  }, [currentView]);
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('zee_theme');
@@ -92,6 +106,12 @@ const App: React.FC = () => {
         const parsedUser = JSON.parse(storedUser);
         setUser(parsedUser);
         usageService.init(parsedUser.email);
+    } else {
+        // If no user but on a protected view, redirect to home
+        const protectedViews = [View.DASHBOARD, View.BUILDER, View.TASKS, View.PROFILE, View.DEVELOPERS, View.PROJECTS, View.ADMIN];
+        if (protectedViews.includes(currentView)) {
+            setCurrentView(View.HOME);
+        }
     }
   }, []);
 
@@ -165,6 +185,7 @@ const App: React.FC = () => {
     setUser(null);
     localStorage.removeItem('zee_user');
     localStorage.removeItem('zee_github_token');
+    localStorage.removeItem('zee_current_view');
     setCurrentView(View.HOME);
   };
 
@@ -259,6 +280,12 @@ const App: React.FC = () => {
             <NavItem view={View.CHAT} icon={MessageSquare} label="AI Assistant" />
             <NavItem view={View.IMAGE_STUDIO} icon={ImageIcon} label="Image Studio" />
             <NavItem view={View.AUDIO_STUDIO} icon={Mic} label="Voice & Audio" />
+            {user?.isAdmin && (
+              <>
+                <NavCategory label="Administration" />
+                <NavItem view={View.ADMIN} icon={Shield} label="Analytics" />
+              </>
+            )}
         </nav>
 
         <div className="p-4 border-t border-gray-200 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/30">
@@ -371,6 +398,7 @@ const App: React.FC = () => {
                 {currentView === View.AUDIO_STUDIO && <AudioStudio onNavigate={handleNavigation} />}
                 {currentView === View.PROFILE && <Profile user={user} onUpdateUser={setUser} />}
                 {currentView === View.DEVELOPERS && <Developers user={user} />}
+                {currentView === View.ADMIN && user?.isAdmin && <AdminAnalytics />}
                 {(currentView === View.POLICY || currentView === View.TERMS || currentView === View.DOCS) && (
                     <LegalDocs view={currentView} onNavigate={handleNavigation} />
                 )}
