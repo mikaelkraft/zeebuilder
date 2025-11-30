@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { View } from '../types';
+import { View, CommunityProject } from '../types';
+import { getFeaturedProjects } from '../services/communityService';
 import { 
     Code, 
     MessageSquare, 
@@ -32,7 +33,12 @@ import {
     Search,
     BarChart3,
     Shield,
-    Workflow
+    Workflow,
+    Heart,
+    Eye,
+    Users,
+    ExternalLink,
+    Rocket
 } from 'lucide-react';
 
 interface HomeProps {
@@ -103,6 +109,291 @@ const EngagementChat = ({ onNavigate }: { onNavigate: (view: View) => void }) =>
                 </form>
             </div>
         </div>
+    );
+};
+
+// Community Showcase Component
+const CommunityShowcase = ({ onNavigate }: { onNavigate: (view: View) => void }) => {
+    const [projects, setProjects] = useState<CommunityProject[]>([]);
+    const [selectedProject, setSelectedProject] = useState<CommunityProject | null>(null);
+
+    useEffect(() => {
+        setProjects(getFeaturedProjects().slice(0, 6));
+    }, []);
+
+    const getStackIcon = (stack: string) => {
+        switch(stack) {
+            case 'react': case 'react-ts': return <Code className="w-4 h-4" />;
+            case 'vue': return <Layers className="w-4 h-4" />;
+            case 'flutter': return <Smartphone className="w-4 h-4" />;
+            case 'python': return <Terminal className="w-4 h-4" />;
+            default: return <Globe className="w-4 h-4" />;
+        }
+    };
+
+    const getStackColor = (stack: string) => {
+        switch(stack) {
+            case 'react': case 'react-ts': return 'bg-blue-500';
+            case 'vue': return 'bg-green-500';
+            case 'flutter': return 'bg-cyan-500';
+            case 'python': return 'bg-yellow-500';
+            default: return 'bg-orange-500';
+        }
+    };
+
+    const formatNumber = (num: number) => {
+        if (num >= 1000) return (num / 1000).toFixed(1) + 'k';
+        return num.toString();
+    };
+
+    const timeAgo = (timestamp: number) => {
+        const seconds = Math.floor((Date.now() - timestamp) / 1000);
+        if (seconds < 60) return 'just now';
+        const minutes = Math.floor(seconds / 60);
+        if (minutes < 60) return `${minutes}m ago`;
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) return `${hours}h ago`;
+        const days = Math.floor(hours / 24);
+        if (days < 7) return `${days}d ago`;
+        return new Date(timestamp).toLocaleDateString();
+    };
+
+    const openInBuilder = (project: CommunityProject) => {
+        // Save the project files temporarily for the builder to pick up
+        const tempProject = {
+            id: `community-${project.id}`,
+            name: `${project.name} (Copy)`,
+            stack: project.stack,
+            files: project.files,
+            lastModified: Date.now(),
+            dbConfigs: [],
+            messages: [],
+            snapshots: []
+        };
+        
+        // Add to user's projects
+        const stored = localStorage.getItem('zee_projects');
+        const userProjects = stored ? JSON.parse(stored) : [];
+        userProjects.unshift(tempProject);
+        localStorage.setItem('zee_projects', JSON.stringify(userProjects));
+        localStorage.setItem('zee_active_project_id', tempProject.id);
+        
+        setSelectedProject(null);
+        onNavigate(View.BUILDER);
+    };
+
+    if (projects.length === 0) return null;
+
+    return (
+        <>
+            <div className="mt-16 px-4">
+                <div className="text-center mb-8">
+                    <h2 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white mb-3 flex items-center justify-center gap-2">
+                        <Rocket className="w-7 h-7 text-purple-500" />
+                        Community Showcase
+                    </h2>
+                    <p className="text-slate-500 dark:text-slate-400 max-w-2xl mx-auto text-sm">
+                        Explore amazing projects built by the community. Get inspired and use them as templates!
+                    </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {projects.map((project) => (
+                        <div 
+                            key={project.id}
+                            onClick={() => setSelectedProject(project)}
+                            className="group bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl overflow-hidden hover:border-blue-500 dark:hover:border-blue-500 transition-all cursor-pointer shadow-sm hover:shadow-xl"
+                        >
+                            {/* Thumbnail */}
+                            <div className="relative aspect-video overflow-hidden bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900">
+                                {project.thumbnail ? (
+                                    <img 
+                                        src={project.thumbnail} 
+                                        alt={project.name}
+                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                    />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center">
+                                        <Code className="w-12 h-12 text-slate-300 dark:text-slate-700" />
+                                    </div>
+                                )}
+                                {/* Stack Badge */}
+                                <div className={`absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 ${getStackColor(project.stack)} text-white text-xs font-bold rounded-full shadow-lg`}>
+                                    {getStackIcon(project.stack)}
+                                    {project.stack}
+                                </div>
+                                {/* Featured Badge */}
+                                {project.featured && (
+                                    <div className="absolute top-3 right-3 px-2 py-1 bg-yellow-500 text-white text-[10px] font-bold rounded-full flex items-center gap-1">
+                                        <Sparkles className="w-3 h-3" /> Featured
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Content */}
+                            <div className="p-4">
+                                <h3 className="font-bold text-slate-900 dark:text-white text-lg mb-1 group-hover:text-blue-500 transition-colors line-clamp-1">
+                                    {project.name}
+                                </h3>
+                                <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-2 mb-4">
+                                    {project.description}
+                                </p>
+
+                                {/* Author & Stats */}
+                                <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-slate-800">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-[10px] font-bold">
+                                            {project.authorName.charAt(0).toUpperCase()}
+                                        </div>
+                                        <span className="text-xs text-slate-500">{project.authorName}</span>
+                                    </div>
+                                    <div className="flex items-center gap-3 text-xs text-slate-400">
+                                        <span className="flex items-center gap-1">
+                                            <Heart className="w-3 h-3" /> {formatNumber(project.likes)}
+                                        </span>
+                                        <span className="flex items-center gap-1">
+                                            <Eye className="w-3 h-3" /> {formatNumber(project.views)}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                <div className="text-center mt-8">
+                    <button 
+                        onClick={() => onNavigate(View.PROJECTS)}
+                        className="px-6 py-2.5 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 font-medium rounded-full border border-gray-200 dark:border-slate-700 hover:border-purple-500 hover:text-purple-600 dark:hover:text-purple-400 transition-all text-sm mr-3"
+                    >
+                        <Users className="w-4 h-4 inline mr-2" />
+                        View All Community Projects
+                    </button>
+                    <button 
+                        onClick={() => onNavigate(View.BUILDER)}
+                        className="px-6 py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-full transition-all shadow-lg text-sm"
+                    >
+                        Build & Publish Yours →
+                    </button>
+                </div>
+            </div>
+
+            {/* Project Detail Modal */}
+            {selectedProject && (
+                <div 
+                    className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+                    onClick={() => setSelectedProject(null)}
+                >
+                    <div 
+                        className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Modal Header with Thumbnail */}
+                        <div className="relative aspect-video overflow-hidden bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900">
+                            {selectedProject.thumbnail ? (
+                                <img 
+                                    src={selectedProject.thumbnail} 
+                                    alt={selectedProject.name}
+                                    className="w-full h-full object-cover"
+                                />
+                            ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                    <Code className="w-16 h-16 text-slate-300 dark:text-slate-700" />
+                                </div>
+                            )}
+                            <button 
+                                onClick={() => setSelectedProject(null)}
+                                className="absolute top-4 right-4 p-2 bg-black/50 hover:bg-black/70 text-white rounded-full transition-colors"
+                            >
+                                ✕
+                            </button>
+                            <div className={`absolute bottom-4 left-4 flex items-center gap-1.5 px-3 py-1.5 ${getStackColor(selectedProject.stack)} text-white text-sm font-bold rounded-full shadow-lg`}>
+                                {getStackIcon(selectedProject.stack)}
+                                {selectedProject.stack}
+                            </div>
+                        </div>
+
+                        {/* Modal Content */}
+                        <div className="p-6">
+                            <div className="flex items-start justify-between mb-4">
+                                <div>
+                                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">
+                                        {selectedProject.name}
+                                    </h2>
+                                    <div className="flex items-center gap-3 text-sm text-slate-500">
+                                        <span className="flex items-center gap-1">
+                                            <Heart className="w-4 h-4 text-red-400" /> {formatNumber(selectedProject.likes)} likes
+                                        </span>
+                                        <span className="flex items-center gap-1">
+                                            <Eye className="w-4 h-4" /> {formatNumber(selectedProject.views)} views
+                                        </span>
+                                        <span>• {timeAgo(selectedProject.publishedAt)}</span>
+                                    </div>
+                                </div>
+                                {selectedProject.featured && (
+                                    <span className="px-3 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 text-xs font-bold rounded-full flex items-center gap-1">
+                                        <Sparkles className="w-3 h-3" /> Featured
+                                    </span>
+                                )}
+                            </div>
+
+                            <p className="text-slate-600 dark:text-slate-400 mb-6">
+                                {selectedProject.description}
+                            </p>
+
+                            {/* Author */}
+                            <div className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-slate-800 rounded-xl mb-6">
+                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold">
+                                    {selectedProject.authorName.charAt(0).toUpperCase()}
+                                </div>
+                                <div>
+                                    <p className="font-medium text-slate-900 dark:text-white">
+                                        {selectedProject.authorName}
+                                    </p>
+                                    <p className="text-xs text-slate-500">Project Author</p>
+                                </div>
+                            </div>
+
+                            {/* Files Preview */}
+                            <div className="mb-6">
+                                <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                                    Files ({selectedProject.files.length})
+                                </h4>
+                                <div className="flex flex-wrap gap-2">
+                                    {selectedProject.files.slice(0, 5).map((file, i) => (
+                                        <span key={i} className="px-2 py-1 bg-gray-100 dark:bg-slate-800 text-xs font-mono text-slate-600 dark:text-slate-400 rounded">
+                                            {file.name}
+                                        </span>
+                                    ))}
+                                    {selectedProject.files.length > 5 && (
+                                        <span className="px-2 py-1 bg-gray-100 dark:bg-slate-800 text-xs text-slate-500 rounded">
+                                            +{selectedProject.files.length - 5} more
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Actions */}
+                            <div className="flex gap-3">
+                                <button 
+                                    onClick={() => setSelectedProject(null)}
+                                    className="flex-1 px-4 py-3 bg-gray-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl font-medium hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors"
+                                >
+                                    Close
+                                </button>
+                                <button 
+                                    onClick={() => openInBuilder(selectedProject)}
+                                    className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <ExternalLink className="w-4 h-4" />
+                                    Use as Template
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </>
     );
 };
 
@@ -493,6 +784,9 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                     animation-play-state: paused;
                 }
             `}</style>
+
+            {/* Community Showcase Section */}
+            <CommunityShowcase onNavigate={onNavigate} />
 
             {/* Footer / Tech Section */}
             <div className="mt-16 pt-12 border-t border-gray-200 dark:border-slate-800 px-4">

@@ -85,6 +85,26 @@ export interface SavedProject {
   dbConfigs: DatabaseConfig[];
   messages: BuilderChatMessage[];
   snapshots?: Snapshot[];
+  isPublished?: boolean;
+  publishedAt?: number;
+  description?: string;
+  thumbnail?: string;
+}
+
+export interface CommunityProject {
+  id: string;
+  projectId: string;
+  name: string;
+  description: string;
+  stack: Stack;
+  thumbnail?: string;
+  authorName: string;
+  authorAvatar?: string;
+  files: ProjectFile[];
+  likes: number;
+  views: number;
+  publishedAt: number;
+  featured?: boolean;
 }
 
 export interface User {

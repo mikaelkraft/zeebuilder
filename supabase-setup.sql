@@ -59,17 +59,52 @@ CREATE TABLE IF NOT EXISTS tasks (
   UNIQUE(user_id, task_id)
 );
 
+-- Create community_projects table (for published/shared projects)
+CREATE TABLE IF NOT EXISTS community_projects (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  project_id TEXT NOT NULL, -- Local project ID reference
+  name TEXT NOT NULL,
+  description TEXT,
+  stack TEXT NOT NULL,
+  thumbnail TEXT,
+  files JSONB DEFAULT '[]'::jsonb,
+  author_name TEXT NOT NULL,
+  author_avatar TEXT,
+  likes INTEGER DEFAULT 0,
+  views INTEGER DEFAULT 0,
+  featured BOOLEAN DEFAULT false,
+  published_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(user_id, project_id)
+);
+
+-- Create community_likes table (track who liked what)
+CREATE TABLE IF NOT EXISTS community_likes (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  project_id UUID REFERENCES community_projects(id) ON DELETE CASCADE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(user_id, project_id)
+);
+
 -- Create indexes for faster lookups
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_projects_user ON projects(user_id);
 CREATE INDEX IF NOT EXISTS idx_service_configs_user ON service_configs(user_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_user ON tasks(user_id);
+CREATE INDEX IF NOT EXISTS idx_community_projects_user ON community_projects(user_id);
+CREATE INDEX IF NOT EXISTS idx_community_projects_featured ON community_projects(featured);
+CREATE INDEX IF NOT EXISTS idx_community_projects_likes ON community_projects(likes DESC);
+CREATE INDEX IF NOT EXISTS idx_community_likes_project ON community_likes(project_id);
 
 -- Enable Row Level Security on all tables
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
 ALTER TABLE service_configs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE community_projects ENABLE ROW LEVEL SECURITY;
+ALTER TABLE community_likes ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies for projects
 CREATE POLICY "Users can view own projects" ON projects
@@ -110,6 +145,29 @@ CREATE POLICY "Users can update own tasks" ON tasks
 CREATE POLICY "Users can delete own tasks" ON tasks
   FOR DELETE USING (auth.uid() = user_id);
 
+-- RLS Policies for community_projects (public read, owner write)
+CREATE POLICY "Anyone can view community projects" ON community_projects
+  FOR SELECT USING (true);
+  
+CREATE POLICY "Users can insert own community projects" ON community_projects
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+  
+CREATE POLICY "Users can update own community projects" ON community_projects
+  FOR UPDATE USING (auth.uid() = user_id);
+  
+CREATE POLICY "Users can delete own community projects" ON community_projects
+  FOR DELETE USING (auth.uid() = user_id);
+
+-- RLS Policies for community_likes
+CREATE POLICY "Anyone can view likes" ON community_likes
+  FOR SELECT USING (true);
+  
+CREATE POLICY "Users can insert own likes" ON community_likes
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+  
+CREATE POLICY "Users can delete own likes" ON community_likes
+  FOR DELETE USING (auth.uid() = user_id);
+
 -- Policy: Service role has full access (for backend API)
 CREATE POLICY "Service role full access" ON users
   FOR ALL 
@@ -145,5 +203,5 @@ CREATE TRIGGER update_tasks_updated_at
   EXECUTE FUNCTION update_updated_at_column();
 
 -- Verify tables were created
-SELECT 'Database setup complete! Tables: users, projects, service_configs, tasks' as status;
+SELECT 'Database setup complete! Tables: users, projects, service_configs, tasks, community_projects, community_likes' as status;
                                     
