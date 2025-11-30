@@ -39,15 +39,9 @@ import { supabase, onAuthStateChange } from './services/supabaseClient';
 // Zee Logo Component
 const ZeeLogo = () => (
   <svg viewBox="0 0 100 100" className="w-10 h-10 text-slate-900 dark:text-white transition-colors duration-300" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="zeeGradient" x1="20" y1="20" x2="80" y2="80" gradientUnits="userSpaceOnUse">
-        <stop offset="0%" stopColor="#3b82f6" />
-        <stop offset="100%" stopColor="#8b5cf6" />
-      </linearGradient>
-    </defs>
     <path 
         d="M 25 32 C 25 28 28 25 32 25 L 75 25 C 82 25 85 30 80 35 L 45 70" 
-        stroke="url(#zeeGradient)" 
+        stroke="#3b82f6" 
         strokeWidth="8" 
         strokeLinecap="round" 
         strokeLinejoin="round"
@@ -61,7 +55,7 @@ const ZeeLogo = () => (
         strokeLinejoin="round"
         strokeOpacity="0.9"
     />
-    <circle cx="82" cy="75" r="5" fill="url(#zeeGradient)" />
+    <circle cx="82" cy="75" r="5" fill="#3b82f6" />
   </svg>
 );
 
@@ -394,8 +388,9 @@ const App: React.FC = () => {
                  </div>
 
                  <div className="flex flex-col items-center justify-center gap-6 max-w-7xl mx-auto relative z-10">
-                     {/* Text Branding (No Logo) */}
-                     <div className="mb-2 transform hover:scale-105 transition-transform duration-300">
+                     {/* Logo Branding */}
+                     <div className="mb-2 transform hover:scale-105 transition-transform duration-300 flex items-center gap-3">
+                        <ZeeLogo />
                         <span className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">Zee<span className="text-blue-600">Builder</span></span>
                      </div>
 
