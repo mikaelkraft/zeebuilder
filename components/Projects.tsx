@@ -70,7 +70,6 @@ const Projects: React.FC<ProjectsProps> = ({ onNavigate, setActiveProject }) => 
         switch(stack) {
             case 'react': case 'react-ts': return <Code className="w-5 h-5 text-blue-500" />;
             case 'vue': return <Layout className="w-5 h-5 text-green-500" />;
-            case 'svelte': return <Layout className="w-5 h-5 text-orange-600" />;
             case 'flutter': return <Smartphone className="w-5 h-5 text-cyan-500" />;
             case 'python': return <Terminal className="w-5 h-5 text-yellow-500" />;
             default: return <Globe className="w-5 h-5 text-orange-500" />;

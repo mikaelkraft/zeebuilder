@@ -200,7 +200,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigate }) => {
                                             'react': 'bg-blue-500',
                                             'react-ts': 'bg-blue-400',
                                             'vue': 'bg-green-500',
-                                            'svelte': 'bg-orange-500',
                                             'flutter': 'bg-cyan-500',
                                             'python': 'bg-yellow-500',
                                             'html': 'bg-orange-400'
@@ -222,7 +221,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigate }) => {
                                             'react': 'bg-blue-500',
                                             'react-ts': 'bg-blue-400',
                                             'vue': 'bg-green-500',
-                                            'svelte': 'bg-orange-500',
                                             'flutter': 'bg-cyan-500',
                                             'python': 'bg-yellow-500',
                                             'html': 'bg-orange-400'
@@ -270,7 +268,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigate }) => {
                                             'react': 'text-blue-500 bg-blue-100 dark:bg-blue-900/30',
                                             'react-ts': 'text-blue-400 bg-blue-100 dark:bg-blue-900/30',
                                             'vue': 'text-green-500 bg-green-100 dark:bg-green-900/30',
-                                            'svelte': 'text-orange-500 bg-orange-100 dark:bg-orange-900/30',
                                             'flutter': 'text-cyan-500 bg-cyan-100 dark:bg-cyan-900/30',
                                             'python': 'text-yellow-500 bg-yellow-100 dark:bg-yellow-900/30',
                                             'html': 'text-orange-400 bg-orange-100 dark:bg-orange-900/30'
@@ -370,7 +367,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigate }) => {
                             </div>
                              <div className="flex items-center justify-between text-sm">
                                 <span className="text-slate-500">Database</span>
-                                <span className="flex items-center text-green-500"><div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse" /> Local</span>
+                                <span className="flex items-center text-green-500"><div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse" /> Operational</span>
                             </div>
                         </div>
                     </div>

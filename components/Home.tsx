@@ -105,7 +105,6 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
         "React & Vue Apps",
         "Flutter Mobile Apps",
         "Python Scripts",
-        "Svelte Components",
         "AI-Powered Images",
         "Audio & Transcripts",
         "HTML5 Websites",
@@ -116,7 +115,6 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
         { name: 'React', icon: Code, color: 'text-blue-500', description: 'Modern UI' },
         { name: 'React TS', icon: FileCode, color: 'text-blue-400', description: 'Type-safe' },
         { name: 'Vue.js', icon: Layers, color: 'text-green-500', description: 'Progressive' },
-        { name: 'Svelte', icon: Zap, color: 'text-orange-500', description: 'Compiled' },
         { name: 'Flutter', icon: Smartphone, color: 'text-cyan-500', description: 'Cross-platform' },
         { name: 'Python', icon: Terminal, color: 'text-yellow-500', description: 'AI & Scripts' },
         { name: 'HTML/JS', icon: Globe, color: 'text-orange-400', description: 'Vanilla Web' },
@@ -245,7 +243,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                             { icon: Code, title: 'Code View with Line Numbers', desc: 'Edit any file with syntax highlighting', color: 'bg-indigo-500', side: 'right' },
                             { icon: Package, title: 'Dependency Manager', desc: 'Add, remove npm packages with one click', color: 'bg-purple-500', side: 'left' },
                             { icon: GitBranch, title: 'GitHub Integration', desc: 'Push & pull from your repositories', color: 'bg-violet-500', side: 'right' },
-                            { icon: Play, title: 'Live Preview', desc: 'See React, Vue, Svelte apps in real-time', color: 'bg-fuchsia-500', side: 'left' },
+                            { icon: Play, title: 'Live Preview', desc: 'See React, Vue apps in real-time', color: 'bg-fuchsia-500', side: 'left' },
                             { icon: Smartphone, title: 'Flutter & Python', desc: 'Mobile apps and scripts with AI assist', color: 'bg-pink-500', side: 'right' },
                         ].map((item, index) => (
                             <div key={index} className={`relative flex items-center md:justify-${item.side === 'left' ? 'start' : 'end'} ${index > 0 ? 'md:mt-8' : ''}`}>

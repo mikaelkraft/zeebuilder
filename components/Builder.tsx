@@ -630,39 +630,6 @@ if __name__ == "__main__":
 # matplotlib`, language: 'html' }
              ];
              setActiveFile('main.py');
-        } else if (type === 'svelte') {
-             initialFiles = [
-                 { name: 'package.json', content: JSON.stringify({ name: "svelte-app", version: "1.0.0", dependencies: { "svelte": "^3.59.2" } }, null, 2), language: 'json' },
-                 { name: 'App.svelte', content: `<script>
-  let count = 0;
-  let title = 'Zee Svelte Builder';
-  
-  function increment() {
-    count += 1;
-  }
-</script>
-
-<main class="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center font-sans">
-  <svg class="w-16 h-16 text-orange-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z"></path>
-  </svg>
-  <h1 class="text-3xl font-bold mb-2">{title}</h1>
-  <p class="text-slate-400 mb-6">Start editing to see your changes live.</p>
-  <button 
-    class="px-6 py-2 bg-orange-600 rounded-lg font-semibold hover:bg-orange-500 transition"
-    on:click={increment}
-  >
-    Clicked {count} {count === 1 ? 'time' : 'times'}
-  </button>
-</main>
-
-<style>
-  main {
-    font-family: system-ui, -apple-system, sans-serif;
-  }
-</style>`, language: 'html' }
-             ];
-             setActiveFile('App.svelte');
         } else {
             initialFiles = [{ name: 'index.html', content: '<html><body><h1>Hello World</h1></body></html>', language: 'html'}];
             setActiveFile('index.html');
@@ -1171,7 +1138,7 @@ if __name__ == "__main__":
 
     const updateWebPreview = () => {
         // Stacks that need external runtime
-        if (stack === 'flutter' || stack === 'python' || stack === 'java' || stack === 'svelte' || stack === 'node') return;
+        if (stack === 'flutter' || stack === 'python' || stack === 'java' || stack === 'node') return;
         setIsRefreshing(true);
         
         // Get inline CSS
@@ -1542,8 +1509,8 @@ if __name__ == "__main__":
         files.forEach(f => {
             // Normalize path: ensure starts with /
             let path = f.name;
-            // For Svelte, keep src/ structure
-            if (stack !== 'svelte' && path.startsWith('src/')) path = path.slice(4);
+            // Remove src/ prefix for cleaner paths
+            if (path.startsWith('src/')) path = path.slice(4);
             // Ensure path starts with /
             if (!path.startsWith('/')) path = '/' + path;
             sandpackFiles[path] = { code: f.content };
@@ -1592,35 +1559,13 @@ root.render(<App />);`;
             }
         }
         
-        // For Svelte stack
-        if (stack === 'svelte') {
-            // Ensure App.svelte exists at the right path
-            const hasApp = Object.keys(sandpackFiles).some(p => p.includes('App.svelte'));
-            if (!hasApp) {
-                sandpackFiles['/App.svelte'] = {
-                    code: `<script>
-  let count = 0;
-</script>
-
-<main class="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center">
-  <h1 class="text-3xl font-bold mb-4">Hello Svelte!</h1>
-  <button class="px-4 py-2 bg-orange-600 rounded hover:bg-orange-500" on:click={() => count++}>
-    Clicked {count} times
-  </button>
-</main>`,
-                    active: true
-                };
-            }
-        }
-        
         return sandpackFiles;
     };
 
-    const getSandpackTemplate = (): 'react' | 'react-ts' | 'vanilla' | 'vanilla-ts' | 'static' | 'vue' | 'svelte' | undefined => {
+    const getSandpackTemplate = (): 'react' | 'react-ts' | 'vanilla' | 'vanilla-ts' | 'static' | 'vue' | undefined => {
         // Return appropriate template for each stack
         if (stack === 'react' || stack === 'react-ts') return undefined;
         if (stack === 'html' || stack === 'vue') return 'static'; // Vue CDN uses static template
-        if (stack === 'svelte') return 'svelte';
         return undefined;
     };
 
@@ -1637,10 +1582,6 @@ root.render(<App />);`;
                 'lucide-react': 'latest',
                 ...dependencies
             };
-        } else if (stack === 'svelte') {
-            baseDeps = {
-                'svelte': '^3.59.2'
-            };
         }
         // For html and vue with CDN, no deps needed
         
@@ -1656,7 +1597,7 @@ root.render(<App />);`;
     };
 
     // Check if stack can use Sandpack
-    const canUseSandpack = ['react', 'react-ts', 'html', 'vue', 'svelte'].includes(stack) && files.length > 0;
+    const canUseSandpack = ['react', 'react-ts', 'html', 'vue'].includes(stack) && files.length > 0;
 
     // Inlined Panels
     const renderPreviewPanel = (fullScreen = false) => (
@@ -1720,21 +1661,13 @@ root.render(<App />);`;
                     </div>
                 </div>
             ) : stack === 'flutter' ? (
-                // Flutter preview with DartPad embed
+                // Flutter preview with embedded runtime
                 <div className="flex-1 flex flex-col bg-slate-900">
                     <div className="flex items-center justify-between px-4 py-2 bg-slate-800 border-b border-slate-700">
                         <span className="text-xs text-cyan-400 font-mono flex items-center gap-2">
-                            <Smartphone className="w-4 h-4" /> Flutter / DartPad Preview
+                            <Smartphone className="w-4 h-4" /> Flutter Preview
                         </span>
                         <div className="flex items-center gap-2">
-                            <a 
-                                href="https://zapp.run" 
-                                target="_blank" 
-                                rel="noreferrer" 
-                                className="px-3 py-1 bg-cyan-600 text-white rounded text-xs font-bold hover:bg-cyan-500 flex items-center gap-1"
-                            >
-                                <Smartphone className="w-3 h-3" /> Open Zapp.run
-                            </a>
                             <button 
                                 onClick={handleDownload}
                                 className="px-3 py-1 bg-slate-600 text-white rounded text-xs font-bold hover:bg-slate-500 flex items-center gap-1"
@@ -1747,7 +1680,7 @@ root.render(<App />);`;
                         key={previewKey}
                         src={`https://dartpad.dev/embed-flutter.html?theme=dark&run=true`}
                         className="flex-1 w-full border-none"
-                        title="DartPad Flutter Preview"
+                        title="Flutter Preview"
                         allow="clipboard-read; clipboard-write"
                     />
                 </div>
@@ -1760,7 +1693,6 @@ root.render(<App />);`;
                         customSetup={{
                             dependencies: getSandpackDependencies(),
                             entry: stack === 'html' || stack === 'vue' ? '/index.html' : 
-                                   stack === 'svelte' ? '/App.svelte' :
                                    (stack === 'react-ts' ? '/index.tsx' : '/index.jsx')
                         }}
                         options={{
@@ -1939,7 +1871,6 @@ root.render(<App />);`;
                             { id: 'react', label: 'React', icon: CodeIcon, color: 'text-blue-500' },
                             { id: 'react-ts', label: 'React TS', icon: FileType, color: 'text-blue-400' },
                             { id: 'vue', label: 'Vue.js', icon: Layers, color: 'text-green-500' },
-                            { id: 'svelte', label: 'Svelte', icon: Layers, color: 'text-orange-600' },
                             { id: 'flutter', label: 'Flutter', icon: Smartphone, color: 'text-cyan-500' },
                             { id: 'python', label: 'Python', icon: TerminalIcon, color: 'text-yellow-500' },
                             { id: 'html', label: 'HTML/JS', icon: Globe, color: 'text-orange-500' },
