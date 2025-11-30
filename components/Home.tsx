@@ -346,293 +346,153 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                 />
             </div>
 
-            {/* Integrations Section */}
+            {/* Integrations Section - Compact Carousel */}
             <div className="mt-16 px-4">
-                <div className="text-center mb-10">
+                <div className="text-center mb-8">
                     <h2 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white mb-3 flex items-center justify-center gap-2">
                         <Workflow className="w-7 h-7 text-blue-500" />
-                        Integrations
+                        85+ Integrations
                     </h2>
-                    <p className="text-slate-500 dark:text-slate-400 max-w-2xl mx-auto">
-                        Connect your favorite services and let AI seamlessly integrate them into your apps. Just ask Zee to add authentication, database, payments, or any service.
+                    <p className="text-slate-500 dark:text-slate-400 max-w-2xl mx-auto text-sm">
+                        Connect your favorite services seamlessly. Just ask Zee to add any integration.
                     </p>
                 </div>
 
-                {/* Integration Categories */}
-                <div className="space-y-8">
-                    {/* Backend & Database */}
-                    <div className="bg-white dark:bg-slate-900/50 border border-gray-200 dark:border-slate-800 rounded-2xl p-6">
-                        <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                            <Database className="w-5 h-5 text-green-500" />
-                            Backend & Database
-                        </h3>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                            {[
-                                { name: 'Supabase', color: 'bg-emerald-500', desc: 'Auth, DB, Storage' },
-                                { name: 'Firebase', color: 'bg-orange-500', desc: 'Realtime DB, Auth' },
-                                { name: 'Appwrite', color: 'bg-pink-500', desc: 'Open-source BaaS' },
-                                { name: 'Neon', color: 'bg-cyan-500', desc: 'Serverless Postgres' },
-                                { name: 'PlanetScale', color: 'bg-slate-600', desc: 'MySQL Platform' },
-                                { name: 'MongoDB', color: 'bg-green-600', desc: 'NoSQL Database' },
-                                { name: 'Prisma', color: 'bg-indigo-500', desc: 'ORM & Migrations' },
-                                { name: 'Convex', color: 'bg-red-500', desc: 'Reactive Backend' },
-                                { name: 'Xata', color: 'bg-purple-500', desc: 'Serverless DB' },
-                                { name: 'Turso', color: 'bg-teal-500', desc: 'Edge SQLite' },
-                                { name: 'Upstash', color: 'bg-emerald-600', desc: 'Redis & Kafka' },
-                                { name: 'Fauna', color: 'bg-blue-600', desc: 'Distributed DB' },
-                            ].map((item, i) => (
-                                <div key={i} className="group p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 border border-transparent hover:border-blue-500/30 transition-all cursor-pointer">
-                                    <div className={`w-8 h-8 ${item.color} rounded-lg mb-2 flex items-center justify-center text-white text-xs font-bold group-hover:scale-110 transition-transform`}>
-                                        {item.name.charAt(0)}
-                                    </div>
-                                    <p className="font-semibold text-sm text-slate-900 dark:text-white">{item.name}</p>
-                                    <p className="text-[10px] text-slate-500 dark:text-slate-400">{item.desc}</p>
+                {/* Double-line Infinite Carousel */}
+                <div className="relative overflow-hidden py-4">
+                    {/* Gradient Masks */}
+                    <div className="absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-gray-50 dark:from-slate-950 to-transparent z-10 pointer-events-none"></div>
+                    <div className="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-gray-50 dark:from-slate-950 to-transparent z-10 pointer-events-none"></div>
+                    
+                    {/* Row 1 - Scrolls Left */}
+                    <div className="flex gap-3 mb-3 animate-scroll-left">
+                        {[
+                            { name: 'Supabase', color: 'bg-emerald-500' },
+                            { name: 'Firebase', color: 'bg-orange-500' },
+                            { name: 'Stripe', color: 'bg-indigo-600' },
+                            { name: 'Vercel', color: 'bg-slate-800' },
+                            { name: 'Clerk', color: 'bg-violet-600' },
+                            { name: 'OpenAI', color: 'bg-emerald-600' },
+                            { name: 'MongoDB', color: 'bg-green-600' },
+                            { name: 'Prisma', color: 'bg-indigo-500' },
+                            { name: 'Netlify', color: 'bg-teal-500' },
+                            { name: 'Auth0', color: 'bg-orange-600' },
+                            { name: 'Resend', color: 'bg-slate-700' },
+                            { name: 'Sentry', color: 'bg-pink-600' },
+                            { name: 'Cloudinary', color: 'bg-blue-500' },
+                            { name: 'Algolia', color: 'bg-blue-600' },
+                            { name: 'Paystack', color: 'bg-cyan-500' },
+                            // Duplicate for seamless loop
+                            { name: 'Supabase', color: 'bg-emerald-500' },
+                            { name: 'Firebase', color: 'bg-orange-500' },
+                            { name: 'Stripe', color: 'bg-indigo-600' },
+                            { name: 'Vercel', color: 'bg-slate-800' },
+                            { name: 'Clerk', color: 'bg-violet-600' },
+                            { name: 'OpenAI', color: 'bg-emerald-600' },
+                            { name: 'MongoDB', color: 'bg-green-600' },
+                            { name: 'Prisma', color: 'bg-indigo-500' },
+                            { name: 'Netlify', color: 'bg-teal-500' },
+                            { name: 'Auth0', color: 'bg-orange-600' },
+                            { name: 'Resend', color: 'bg-slate-700' },
+                            { name: 'Sentry', color: 'bg-pink-600' },
+                            { name: 'Cloudinary', color: 'bg-blue-500' },
+                            { name: 'Algolia', color: 'bg-blue-600' },
+                            { name: 'Paystack', color: 'bg-cyan-500' },
+                        ].map((item, i) => (
+                            <div key={i} className="flex-shrink-0 flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-900/80 border border-gray-200 dark:border-slate-800 rounded-full hover:border-blue-500/50 transition-all cursor-pointer group">
+                                <div className={`w-6 h-6 ${item.color} rounded-full flex items-center justify-center text-white text-[10px] font-bold group-hover:scale-110 transition-transform`}>
+                                    {item.name.charAt(0)}
                                 </div>
-                            ))}
-                        </div>
+                                <span className="text-sm font-medium text-slate-700 dark:text-slate-300 whitespace-nowrap">{item.name}</span>
+                            </div>
+                        ))}
                     </div>
 
-                    {/* Hosting & Deployment */}
-                    <div className="bg-white dark:bg-slate-900/50 border border-gray-200 dark:border-slate-800 rounded-2xl p-6">
-                        <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                            <Cloud className="w-5 h-5 text-blue-500" />
-                            Hosting & Deployment
-                        </h3>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                            {[
-                                { name: 'Vercel', color: 'bg-slate-900 dark:bg-white dark:text-black', desc: 'Frontend Cloud' },
-                                { name: 'Netlify', color: 'bg-teal-500', desc: 'JAMstack Hosting' },
-                                { name: 'Railway', color: 'bg-purple-600', desc: 'Deploy Anything' },
-                                { name: 'Render', color: 'bg-emerald-500', desc: 'Cloud Platform' },
-                                { name: 'Fly.io', color: 'bg-violet-500', desc: 'Edge Deployment' },
-                                { name: 'Cloudflare', color: 'bg-orange-500', desc: 'Workers & Pages' },
-                                { name: 'AWS', color: 'bg-yellow-600', desc: 'Full Cloud Suite' },
-                                { name: 'Google Cloud', color: 'bg-blue-500', desc: 'GCP Services' },
-                                { name: 'Azure', color: 'bg-sky-500', desc: 'Microsoft Cloud' },
-                                { name: 'DigitalOcean', color: 'bg-blue-600', desc: 'App Platform' },
-                                { name: 'Heroku', color: 'bg-purple-500', desc: 'PaaS Hosting' },
-                                { name: 'Deno Deploy', color: 'bg-slate-700', desc: 'Edge Functions' },
-                            ].map((item, i) => (
-                                <div key={i} className="group p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 border border-transparent hover:border-blue-500/30 transition-all cursor-pointer">
-                                    <div className={`w-8 h-8 ${item.color} rounded-lg mb-2 flex items-center justify-center text-white text-xs font-bold group-hover:scale-110 transition-transform`}>
-                                        {item.name.charAt(0)}
-                                    </div>
-                                    <p className="font-semibold text-sm text-slate-900 dark:text-white">{item.name}</p>
-                                    <p className="text-[10px] text-slate-500 dark:text-slate-400">{item.desc}</p>
+                    {/* Row 2 - Scrolls Right */}
+                    <div className="flex gap-3 animate-scroll-right">
+                        {[
+                            { name: 'Neon', color: 'bg-cyan-500' },
+                            { name: 'Railway', color: 'bg-purple-600' },
+                            { name: 'Flutterwave', color: 'bg-orange-500' },
+                            { name: 'Anthropic', color: 'bg-orange-600' },
+                            { name: 'Twilio', color: 'bg-red-500' },
+                            { name: 'PostHog', color: 'bg-blue-600' },
+                            { name: 'Sanity', color: 'bg-red-500' },
+                            { name: 'AWS S3', color: 'bg-orange-600' },
+                            { name: 'LangChain', color: 'bg-green-600' },
+                            { name: 'Pinecone', color: 'bg-teal-500' },
+                            { name: 'Appwrite', color: 'bg-pink-500' },
+                            { name: 'Render', color: 'bg-emerald-500' },
+                            { name: 'Paddle', color: 'bg-blue-500' },
+                            { name: 'Mixpanel', color: 'bg-purple-500' },
+                            { name: 'Cloudflare', color: 'bg-orange-500' },
+                            // Duplicate for seamless loop
+                            { name: 'Neon', color: 'bg-cyan-500' },
+                            { name: 'Railway', color: 'bg-purple-600' },
+                            { name: 'Flutterwave', color: 'bg-orange-500' },
+                            { name: 'Anthropic', color: 'bg-orange-600' },
+                            { name: 'Twilio', color: 'bg-red-500' },
+                            { name: 'PostHog', color: 'bg-blue-600' },
+                            { name: 'Sanity', color: 'bg-red-500' },
+                            { name: 'AWS S3', color: 'bg-orange-600' },
+                            { name: 'LangChain', color: 'bg-green-600' },
+                            { name: 'Pinecone', color: 'bg-teal-500' },
+                            { name: 'Appwrite', color: 'bg-pink-500' },
+                            { name: 'Render', color: 'bg-emerald-500' },
+                            { name: 'Paddle', color: 'bg-blue-500' },
+                            { name: 'Mixpanel', color: 'bg-purple-500' },
+                            { name: 'Cloudflare', color: 'bg-orange-500' },
+                        ].map((item, i) => (
+                            <div key={i} className="flex-shrink-0 flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-900/80 border border-gray-200 dark:border-slate-800 rounded-full hover:border-blue-500/50 transition-all cursor-pointer group">
+                                <div className={`w-6 h-6 ${item.color} rounded-full flex items-center justify-center text-white text-[10px] font-bold group-hover:scale-110 transition-transform`}>
+                                    {item.name.charAt(0)}
                                 </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Authentication */}
-                    <div className="bg-white dark:bg-slate-900/50 border border-gray-200 dark:border-slate-800 rounded-2xl p-6">
-                        <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                            <Lock className="w-5 h-5 text-purple-500" />
-                            Authentication
-                        </h3>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                            {[
-                                { name: 'Clerk', color: 'bg-violet-600', desc: 'User Management' },
-                                { name: 'Auth0', color: 'bg-orange-600', desc: 'Identity Platform' },
-                                { name: 'NextAuth', color: 'bg-slate-800', desc: 'Next.js Auth' },
-                                { name: 'Lucia', color: 'bg-indigo-500', desc: 'Auth Library' },
-                                { name: 'Kinde', color: 'bg-slate-700', desc: 'Auth for SaaS' },
-                                { name: 'WorkOS', color: 'bg-blue-600', desc: 'Enterprise SSO' },
-                                { name: 'Stytch', color: 'bg-emerald-500', desc: 'Passwordless' },
-                                { name: 'Magic', color: 'bg-purple-500', desc: 'Web3 Auth' },
-                            ].map((item, i) => (
-                                <div key={i} className="group p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 border border-transparent hover:border-blue-500/30 transition-all cursor-pointer">
-                                    <div className={`w-8 h-8 ${item.color} rounded-lg mb-2 flex items-center justify-center text-white text-xs font-bold group-hover:scale-110 transition-transform`}>
-                                        {item.name.charAt(0)}
-                                    </div>
-                                    <p className="font-semibold text-sm text-slate-900 dark:text-white">{item.name}</p>
-                                    <p className="text-[10px] text-slate-500 dark:text-slate-400">{item.desc}</p>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Payments & Commerce */}
-                    <div className="bg-white dark:bg-slate-900/50 border border-gray-200 dark:border-slate-800 rounded-2xl p-6">
-                        <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                            <CreditCard className="w-5 h-5 text-green-500" />
-                            Payments & Commerce
-                        </h3>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                            {[
-                                { name: 'Stripe', color: 'bg-indigo-600', desc: 'Payments API' },
-                                { name: 'Flutterwave', color: 'bg-orange-500', desc: 'African Payments' },
-                                { name: 'Paystack', color: 'bg-cyan-500', desc: 'African Gateway' },
-                                { name: 'Opay', color: 'bg-green-500', desc: 'Mobile Payments' },
-                                { name: 'LemonSqueezy', color: 'bg-yellow-500', desc: 'Digital Sales' },
-                                { name: 'Paddle', color: 'bg-blue-500', desc: 'SaaS Billing' },
-                                { name: 'PayPal', color: 'bg-blue-700', desc: 'Global Payments' },
-                                { name: 'Shopify', color: 'bg-green-600', desc: 'E-commerce' },
-                                { name: 'Gumroad', color: 'bg-pink-500', desc: 'Creator Economy' },
-                            ].map((item, i) => (
-                                <div key={i} className="group p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 border border-transparent hover:border-blue-500/30 transition-all cursor-pointer">
-                                    <div className={`w-8 h-8 ${item.color} rounded-lg mb-2 flex items-center justify-center text-white text-xs font-bold group-hover:scale-110 transition-transform`}>
-                                        {item.name.charAt(0)}
-                                    </div>
-                                    <p className="font-semibold text-sm text-slate-900 dark:text-white">{item.name}</p>
-                                    <p className="text-[10px] text-slate-500 dark:text-slate-400">{item.desc}</p>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Email & Communication */}
-                    <div className="bg-white dark:bg-slate-900/50 border border-gray-200 dark:border-slate-800 rounded-2xl p-6">
-                        <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                            <Mail className="w-5 h-5 text-red-500" />
-                            Email & Communication
-                        </h3>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                            {[
-                                { name: 'Resend', color: 'bg-slate-800', desc: 'Email for Devs' },
-                                { name: 'SendGrid', color: 'bg-blue-500', desc: 'Email Delivery' },
-                                { name: 'Postmark', color: 'bg-yellow-500', desc: 'Transactional' },
-                                { name: 'Mailgun', color: 'bg-red-600', desc: 'Email API' },
-                                { name: 'Twilio', color: 'bg-red-500', desc: 'SMS & Voice' },
-                                { name: 'Knock', color: 'bg-purple-600', desc: 'Notifications' },
-                                { name: 'Novu', color: 'bg-pink-500', desc: 'Notification Infra' },
-                                { name: 'Pusher', color: 'bg-indigo-500', desc: 'Realtime Comms' },
-                            ].map((item, i) => (
-                                <div key={i} className="group p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 border border-transparent hover:border-blue-500/30 transition-all cursor-pointer">
-                                    <div className={`w-8 h-8 ${item.color} rounded-lg mb-2 flex items-center justify-center text-white text-xs font-bold group-hover:scale-110 transition-transform`}>
-                                        {item.name.charAt(0)}
-                                    </div>
-                                    <p className="font-semibold text-sm text-slate-900 dark:text-white">{item.name}</p>
-                                    <p className="text-[10px] text-slate-500 dark:text-slate-400">{item.desc}</p>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* AI & ML */}
-                    <div className="bg-white dark:bg-slate-900/50 border border-gray-200 dark:border-slate-800 rounded-2xl p-6">
-                        <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                            <Cpu className="w-5 h-5 text-pink-500" />
-                            AI & Machine Learning
-                        </h3>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                            {[
-                                { name: 'OpenAI', color: 'bg-emerald-600', desc: 'GPT & DALL·E' },
-                                { name: 'Anthropic', color: 'bg-orange-600', desc: 'Claude AI' },
-                                { name: 'Replicate', color: 'bg-slate-700', desc: 'ML Models' },
-                                { name: 'Hugging Face', color: 'bg-yellow-500', desc: 'Model Hub' },
-                                { name: 'Pinecone', color: 'bg-teal-500', desc: 'Vector DB' },
-                                { name: 'LangChain', color: 'bg-green-600', desc: 'LLM Framework' },
-                                { name: 'Vercel AI', color: 'bg-slate-900', desc: 'AI SDK' },
-                                { name: 'Cohere', color: 'bg-purple-500', desc: 'NLP API' },
-                            ].map((item, i) => (
-                                <div key={i} className="group p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 border border-transparent hover:border-blue-500/30 transition-all cursor-pointer">
-                                    <div className={`w-8 h-8 ${item.color} rounded-lg mb-2 flex items-center justify-center text-white text-xs font-bold group-hover:scale-110 transition-transform`}>
-                                        {item.name.charAt(0)}
-                                    </div>
-                                    <p className="font-semibold text-sm text-slate-900 dark:text-white">{item.name}</p>
-                                    <p className="text-[10px] text-slate-500 dark:text-slate-400">{item.desc}</p>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Analytics & Monitoring */}
-                    <div className="bg-white dark:bg-slate-900/50 border border-gray-200 dark:border-slate-800 rounded-2xl p-6">
-                        <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                            <BarChart3 className="w-5 h-5 text-blue-500" />
-                            Analytics & Monitoring
-                        </h3>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                            {[
-                                { name: 'Vercel Analytics', color: 'bg-slate-800', desc: 'Web Vitals' },
-                                { name: 'PostHog', color: 'bg-blue-600', desc: 'Product Analytics' },
-                                { name: 'Mixpanel', color: 'bg-purple-500', desc: 'User Analytics' },
-                                { name: 'Plausible', color: 'bg-indigo-500', desc: 'Privacy Analytics' },
-                                { name: 'Sentry', color: 'bg-pink-600', desc: 'Error Tracking' },
-                                { name: 'LogRocket', color: 'bg-violet-500', desc: 'Session Replay' },
-                                { name: 'Datadog', color: 'bg-purple-600', desc: 'Observability' },
-                                { name: 'Axiom', color: 'bg-slate-700', desc: 'Log Management' },
-                            ].map((item, i) => (
-                                <div key={i} className="group p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 border border-transparent hover:border-blue-500/30 transition-all cursor-pointer">
-                                    <div className={`w-8 h-8 ${item.color} rounded-lg mb-2 flex items-center justify-center text-white text-xs font-bold group-hover:scale-110 transition-transform`}>
-                                        {item.name.charAt(0)}
-                                    </div>
-                                    <p className="font-semibold text-sm text-slate-900 dark:text-white">{item.name}</p>
-                                    <p className="text-[10px] text-slate-500 dark:text-slate-400">{item.desc}</p>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Storage & Media */}
-                    <div className="bg-white dark:bg-slate-900/50 border border-gray-200 dark:border-slate-800 rounded-2xl p-6">
-                        <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                            <Server className="w-5 h-5 text-orange-500" />
-                            Storage & Media
-                        </h3>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                            {[
-                                { name: 'Cloudinary', color: 'bg-blue-500', desc: 'Media Management' },
-                                { name: 'Uploadthing', color: 'bg-red-500', desc: 'File Uploads' },
-                                { name: 'AWS S3', color: 'bg-orange-600', desc: 'Object Storage' },
-                                { name: 'Cloudflare R2', color: 'bg-orange-500', desc: 'Zero Egress' },
-                                { name: 'Bunny CDN', color: 'bg-orange-400', desc: 'Fast CDN' },
-                                { name: 'imgix', color: 'bg-slate-700', desc: 'Image CDN' },
-                            ].map((item, i) => (
-                                <div key={i} className="group p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 border border-transparent hover:border-blue-500/30 transition-all cursor-pointer">
-                                    <div className={`w-8 h-8 ${item.color} rounded-lg mb-2 flex items-center justify-center text-white text-xs font-bold group-hover:scale-110 transition-transform`}>
-                                        {item.name.charAt(0)}
-                                    </div>
-                                    <p className="font-semibold text-sm text-slate-900 dark:text-white">{item.name}</p>
-                                    <p className="text-[10px] text-slate-500 dark:text-slate-400">{item.desc}</p>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Search & CMS */}
-                    <div className="bg-white dark:bg-slate-900/50 border border-gray-200 dark:border-slate-800 rounded-2xl p-6">
-                        <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                            <Search className="w-5 h-5 text-indigo-500" />
-                            Search & CMS
-                        </h3>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                            {[
-                                { name: 'Algolia', color: 'bg-blue-600', desc: 'Search API' },
-                                { name: 'Typesense', color: 'bg-purple-500', desc: 'Open Search' },
-                                { name: 'Meilisearch', color: 'bg-pink-500', desc: 'Fast Search' },
-                                { name: 'Sanity', color: 'bg-red-500', desc: 'Headless CMS' },
-                                { name: 'Contentful', color: 'bg-blue-500', desc: 'Content Platform' },
-                                { name: 'Strapi', color: 'bg-indigo-600', desc: 'Open Source CMS' },
-                            ].map((item, i) => (
-                                <div key={i} className="group p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 border border-transparent hover:border-blue-500/30 transition-all cursor-pointer">
-                                    <div className={`w-8 h-8 ${item.color} rounded-lg mb-2 flex items-center justify-center text-white text-xs font-bold group-hover:scale-110 transition-transform`}>
-                                        {item.name.charAt(0)}
-                                    </div>
-                                    <p className="font-semibold text-sm text-slate-900 dark:text-white">{item.name}</p>
-                                    <p className="text-[10px] text-slate-500 dark:text-slate-400">{item.desc}</p>
-                                </div>
-                            ))}
-                        </div>
+                                <span className="text-sm font-medium text-slate-700 dark:text-slate-300 whitespace-nowrap">{item.name}</span>
+                            </div>
+                        ))}
                     </div>
                 </div>
 
-                {/* CTA */}
-                <div className="text-center mt-10 p-6 bg-gradient-to-r from-blue-600/10 to-purple-600/10 rounded-2xl border border-blue-500/20">
-                    <p className="text-slate-600 dark:text-slate-300 mb-4">
-                        <span className="font-bold text-slate-900 dark:text-white">Just ask Zee</span> to integrate any of these services into your project.
-                        <br className="hidden sm:block" />
-                        <span className="text-sm">e.g., "Add Stripe payments" or "Setup Supabase authentication"</span>
-                    </p>
+                {/* View All & CTA */}
+                <div className="text-center mt-6">
+                    <button 
+                        onClick={() => onNavigate(View.INTEGRATIONS)}
+                        className="px-6 py-2.5 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 font-medium rounded-full border border-gray-200 dark:border-slate-700 hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 transition-all text-sm mr-3"
+                    >
+                        View All 85+ Integrations
+                    </button>
                     <button 
                         onClick={() => onNavigate(View.BUILDER)}
-                        className="px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold rounded-full hover:from-blue-500 hover:to-purple-500 transition-all shadow-lg hover:shadow-xl hover:scale-105"
+                        className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold rounded-full hover:from-blue-500 hover:to-purple-500 transition-all shadow-lg text-sm"
                     >
-                        Start Building with Integrations →
+                        Start Building →
                     </button>
                 </div>
             </div>
+
+            {/* CSS for infinite scroll animations */}
+            <style>{`
+                @keyframes scroll-left {
+                    0% { transform: translateX(0); }
+                    100% { transform: translateX(-50%); }
+                }
+                @keyframes scroll-right {
+                    0% { transform: translateX(-50%); }
+                    100% { transform: translateX(0); }
+                }
+                .animate-scroll-left {
+                    animation: scroll-left 30s linear infinite;
+                    width: max-content;
+                }
+                .animate-scroll-right {
+                    animation: scroll-right 30s linear infinite;
+                    width: max-content;
+                }
+                .animate-scroll-left:hover,
+                .animate-scroll-right:hover {
+                    animation-play-state: paused;
+                }
+            `}</style>
 
             {/* Footer / Tech Section */}
             <div className="mt-16 pt-12 border-t border-gray-200 dark:border-slate-800 px-4">

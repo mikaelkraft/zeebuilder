@@ -257,12 +257,13 @@ const App: React.FC = () => {
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         } flex flex-col shadow-xl lg:shadow-none`}
       >
-        <div className="p-6 border-b border-gray-200 dark:border-slate-800 flex items-center justify-between h-20">
+        {/* Logo header - only visible on mobile */}
+        <div className="p-6 border-b border-gray-200 dark:border-slate-800 flex items-center justify-between h-20 lg:hidden">
             <div className="flex items-center space-x-3 cursor-pointer" onClick={() => setCurrentView(View.HOME)}>
                 <ZeeLogo />
                 <span className="text-xl font-black tracking-tight text-slate-900 dark:text-white">Zee<span className="text-blue-600">Builder</span></span>
             </div>
-            <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-slate-400">
+            <button onClick={() => setIsSidebarOpen(false)} className="text-slate-400">
                 <X className="w-6 h-6" />
             </button>
         </div>
@@ -335,8 +336,8 @@ const App: React.FC = () => {
       </aside>
 
       <main className="flex-1 flex flex-col min-h-screen overflow-hidden relative bg-gray-50 dark:bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] dark:from-slate-900 dark:via-slate-950 dark:to-slate-950">
-        {/* Desktop Header */}
-        <div className="hidden lg:flex items-center justify-between px-8 py-4 border-b border-gray-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm z-20 shrink-0">
+        {/* Desktop Header - Sticky */}
+        <div className="hidden lg:flex items-center justify-between px-8 py-4 border-b border-gray-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md z-30 shrink-0 sticky top-0">
             <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView(View.HOME)}>
                 <ZeeLogo />
                 <span className="text-lg font-black tracking-tight text-slate-900 dark:text-white">Zee<span className="text-blue-600">Builder</span></span>
@@ -358,8 +359,8 @@ const App: React.FC = () => {
             </div>
         </div>
 
-        {/* Mobile Header */}
-        <header className="lg:hidden h-16 bg-white/80 dark:bg-slate-900/80 backdrop-blur border-b border-gray-200 dark:border-slate-800 flex items-center justify-between px-4 z-30 shrink-0">
+        {/* Mobile Header - Sticky */}
+        <header className="lg:hidden h-16 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-gray-200 dark:border-slate-800 flex items-center justify-between px-4 z-30 shrink-0 sticky top-0">
             <button onClick={() => setIsSidebarOpen(true)} className="text-slate-900 dark:text-white p-2">
                 <Menu className="w-6 h-6" />
             </button>
