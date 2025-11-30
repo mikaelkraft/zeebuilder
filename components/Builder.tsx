@@ -760,7 +760,7 @@ if __name__ == "__main__":
         if (pyodideRef.current) return pyodideRef.current;
         
         try {
-            setPythonOutput(prev => [...prev, '🐍 Loading Python runtime (Pyodide)...']);
+            setPythonOutput(prev => [...prev, '🐍 Initializing Python runtime...']);
             // Load Pyodide from CDN
             const pyodide = await (window as any).loadPyodide({
                 indexURL: "https://cdn.jsdelivr.net/pyodide/v0.24.1/full/",
@@ -776,7 +776,7 @@ if __name__ == "__main__":
             setPythonOutput(prev => [...prev, '✅ Python runtime ready!', '']);
             return pyodide;
         } catch (e: any) {
-            setPythonOutput(prev => [...prev, `❌ Failed to load Pyodide: ${e.message}`]);
+            setPythonOutput(prev => [...prev, `❌ Failed to initialize runtime: ${e.message}`]);
             return null;
         }
     };
@@ -1621,7 +1621,7 @@ root.render(<App />);`;
                 <div className="flex-1 flex flex-col bg-slate-900">
                     <div className="flex items-center justify-between px-4 py-2 bg-slate-800 border-b border-slate-700">
                         <span className="text-xs text-yellow-400 font-mono flex items-center gap-2">
-                            <span className="text-lg">🐍</span> Python Runtime (Pyodide)
+                            <span className="text-lg">🐍</span> Python Runtime
                         </span>
                         <button 
                             onClick={runPythonCode}
@@ -1643,7 +1643,7 @@ root.render(<App />);`;
                         {pythonOutput.length === 0 ? (
                             <div className="text-slate-500 text-center mt-8">
                                 <p className="text-lg mb-2">Click "Run Code" to execute your Python file</p>
-                                <p className="text-xs">Powered by Pyodide - Python runs directly in your browser!</p>
+                                <p className="text-xs">Python runs directly in your browser</p>
                             </div>
                         ) : (
                             pythonOutput.map((line, i) => (
