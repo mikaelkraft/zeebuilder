@@ -1,13 +1,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { Task } from '../types';
-import { Plus, Trash2, Clock, CheckCircle2, Circle, AlertCircle, MoreVertical, X, Edit2, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Plus, Trash2, Clock, CheckCircle2, Circle, AlertCircle, MoreVertical, X, Edit2, ArrowRight, ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const TaskBoard: React.FC = () => {
     const [tasks, setTasks] = useState<Task[]>([]);
     const [showAddModal, setShowAddModal] = useState(false);
     const [editingTask, setEditingTask] = useState<Task | null>(null);
     const [taskForm, setTaskForm] = useState({ title: '', description: '', priority: 'medium' as 'low'|'medium'|'high' });
+    const [activeTab, setActiveTab] = useState<'todo' | 'in-progress' | 'done'>('todo');
 
     useEffect(() => {
         const stored = localStorage.getItem('zee_tasks');
@@ -94,6 +95,56 @@ const TaskBoard: React.FC = () => {
         }
     };
 
+    // Mobile Column Component
+    const MobileColumn = ({ title, status, icon: Icon, color, tasks, onEdit, onDelete, onMove, getPriorityColor }: any) => (
+        <div className="bg-gray-100 dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 flex flex-col h-full shadow-sm">
+            <div className="p-3 flex-1 overflow-y-auto space-y-3 custom-scrollbar">
+                {tasks.filter((t: Task) => t.status === status).map((task: Task) => (
+                    <div key={task.id} className="bg-white dark:bg-slate-950 p-4 rounded-lg border border-gray-200 dark:border-slate-800 shadow-sm">
+                        <div className="flex justify-between items-start mb-2">
+                            <span className={`px-2 py-1 rounded text-xs font-medium uppercase tracking-wider ${getPriorityColor(task.priority)}`}>
+                                {task.priority}
+                            </span>
+                            <div className="flex space-x-2">
+                                <button onClick={() => onEdit(task)} className="text-slate-400 hover:text-blue-500 p-1" title="Edit">
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                                <button onClick={() => onDelete(task.id)} className="text-slate-400 hover:text-red-500 p-1" title="Delete">
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                            </div>
+                        </div>
+                        <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 mb-1">{task.title}</h4>
+                        <p className="text-xs text-slate-500 mb-4 line-clamp-3 leading-relaxed">{task.description}</p>
+                        
+                        <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-slate-900">
+                            <div className="text-[10px] text-slate-400">
+                                {new Date(task.createdAt).toLocaleDateString()}
+                            </div>
+                            
+                            <select 
+                                value={status} 
+                                onChange={(e) => onMove(task.id, e.target.value as any)}
+                                className="text-xs bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-slate-600 dark:text-slate-300 focus:outline-none focus:border-blue-500 cursor-pointer"
+                            >
+                                <option value="todo">To Do</option>
+                                <option value="in-progress">In Progress</option>
+                                <option value="done">Done</option>
+                            </select>
+                        </div>
+                    </div>
+                ))}
+                {tasks.filter((t: Task) => t.status === status).length === 0 && (
+                    <div className="text-center py-12 border-2 border-dashed border-gray-200 dark:border-slate-800 rounded-lg opacity-60 select-none">
+                        <Icon className={`w-8 h-8 mx-auto mb-2 ${color}`} />
+                        <p className="text-sm text-slate-400 dark:text-slate-600">No {title.toLowerCase()} tasks</p>
+                        <p className="text-xs text-slate-400 dark:text-slate-600 mt-1">Tap "New Task" to create one</p>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+
     const Column = ({ title, status, icon: Icon, color }: any) => (
         <div className="flex-1 min-w-[300px] bg-gray-100 dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 flex flex-col h-full max-h-full shadow-sm">
             <div className={`p-4 border-b border-gray-200 dark:border-slate-800 flex items-center justify-between sticky top-0 bg-gray-100 dark:bg-slate-900 z-10 rounded-t-xl`}>
@@ -166,7 +217,90 @@ const TaskBoard: React.FC = () => {
                 </button>
             </div>
 
-            <div className="flex-1 overflow-x-auto pb-4">
+            {/* Mobile Tab Navigation */}
+            <div className="md:hidden mb-4">
+                <div className="flex bg-gray-100 dark:bg-slate-900 rounded-xl p-1 border border-gray-200 dark:border-slate-800">
+                    <button
+                        onClick={() => setActiveTab('todo')}
+                        className={`flex-1 flex items-center justify-center gap-2 py-3 px-2 rounded-lg text-sm font-medium transition-all ${
+                            activeTab === 'todo' 
+                                ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm' 
+                                : 'text-slate-500 dark:text-slate-400'
+                        }`}
+                    >
+                        <Circle className={`w-4 h-4 ${activeTab === 'todo' ? 'text-slate-500' : ''}`} />
+                        <span>To Do</span>
+                        <span className={`px-1.5 py-0.5 rounded-full text-xs ${
+                            activeTab === 'todo' 
+                                ? 'bg-slate-200 dark:bg-slate-700' 
+                                : 'bg-gray-200 dark:bg-slate-800'
+                        }`}>
+                            {tasks.filter(t => t.status === 'todo').length}
+                        </span>
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('in-progress')}
+                        className={`flex-1 flex items-center justify-center gap-2 py-3 px-2 rounded-lg text-sm font-medium transition-all ${
+                            activeTab === 'in-progress' 
+                                ? 'bg-white dark:bg-slate-800 text-yellow-600 dark:text-yellow-400 shadow-sm' 
+                                : 'text-slate-500 dark:text-slate-400'
+                        }`}
+                    >
+                        <Clock className={`w-4 h-4 ${activeTab === 'in-progress' ? 'text-yellow-500' : ''}`} />
+                        <span>Active</span>
+                        <span className={`px-1.5 py-0.5 rounded-full text-xs ${
+                            activeTab === 'in-progress' 
+                                ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400' 
+                                : 'bg-gray-200 dark:bg-slate-800'
+                        }`}>
+                            {tasks.filter(t => t.status === 'in-progress').length}
+                        </span>
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('done')}
+                        className={`flex-1 flex items-center justify-center gap-2 py-3 px-2 rounded-lg text-sm font-medium transition-all ${
+                            activeTab === 'done' 
+                                ? 'bg-white dark:bg-slate-800 text-green-600 dark:text-green-400 shadow-sm' 
+                                : 'text-slate-500 dark:text-slate-400'
+                        }`}
+                    >
+                        <CheckCircle2 className={`w-4 h-4 ${activeTab === 'done' ? 'text-green-500' : ''}`} />
+                        <span>Done</span>
+                        <span className={`px-1.5 py-0.5 rounded-full text-xs ${
+                            activeTab === 'done' 
+                                ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' 
+                                : 'bg-gray-200 dark:bg-slate-800'
+                        }`}>
+                            {tasks.filter(t => t.status === 'done').length}
+                        </span>
+                    </button>
+                </div>
+                
+                {/* Swipe hint */}
+                <div className="flex items-center justify-center gap-1 mt-2 text-xs text-slate-400 dark:text-slate-500">
+                    <ChevronLeft className="w-3 h-3" />
+                    <span>Tap to switch columns</span>
+                    <ChevronRight className="w-3 h-3" />
+                </div>
+            </div>
+
+            {/* Mobile Single Column View */}
+            <div className="md:hidden flex-1 overflow-y-auto pb-4">
+                <MobileColumn 
+                    title={activeTab === 'todo' ? 'To Do' : activeTab === 'in-progress' ? 'In Progress' : 'Completed'} 
+                    status={activeTab} 
+                    icon={activeTab === 'todo' ? Circle : activeTab === 'in-progress' ? Clock : CheckCircle2} 
+                    color={activeTab === 'todo' ? 'text-slate-400' : activeTab === 'in-progress' ? 'text-yellow-500' : 'text-green-500'} 
+                    tasks={tasks}
+                    onEdit={openEditModal}
+                    onDelete={deleteTask}
+                    onMove={moveTask}
+                    getPriorityColor={getPriorityColor}
+                />
+            </div>
+
+            {/* Desktop Column View */}
+            <div className="hidden md:block flex-1 overflow-x-auto pb-4">
                 <div className="flex gap-6 h-full min-w-[1000px]">
                     <Column title="To Do" status="todo" icon={Circle} color="text-slate-400" />
                     <Column title="In Progress" status="in-progress" icon={Clock} color="text-yellow-500" />
