@@ -787,44 +787,6 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
 
             {/* Community Showcase Section */}
             <CommunityShowcase onNavigate={onNavigate} />
-
-            {/* Footer / Tech Section */}
-            <div className="mt-16 pt-12 border-t border-gray-200 dark:border-slate-800 px-4">
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                     <div>
-                         <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4 flex items-center">
-                             <Layers className="w-5 h-5 mr-2 text-blue-500" />
-                             Frontend Architecture
-                         </h3>
-                         <p className="text-slate-600 dark:text-slate-400 leading-relaxed mb-4">
-                             Built with React 19, Tailwind CSS, and Lucide Icons. 
-                             Features a responsive component-based architecture, real-time preview with Babel transpilation, and simulated IDE environment.
-                         </p>
-                         <div className="flex flex-wrap gap-2">
-                             <span className="px-3 py-1 bg-gray-100 dark:bg-slate-900 rounded-full text-xs text-blue-600 dark:text-blue-400 border border-gray-200 dark:border-slate-800">React 19</span>
-                             <span className="px-3 py-1 bg-gray-100 dark:bg-slate-900 rounded-full text-xs text-cyan-600 dark:text-cyan-400 border border-gray-200 dark:border-slate-800">Tailwind</span>
-                             <span className="px-3 py-1 bg-gray-100 dark:bg-slate-900 rounded-full text-xs text-violet-600 dark:text-violet-400 border border-gray-200 dark:border-slate-800">Vite</span>
-                             <span className="px-3 py-1 bg-gray-100 dark:bg-slate-900 rounded-full text-xs text-yellow-600 dark:text-yellow-400 border border-gray-200 dark:border-slate-800">Babel</span>
-                             <span className="px-3 py-1 bg-gray-100 dark:bg-slate-900 rounded-full text-xs text-green-600 dark:text-green-400 border border-gray-200 dark:border-slate-800">xterm.js</span>
-                         </div>
-                     </div>
-                     <div>
-                         <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4 flex items-center">
-                             <Database className="w-5 h-5 mr-2 text-green-500" />
-                             Backend & AI
-                         </h3>
-                         <p className="text-slate-600 dark:text-slate-400 leading-relaxed mb-4">
-                             Powered by Zee AI Intelligence. Utilizing Zee Pro for reasoning, Zee Image models for assets, and Supabase for authentication.
-                         </p>
-                         <div className="flex flex-wrap gap-2">
-                             <span className="px-3 py-1 bg-gray-100 dark:bg-slate-900 rounded-full text-xs text-orange-600 dark:text-orange-400 border border-gray-200 dark:border-slate-800">Zee Pro</span>
-                             <span className="px-3 py-1 bg-gray-100 dark:bg-slate-900 rounded-full text-xs text-green-600 dark:text-green-400 border border-gray-200 dark:border-slate-800">Gemini 2.5</span>
-                             <span className="px-3 py-1 bg-gray-100 dark:bg-slate-900 rounded-full text-xs text-emerald-600 dark:text-emerald-400 border border-gray-200 dark:border-slate-800">Supabase</span>
-                             <span className="px-3 py-1 bg-gray-100 dark:bg-slate-900 rounded-full text-xs text-purple-600 dark:text-purple-400 border border-gray-200 dark:border-slate-800">GitHub OAuth</span>
-                         </div>
-                     </div>
-                 </div>
-            </div>
         </div>
     );
 };

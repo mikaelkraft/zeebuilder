@@ -482,6 +482,225 @@ export default function App() {
         views: 987,
         publishedAt: Date.now() - 86400000 * 7,
         featured: true
+    },
+    {
+        id: 'showcase-5',
+        projectId: 'showcase-5',
+        name: 'Weather App',
+        description: 'Beautiful weather app with location search, 5-day forecast, and animated weather icons.',
+        stack: 'react',
+        thumbnail: 'https://images.unsplash.com/photo-1504608524841-42fe6f032b4b?w=400&h=300&fit=crop',
+        authorName: 'Zee AI',
+        authorAvatar: '',
+        files: [
+            {
+                name: 'App.jsx',
+                language: 'javascript',
+                content: `import React, { useState } from 'react';
+import { Cloud, Sun, CloudRain, Wind, Droplets, Search, MapPin, Thermometer } from 'lucide-react';
+
+const weatherData = {
+  city: 'San Francisco',
+  country: 'USA',
+  temp: 18,
+  condition: 'Partly Cloudy',
+  humidity: 65,
+  wind: 12,
+  forecast: [
+    { day: 'Mon', temp: 19, icon: Sun },
+    { day: 'Tue', temp: 17, icon: Cloud },
+    { day: 'Wed', temp: 15, icon: CloudRain },
+    { day: 'Thu', temp: 16, icon: Cloud },
+    { day: 'Fri', temp: 20, icon: Sun },
+  ]
+};
+
+const WeatherIcon = ({ condition }) => {
+  const icons = { 'Sunny': Sun, 'Cloudy': Cloud, 'Rainy': CloudRain, 'Partly Cloudy': Cloud };
+  const Icon = icons[condition] || Cloud;
+  return <Icon className="w-24 h-24 text-yellow-400" />;
+};
+
+export default function App() {
+  const [search, setSearch] = useState('');
+  const [data] = useState(weatherData);
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-400 via-blue-500 to-purple-600 p-8">
+      <div className="max-w-md mx-auto">
+        {/* Search */}
+        <div className="relative mb-8">
+          <Search className="absolute left-4 top-3 w-5 h-5 text-white/70" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search city..."
+            className="w-full pl-12 pr-4 py-3 bg-white/20 backdrop-blur-md rounded-2xl text-white placeholder-white/70 outline-none border border-white/30 focus:border-white/50"
+          />
+        </div>
+
+        {/* Main Card */}
+        <div className="bg-white/20 backdrop-blur-md rounded-3xl p-8 text-white text-center mb-6">
+          <div className="flex items-center justify-center gap-2 mb-4">
+            <MapPin className="w-5 h-5" />
+            <span className="text-lg">{data.city}, {data.country}</span>
+          </div>
+          
+          <div className="flex items-center justify-center mb-4">
+            <WeatherIcon condition={data.condition} />
+          </div>
+          
+          <div className="text-7xl font-light mb-2">{data.temp}°</div>
+          <div className="text-xl text-white/80">{data.condition}</div>
+          
+          <div className="flex justify-center gap-8 mt-6 pt-6 border-t border-white/20">
+            <div className="flex items-center gap-2">
+              <Droplets className="w-5 h-5 text-blue-200" />
+              <span>{data.humidity}%</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Wind className="w-5 h-5 text-blue-200" />
+              <span>{data.wind} km/h</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Forecast */}
+        <div className="bg-white/20 backdrop-blur-md rounded-2xl p-4">
+          <h3 className="text-white font-medium mb-4 px-2">5-Day Forecast</h3>
+          <div className="flex justify-between">
+            {data.forecast.map((day, i) => (
+              <div key={i} className="text-center text-white p-2">
+                <div className="text-sm text-white/70 mb-2">{day.day}</div>
+                <day.icon className="w-8 h-8 mx-auto mb-2 text-yellow-300" />
+                <div className="font-medium">{day.temp}°</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}`
+            }
+        ],
+        likes: 278,
+        views: 1834,
+        publishedAt: Date.now() - 86400000 * 4,
+        featured: true
+    },
+    {
+        id: 'showcase-6',
+        projectId: 'showcase-6',
+        name: 'Portfolio Website',
+        description: 'Modern developer portfolio with smooth animations, project showcase, and contact form.',
+        stack: 'react',
+        thumbnail: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&h=300&fit=crop',
+        authorName: 'Zee AI',
+        authorAvatar: '',
+        files: [
+            {
+                name: 'App.jsx',
+                language: 'javascript',
+                content: `import React, { useState } from 'react';
+import { Github, Linkedin, Mail, ExternalLink, Code, Palette, Zap, ChevronDown } from 'lucide-react';
+
+const projects = [
+  { title: 'E-commerce Platform', desc: 'Full-stack shopping experience', tech: ['React', 'Node.js', 'MongoDB'], color: 'from-blue-500 to-cyan-500' },
+  { title: 'AI Chat Assistant', desc: 'GPT-powered chat interface', tech: ['Next.js', 'OpenAI', 'Tailwind'], color: 'from-purple-500 to-pink-500' },
+  { title: 'Finance Dashboard', desc: 'Real-time analytics tool', tech: ['Vue.js', 'D3.js', 'Firebase'], color: 'from-green-500 to-emerald-500' },
+];
+
+const skills = [
+  { name: 'Frontend', icon: Code, items: ['React', 'Vue', 'TypeScript'] },
+  { name: 'Design', icon: Palette, items: ['Figma', 'Tailwind', 'Framer'] },
+  { name: 'Backend', icon: Zap, items: ['Node.js', 'Python', 'PostgreSQL'] },
+];
+
+export default function App() {
+  const [activeSection, setActiveSection] = useState('home');
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-white">
+      {/* Hero */}
+      <section className="min-h-screen flex flex-col items-center justify-center px-8 relative">
+        <div className="absolute inset-0 bg-gradient-to-b from-blue-900/20 to-transparent" />
+        <div className="relative z-10 text-center max-w-3xl">
+          <div className="w-32 h-32 mx-auto mb-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 p-1">
+            <div className="w-full h-full rounded-full bg-slate-950 flex items-center justify-center text-4xl">
+              👨‍💻
+            </div>
+          </div>
+          <h1 className="text-5xl md:text-7xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">
+            John Developer
+          </h1>
+          <p className="text-xl text-slate-400 mb-8">
+            Full-Stack Developer & UI/UX Enthusiast
+          </p>
+          <div className="flex justify-center gap-4 mb-12">
+            {[Github, Linkedin, Mail].map((Icon, i) => (
+              <a key={i} href="#" className="p-3 bg-slate-800 rounded-full hover:bg-slate-700 transition-colors">
+                <Icon className="w-6 h-6" />
+              </a>
+            ))}
+          </div>
+          <ChevronDown className="w-8 h-8 mx-auto animate-bounce text-slate-500" />
+        </div>
+      </section>
+
+      {/* Skills */}
+      <section className="py-20 px-8 bg-slate-900/50">
+        <h2 className="text-3xl font-bold text-center mb-12">What I Do</h2>
+        <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
+          {skills.map((skill, i) => (
+            <div key={i} className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700 hover:border-blue-500 transition-colors">
+              <skill.icon className="w-10 h-10 text-blue-400 mb-4" />
+              <h3 className="text-xl font-bold mb-3">{skill.name}</h3>
+              <div className="flex flex-wrap gap-2">
+                {skill.items.map((item, j) => (
+                  <span key={j} className="px-3 py-1 bg-slate-700 rounded-full text-sm">{item}</span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Projects */}
+      <section className="py-20 px-8">
+        <h2 className="text-3xl font-bold text-center mb-12">Featured Projects</h2>
+        <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
+          {projects.map((project, i) => (
+            <div key={i} className="group relative overflow-hidden rounded-2xl">
+              <div className={\`absolute inset-0 bg-gradient-to-br \${project.color} opacity-80\`} />
+              <div className="relative p-6 h-64 flex flex-col justify-end">
+                <h3 className="text-xl font-bold mb-2">{project.title}</h3>
+                <p className="text-white/80 text-sm mb-4">{project.desc}</p>
+                <div className="flex gap-2">
+                  {project.tech.map((t, j) => (
+                    <span key={j} className="px-2 py-1 bg-white/20 rounded text-xs">{t}</span>
+                  ))}
+                </div>
+                <ExternalLink className="absolute top-4 right-4 w-5 h-5 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="py-8 text-center text-slate-500 border-t border-slate-800">
+        <p>© 2024 John Developer. Built with ❤️ and React</p>
+      </footer>
+    </div>
+  );
+}`
+            }
+        ],
+        likes: 445,
+        views: 3201,
+        publishedAt: Date.now() - 86400000 * 1,
+        featured: true
     }
 ];
 
