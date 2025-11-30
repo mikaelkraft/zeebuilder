@@ -1,8 +1,8 @@
 
 import React, { useState, useRef } from 'react';
 import { generateSpeech, transcribeAudio, decodeAudio, arrayBufferToAudioBuffer, pcm16ToWavBlob, ensureApiKey, blobToBase64 } from '../services/geminiService';
-import { Volume2, Loader2, FileText, Download, Activity, Copy, Check, Mic, MicOff } from 'lucide-react';
-import { View } from '../types';
+import { Volume2, Loader2, FileText, Download, Activity, Copy, Check, Mic, MicOff, FolderPlus, Cloud, AlertCircle } from 'lucide-react';
+import { View, SavedProject, CloudProviderConfig } from '../types';
 
 interface AudioStudioProps {
     onNavigate?: (view: View) => void;
@@ -15,7 +15,10 @@ const AudioStudio: React.FC<AudioStudioProps> = ({ onNavigate }) => {
     const [ttsText, setTtsText] = useState('');
     const [isGeneratingTTS, setIsGeneratingTTS] = useState(false);
     const [audioDownloadUrl, setAudioDownloadUrl] = useState<string | null>(null);
+    const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
     const [ttsVoice, setTtsVoice] = useState('Kore');
+    const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+    const [saveMessage, setSaveMessage] = useState('');
 
     // Transcribe State
     const [transcription, setTranscription] = useState('');
@@ -45,6 +48,8 @@ const AudioStudio: React.FC<AudioStudioProps> = ({ onNavigate }) => {
                  const wavBlob = pcm16ToWavBlob(audioBytes);
                  const url = URL.createObjectURL(wavBlob);
                  setAudioDownloadUrl(url);
+                 setAudioBlob(wavBlob);
+                 setSaveStatus('idle');
             } else {
                 (window as any).swal("Generation Failed", "Failed to generate speech. Please try again.", "error");
             }
@@ -145,6 +150,96 @@ const AudioStudio: React.FC<AudioStudioProps> = ({ onNavigate }) => {
         a.click();
     };
 
+    const handleAddToProject = async () => {
+        if (!audioBlob) return;
+        
+        setSaveStatus('saving');
+        setSaveMessage('');
+        
+        // Check for cloud config
+        const cloudConfigStr = localStorage.getItem('zee_cloud_config');
+        const cloudConfig: CloudProviderConfig | null = cloudConfigStr ? JSON.parse(cloudConfigStr) : null;
+        
+        // Get active project
+        const activeId = localStorage.getItem('zee_active_project_id');
+        if (!activeId) {
+            (window as any).swal({
+                title: "No Active Project",
+                text: "Please open a project in the Builder first.",
+                icon: "warning",
+                button: "OK"
+            });
+            setSaveStatus('idle');
+            return;
+        }
+        
+        try {
+            // Convert blob to base64 data URL
+            const reader = new FileReader();
+            reader.readAsDataURL(audioBlob);
+            
+            reader.onloadend = () => {
+                const base64Data = reader.result as string;
+                
+                const storedProjects = localStorage.getItem('zee_projects');
+                if (storedProjects) {
+                    const projects: SavedProject[] = JSON.parse(storedProjects);
+                    const projectIndex = projects.findIndex(p => p.id === activeId);
+                    
+                    if (projectIndex >= 0) {
+                        const project = projects[projectIndex];
+                        const fileName = `src/assets/audio-${Date.now()}.wav`;
+                        
+                        // If cloud is connected, show info about storage
+                        if (cloudConfig?.enabled) {
+                            setSaveMessage(`Saved locally. Cloud sync via ${cloudConfig.provider} available.`);
+                        }
+                        
+                        project.files.push({
+                            name: fileName,
+                            content: base64Data,
+                            language: 'html' // Using html as a generic binary type
+                        });
+                        
+                        project.lastModified = Date.now();
+                        projects[projectIndex] = project;
+                        
+                        localStorage.setItem('zee_projects', JSON.stringify(projects));
+                        setSaveStatus('saved');
+                        
+                        (window as any).swal({
+                            title: "Audio Added!",
+                            text: `Audio saved to ${fileName}${cloudConfig?.enabled ? ` (${cloudConfig.provider} sync enabled)` : ''}`,
+                            icon: "success",
+                            timer: 2000,
+                            buttons: false
+                        });
+                        
+                        setTimeout(() => setSaveStatus('idle'), 3000);
+                    }
+                }
+            };
+        } catch (error) {
+            console.error('Error saving audio:', error);
+            setSaveStatus('error');
+            
+            // Prompt to connect cloud if not connected
+            const cloudConfigExists = localStorage.getItem('zee_cloud_config');
+            if (!cloudConfigExists) {
+                (window as any).swal({
+                    title: "Connect Cloud Storage?",
+                    text: "For larger files, connect a cloud provider in your Profile settings.",
+                    icon: "info",
+                    buttons: ["Later", "Go to Profile"]
+                }).then((goToProfile: boolean) => {
+                    if (goToProfile && onNavigate) {
+                        onNavigate(View.PROFILE);
+                    }
+                });
+            }
+        }
+    };
+
     const voices = ['Zee', 'Puck', 'Charon', 'Kore', 'Fenrir', 'Zephyr'];
 
     return (
@@ -175,8 +270,39 @@ const AudioStudio: React.FC<AudioStudioProps> = ({ onNavigate }) => {
                             <button onClick={handleTTS} disabled={isGeneratingTTS || !ttsText} className="flex-1 py-2.5 bg-teal-600 hover:bg-teal-500 text-white rounded-lg font-bold text-xs flex items-center justify-center disabled:opacity-50">
                                 {isGeneratingTTS ? <Loader2 className="w-3 h-3 animate-spin mr-2" /> : <Activity className="w-3 h-3 mr-2" />} Generate
                             </button>
-                            {audioDownloadUrl && <a href={audioDownloadUrl} download="speech.wav" className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg border border-slate-700 flex items-center text-xs font-bold"><Download className="w-3 h-3 mr-1" /> Save</a>}
+                            {audioDownloadUrl && (
+                                <>
+                                    <button 
+                                        onClick={handleAddToProject}
+                                        disabled={saveStatus === 'saving'}
+                                        className={`px-4 py-2.5 rounded-lg border flex items-center text-xs font-bold transition-all ${
+                                            saveStatus === 'saved' 
+                                                ? 'bg-green-600 border-green-500 text-white' 
+                                                : saveStatus === 'saving'
+                                                ? 'bg-slate-700 border-slate-600 text-slate-400'
+                                                : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-white'
+                                        }`}
+                                        title="Add to Active Project"
+                                    >
+                                        {saveStatus === 'saving' ? (
+                                            <Loader2 className="w-3 h-3 animate-spin" />
+                                        ) : saveStatus === 'saved' ? (
+                                            <><Check className="w-3 h-3 mr-1" /> Added</>
+                                        ) : (
+                                            <><FolderPlus className="w-3 h-3 mr-1" /> Add to Project</>
+                                        )}
+                                    </button>
+                                    <a href={audioDownloadUrl} download="speech.wav" className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg border border-slate-700 flex items-center text-xs font-bold">
+                                        <Download className="w-3 h-3 mr-1" /> Save
+                                    </a>
+                                </>
+                            )}
                         </div>
+                        {saveMessage && (
+                            <p className="text-xs text-slate-400 flex items-center mt-2">
+                                <Cloud className="w-3 h-3 mr-1" /> {saveMessage}
+                            </p>
+                        )}
                     </div>
                 )}
 

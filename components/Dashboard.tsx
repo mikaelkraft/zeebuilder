@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { User, Task, View } from '../types';
+import { User, Task, View, SavedProject, Stack } from '../types';
 import { 
     CheckCircle2, 
     Clock, 
@@ -8,7 +8,11 @@ import {
     TrendingUp, 
     Activity,
     Code,
-    Calendar
+    Calendar,
+    FolderOpen,
+    Layers,
+    BarChart3,
+    PieChart
 } from 'lucide-react';
 
 interface DashboardProps {
@@ -16,19 +20,60 @@ interface DashboardProps {
     onNavigate: (view: View) => void;
 }
 
+interface ProjectStats {
+    total: number;
+    byStack: Record<string, number>;
+    recentlyModified: number;
+    totalFiles: number;
+}
+
 const Dashboard: React.FC<DashboardProps> = ({ user, onNavigate }) => {
     const [tasks, setTasks] = useState<Task[]>([]);
     const [stats, setStats] = useState({ todo: 0, inProgress: 0, done: 0 });
+    const [projects, setProjects] = useState<SavedProject[]>([]);
+    const [projectStats, setProjectStats] = useState<ProjectStats>({ 
+        total: 0, 
+        byStack: {}, 
+        recentlyModified: 0,
+        totalFiles: 0 
+    });
 
     useEffect(() => {
-        const stored = localStorage.getItem('zee_tasks');
-        if (stored) {
-            const parsedTasks: Task[] = JSON.parse(stored);
+        // Load tasks
+        const storedTasks = localStorage.getItem('zee_tasks');
+        if (storedTasks) {
+            const parsedTasks: Task[] = JSON.parse(storedTasks);
             setTasks(parsedTasks);
             setStats({
                 todo: parsedTasks.filter(t => t.status === 'todo').length,
                 inProgress: parsedTasks.filter(t => t.status === 'in-progress').length,
                 done: parsedTasks.filter(t => t.status === 'done').length
+            });
+        }
+        
+        // Load projects
+        const storedProjects = localStorage.getItem('zee_projects');
+        if (storedProjects) {
+            const parsedProjects: SavedProject[] = JSON.parse(storedProjects);
+            setProjects(parsedProjects);
+            
+            // Calculate project stats
+            const byStack: Record<string, number> = {};
+            let totalFiles = 0;
+            const oneWeekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+            let recentlyModified = 0;
+            
+            parsedProjects.forEach(p => {
+                byStack[p.stack] = (byStack[p.stack] || 0) + 1;
+                totalFiles += p.files?.length || 0;
+                if (p.lastModified > oneWeekAgo) recentlyModified++;
+            });
+            
+            setProjectStats({
+                total: parsedProjects.length,
+                byStack,
+                recentlyModified,
+                totalFiles
             });
         }
     }, []);
@@ -65,7 +110,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigate }) => {
                 </div>
             </div>
 
-            {/* Stats Grid */}
+            {/* Stats Grid - Tasks */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard 
                     title="Total Tasks" 
@@ -96,11 +141,161 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigate }) => {
                     onClick={() => onNavigate(View.TASKS)}
                 />
             </div>
+            
+            {/* Stats Grid - Projects */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <StatCard 
+                    title="Total Projects" 
+                    count={projectStats.total} 
+                    icon={FolderOpen} 
+                    color="bg-purple-500" 
+                    onClick={() => onNavigate(View.BUILDER)}
+                />
+                <StatCard 
+                    title="Active This Week" 
+                    count={projectStats.recentlyModified} 
+                    icon={TrendingUp} 
+                    color="bg-emerald-500" 
+                    onClick={() => onNavigate(View.BUILDER)}
+                />
+                <StatCard 
+                    title="Total Files" 
+                    count={projectStats.totalFiles} 
+                    icon={Layers} 
+                    color="bg-indigo-500" 
+                    onClick={() => onNavigate(View.BUILDER)}
+                />
+                <StatCard 
+                    title="Stack Types" 
+                    count={Object.keys(projectStats.byStack).length} 
+                    icon={BarChart3} 
+                    color="bg-pink-500" 
+                    onClick={() => onNavigate(View.BUILDER)}
+                />
+            </div>
 
             {/* Main Content Split */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Recent Activity / Tasks */}
                 <div className="lg:col-span-2 space-y-6">
+                    {/* Projects by Stack Chart */}
+                    {projectStats.total > 0 && (
+                        <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 overflow-hidden shadow-sm">
+                            <div className="p-6 border-b border-gray-200 dark:border-slate-800 flex justify-between items-center">
+                                <h3 className="font-bold text-slate-900 dark:text-white flex items-center">
+                                    <PieChart className="w-5 h-5 mr-2 text-purple-500" />
+                                    Projects by Stack
+                                </h3>
+                                <button 
+                                    onClick={() => onNavigate(View.BUILDER)}
+                                    className="text-sm text-purple-600 dark:text-purple-400 hover:underline"
+                                >
+                                    Open Builder
+                                </button>
+                            </div>
+                            <div className="p-6">
+                                <div className="flex flex-wrap gap-4 mb-4">
+                                    {Object.entries(projectStats.byStack).map(([stack, count]) => {
+                                        const colors: Record<string, string> = {
+                                            'react': 'bg-blue-500',
+                                            'react-ts': 'bg-blue-400',
+                                            'vue': 'bg-green-500',
+                                            'svelte': 'bg-orange-500',
+                                            'flutter': 'bg-cyan-500',
+                                            'python': 'bg-yellow-500',
+                                            'html': 'bg-orange-400'
+                                        };
+                                        const percentage = Math.round((count / projectStats.total) * 100);
+                                        return (
+                                            <div key={stack} className="flex items-center gap-2">
+                                                <div className={`w-3 h-3 rounded-full ${colors[stack] || 'bg-slate-500'}`}></div>
+                                                <span className="text-sm text-slate-600 dark:text-slate-300 capitalize">{stack}</span>
+                                                <span className="text-xs text-slate-400">({count})</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                {/* Simple bar chart */}
+                                <div className="space-y-3">
+                                    {Object.entries(projectStats.byStack).map(([stack, count]) => {
+                                        const colors: Record<string, string> = {
+                                            'react': 'bg-blue-500',
+                                            'react-ts': 'bg-blue-400',
+                                            'vue': 'bg-green-500',
+                                            'svelte': 'bg-orange-500',
+                                            'flutter': 'bg-cyan-500',
+                                            'python': 'bg-yellow-500',
+                                            'html': 'bg-orange-400'
+                                        };
+                                        const percentage = Math.round((count / projectStats.total) * 100);
+                                        return (
+                                            <div key={stack} className="flex items-center gap-3">
+                                                <span className="text-xs font-medium text-slate-500 dark:text-slate-400 w-20 capitalize">{stack}</span>
+                                                <div className="flex-1 bg-slate-100 dark:bg-slate-800 rounded-full h-3 overflow-hidden">
+                                                    <div 
+                                                        className={`h-full ${colors[stack] || 'bg-slate-500'} rounded-full transition-all duration-500`}
+                                                        style={{ width: `${percentage}%` }}
+                                                    ></div>
+                                                </div>
+                                                <span className="text-xs font-bold text-slate-600 dark:text-slate-300 w-10 text-right">{percentage}%</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    
+                    {/* Recent Projects */}
+                    {projects.length > 0 && (
+                        <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 overflow-hidden shadow-sm">
+                            <div className="p-6 border-b border-gray-200 dark:border-slate-800 flex justify-between items-center">
+                                <h3 className="font-bold text-slate-900 dark:text-white flex items-center">
+                                    <FolderOpen className="w-5 h-5 mr-2 text-indigo-500" />
+                                    Recent Projects
+                                </h3>
+                                <button 
+                                    onClick={() => onNavigate(View.BUILDER)}
+                                    className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline"
+                                >
+                                    View All
+                                </button>
+                            </div>
+                            <div className="divide-y divide-gray-100 dark:divide-slate-800">
+                                {projects
+                                    .sort((a, b) => b.lastModified - a.lastModified)
+                                    .slice(0, 4)
+                                    .map(project => {
+                                        const stackColors: Record<string, string> = {
+                                            'react': 'text-blue-500 bg-blue-100 dark:bg-blue-900/30',
+                                            'react-ts': 'text-blue-400 bg-blue-100 dark:bg-blue-900/30',
+                                            'vue': 'text-green-500 bg-green-100 dark:bg-green-900/30',
+                                            'svelte': 'text-orange-500 bg-orange-100 dark:bg-orange-900/30',
+                                            'flutter': 'text-cyan-500 bg-cyan-100 dark:bg-cyan-900/30',
+                                            'python': 'text-yellow-500 bg-yellow-100 dark:bg-yellow-900/30',
+                                            'html': 'text-orange-400 bg-orange-100 dark:bg-orange-900/30'
+                                        };
+                                        return (
+                                            <div key={project.id} className="p-4 hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors flex items-center justify-between cursor-pointer" onClick={() => onNavigate(View.BUILDER)}>
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`p-2 rounded-lg ${stackColors[project.stack] || 'text-slate-500 bg-slate-100 dark:bg-slate-800'}`}>
+                                                        <Code className="w-4 h-4" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-medium text-slate-900 dark:text-slate-200">{project.name}</p>
+                                                        <p className="text-xs text-slate-500">{project.files?.length || 0} files · {new Date(project.lastModified).toLocaleDateString()}</p>
+                                                    </div>
+                                                </div>
+                                                <span className={`px-2 py-1 text-[10px] uppercase font-bold rounded-full ${stackColors[project.stack] || 'text-slate-500 bg-slate-100 dark:bg-slate-800'}`}>
+                                                    {project.stack}
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
+                            </div>
+                        </div>
+                    )}
+                    
                     <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 overflow-hidden shadow-sm">
                         <div className="p-6 border-b border-gray-200 dark:border-slate-800 flex justify-between items-center">
                             <h3 className="font-bold text-slate-900 dark:text-white flex items-center">
