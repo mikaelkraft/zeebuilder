@@ -42,13 +42,13 @@ interface HomeProps {
 const FeatureCard = ({ title, description, icon: Icon, onClick, color }: any) => (
     <button 
         onClick={onClick}
-        className="flex flex-col text-left p-6 bg-white dark:bg-slate-900/50 border border-gray-200 dark:border-slate-800 rounded-xl hover:border-blue-400 dark:hover:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-800 transition-all duration-300 group shadow-lg backdrop-blur-sm h-full"
+        className="flex flex-col text-left p-4 bg-white dark:bg-slate-900/50 border border-gray-200 dark:border-slate-800 rounded-xl hover:border-blue-400 dark:hover:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-800 transition-all duration-300 group shadow-lg backdrop-blur-sm h-full"
     >
-        <div className={`p-3 rounded-lg w-fit mb-4 ${color} shadow-lg shadow-black/20 text-white`}>
-            <Icon className="w-6 h-6" />
+        <div className={`p-2.5 rounded-lg w-fit mb-3 ${color} shadow-lg shadow-black/20 text-white`}>
+            <Icon className="w-5 h-5" />
         </div>
-        <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors">{title}</h3>
-        <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">{description}</p>
+        <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-1 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors">{title}</h3>
+        <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">{description}</p>
     </button>
 );
 
@@ -279,7 +279,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                 <div className="text-center mt-8">
                     <button 
                         onClick={() => onNavigate(View.BUILDER)}
-                        className="px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold rounded-full hover:from-blue-500 hover:to-purple-500 transition-all shadow-lg hover:shadow-xl hover:scale-105"
+                        className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-full transition-all shadow-lg text-sm"
                     >
                         Try Builder Now →
                     </button>
@@ -287,7 +287,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
             </div>
 
             {/* Feature Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8 px-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4 mt-8 px-4">
                 <FeatureCard 
                     title="User Dashboard" 
                     description="Track your progress, manage projects, and view statistics."
@@ -463,7 +463,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                     </button>
                     <button 
                         onClick={() => onNavigate(View.BUILDER)}
-                        className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold rounded-full hover:from-blue-500 hover:to-purple-500 transition-all shadow-lg text-sm"
+                        className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-full transition-all shadow-lg text-sm"
                     >
                         Start Building →
                     </button>

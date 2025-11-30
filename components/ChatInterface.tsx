@@ -21,8 +21,252 @@ import {
     BrainCircuit,
     Mic,
     MicOff,
-    CheckCircle2
+    CheckCircle2,
+    AlertTriangle,
+    XCircle,
+    Wrench
 } from 'lucide-react';
+
+// Simple syntax error detection for common languages
+const analyzeCodeForErrors = (code: string, lang: string): { line: number; message: string; type: 'error' | 'warning' }[] => {
+    const errors: { line: number; message: string; type: 'error' | 'warning' }[] = [];
+    const lines = code.split('\n');
+    
+    if (['javascript', 'typescript', 'jsx', 'tsx', 'js', 'ts'].includes(lang.toLowerCase())) {
+        let braceCount = 0;
+        let parenCount = 0;
+        let bracketCount = 0;
+        
+        lines.forEach((line, idx) => {
+            const lineNum = idx + 1;
+            const trimmed = line.trim();
+            
+            // Count brackets
+            braceCount += (line.match(/{/g) || []).length - (line.match(/}/g) || []).length;
+            parenCount += (line.match(/\(/g) || []).length - (line.match(/\)/g) || []).length;
+            bracketCount += (line.match(/\[/g) || []).length - (line.match(/]/g) || []).length;
+            
+            // Check for common errors
+            if (trimmed.includes('console.log') && !trimmed.includes('(')) {
+                errors.push({ line: lineNum, message: 'Missing parentheses for console.log', type: 'error' });
+            }
+            if (/\bconst\s+\w+\s*[^=]/.test(trimmed) && !trimmed.includes('=') && !trimmed.includes(':') && !trimmed.endsWith('{')) {
+                errors.push({ line: lineNum, message: 'const declaration without initialization', type: 'error' });
+            }
+            if (/===?\s*$/.test(trimmed)) {
+                errors.push({ line: lineNum, message: 'Incomplete comparison', type: 'error' });
+            }
+            if (trimmed.includes('import ') && !trimmed.includes('from') && !trimmed.includes('{')) {
+                errors.push({ line: lineNum, message: 'Incomplete import statement', type: 'warning' });
+            }
+            if (/\)\s*{?\s*$/.test(trimmed) && trimmed.includes('function') && !trimmed.includes('{')) {
+                errors.push({ line: lineNum, message: 'Function declaration may be missing body', type: 'warning' });
+            }
+        });
+        
+        if (braceCount !== 0) errors.push({ line: lines.length, message: `Unbalanced braces: ${braceCount > 0 ? 'missing }' : 'extra }'}`, type: 'error' });
+        if (parenCount !== 0) errors.push({ line: lines.length, message: `Unbalanced parentheses: ${parenCount > 0 ? 'missing )' : 'extra )'}`, type: 'error' });
+        if (bracketCount !== 0) errors.push({ line: lines.length, message: `Unbalanced brackets: ${bracketCount > 0 ? 'missing ]' : 'extra ]'}`, type: 'error' });
+    }
+    
+    if (['python', 'py'].includes(lang.toLowerCase())) {
+        let indentStack: number[] = [0];
+        
+        lines.forEach((line, idx) => {
+            const lineNum = idx + 1;
+            const trimmed = line.trim();
+            if (!trimmed || trimmed.startsWith('#')) return;
+            
+            const indent = line.length - line.trimStart().length;
+            
+            if (trimmed.endsWith(':') && !['if', 'else', 'elif', 'for', 'while', 'def', 'class', 'try', 'except', 'finally', 'with'].some(k => trimmed.startsWith(k))) {
+                // Check if it's a dict - don't flag those
+                if (!trimmed.includes('{')) {
+                    errors.push({ line: lineNum, message: 'Unexpected colon at end of line', type: 'warning' });
+                }
+            }
+            if (trimmed.includes('print ') && !trimmed.includes('print(')) {
+                errors.push({ line: lineNum, message: 'Use print() function in Python 3', type: 'error' });
+            }
+            if (/\bdef\s+\w+[^(]/.test(trimmed) && !trimmed.includes('(')) {
+                errors.push({ line: lineNum, message: 'Function definition missing parentheses', type: 'error' });
+            }
+        });
+    }
+    
+    return errors.slice(0, 5); // Limit to 5 errors
+};
+
+// Auto-fix common code errors
+const fixCodeErrors = (code: string, lang: string): { fixed: string; fixCount: number } => {
+    let fixed = code;
+    let fixCount = 0;
+    const lines = fixed.split('\n');
+    
+    if (['javascript', 'typescript', 'jsx', 'tsx', 'js', 'ts'].includes(lang.toLowerCase())) {
+        // Fix console.log without parentheses
+        fixed = fixed.replace(/console\.log\s+([^(])/g, (match, char) => {
+            if (char !== '(') {
+                fixCount++;
+                return `console.log(${char}`;
+            }
+            return match;
+        });
+        
+        // Fix missing semicolons on common statements
+        const fixedLines = fixed.split('\n').map((line, idx) => {
+            const trimmed = line.trim();
+            // Add closing paren if console.log is missing it
+            if (trimmed.includes('console.log(') && !trimmed.includes(')') && !trimmed.endsWith('{')) {
+                fixCount++;
+                return line.replace(/console\.log\(([^)]*?)(\s*)$/, 'console.log($1)$2');
+            }
+            return line;
+        });
+        fixed = fixedLines.join('\n');
+        
+        // Balance braces - add missing closing braces
+        let braceCount = (fixed.match(/{/g) || []).length - (fixed.match(/}/g) || []).length;
+        while (braceCount > 0) {
+            fixed = fixed.trimEnd() + '\n}';
+            braceCount--;
+            fixCount++;
+        }
+        
+        // Balance parentheses - add missing closing parens
+        let parenCount = (fixed.match(/\(/g) || []).length - (fixed.match(/\)/g) || []).length;
+        while (parenCount > 0) {
+            // Find last line with unclosed paren and add closing
+            const lastOpenParen = fixed.lastIndexOf('(');
+            if (lastOpenParen !== -1) {
+                const afterParen = fixed.slice(lastOpenParen);
+                const lineEnd = afterParen.indexOf('\n');
+                if (lineEnd !== -1 && !afterParen.slice(0, lineEnd).includes(')')) {
+                    fixed = fixed.slice(0, lastOpenParen + afterParen.slice(0, lineEnd).length) + ')' + fixed.slice(lastOpenParen + lineEnd);
+                } else {
+                    fixed = fixed.trimEnd() + ')';
+                }
+            } else {
+                fixed = fixed.trimEnd() + ')';
+            }
+            parenCount--;
+            fixCount++;
+        }
+        
+        // Balance brackets
+        let bracketCount = (fixed.match(/\[/g) || []).length - (fixed.match(/]/g) || []).length;
+        while (bracketCount > 0) {
+            fixed = fixed.trimEnd() + ']';
+            bracketCount--;
+            fixCount++;
+        }
+    }
+    
+    if (['python', 'py'].includes(lang.toLowerCase())) {
+        // Fix print statements (Python 2 -> 3)
+        fixed = fixed.replace(/\bprint\s+([^(\n][^\n]*)/g, (match, content) => {
+            fixCount++;
+            return `print(${content.trim()})`;
+        });
+        
+        // Fix def without parentheses
+        fixed = fixed.replace(/\bdef\s+(\w+)\s*:/g, (match, name) => {
+            fixCount++;
+            return `def ${name}():`;
+        });
+    }
+    
+    return { fixed, fixCount };
+};
+
+// Code block component with fix functionality
+const CodeBlock = ({ lang, originalCode, index }: { lang: string; originalCode: string; index: number }) => {
+    const [isFixed, setIsFixed] = useState(false);
+    const [showFixedToast, setShowFixedToast] = useState(false);
+    
+    const code = originalCode;
+    const errors = analyzeCodeForErrors(code, lang);
+    const hasErrors = errors.some(e => e.type === 'error');
+    const { fixed: fixedCode, fixCount } = fixCodeErrors(code, lang);
+    const canFix = fixCount > 0;
+    
+    const handleFix = () => {
+        navigator.clipboard.writeText(fixedCode);
+        setShowFixedToast(true);
+        setIsFixed(true);
+        setTimeout(() => setShowFixedToast(false), 2000);
+    };
+    
+    const displayCode = isFixed ? fixedCode : code;
+    const displayErrors = isFixed ? analyzeCodeForErrors(fixedCode, lang) : errors;
+    const displayHasErrors = displayErrors.some(e => e.type === 'error');
+
+    return (
+        <div className="my-3 bg-slate-950 rounded-lg border border-slate-800 overflow-hidden group relative">
+            {showFixedToast && (
+                <div className="absolute top-12 right-4 bg-green-600 text-white text-xs px-3 py-1.5 rounded-md shadow-lg z-10 animate-pulse">
+                    Fixed code copied to clipboard!
+                </div>
+            )}
+            <div className="bg-slate-900 px-4 py-2 flex items-center justify-between border-b border-slate-800">
+                <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono text-slate-400">{lang}</span>
+                    {displayErrors.length > 0 && (
+                        <span className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded ${displayHasErrors ? 'bg-red-900/50 text-red-400' : 'bg-yellow-900/50 text-yellow-400'}`}>
+                            {displayHasErrors ? <XCircle className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
+                            {displayErrors.length} {displayErrors.length === 1 ? 'issue' : 'issues'}
+                        </span>
+                    )}
+                    {displayErrors.length === 0 && lang && ['javascript', 'typescript', 'jsx', 'tsx', 'js', 'ts', 'python', 'py'].includes(lang.toLowerCase()) && (
+                        <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-green-900/50 text-green-400">
+                            <CheckCircle2 className="w-3 h-3" /> {isFixed ? 'Fixed!' : 'OK'}
+                        </span>
+                    )}
+                    {isFixed && displayErrors.length === 0 && (
+                        <button 
+                            onClick={() => setIsFixed(false)}
+                            className="text-[10px] text-slate-500 hover:text-slate-300 underline"
+                        >
+                            Show original
+                        </button>
+                    )}
+                </div>
+                <div className="flex items-center gap-2">
+                    {canFix && !isFixed && (
+                        <button 
+                            onClick={handleFix}
+                            className="flex items-center gap-1 text-[10px] bg-blue-600 hover:bg-blue-500 text-white px-2 py-1 rounded transition-colors"
+                            title={`Fix ${fixCount} issue${fixCount > 1 ? 's' : ''}`}
+                        >
+                            <Wrench className="w-3 h-3" />
+                            Fix
+                        </button>
+                    )}
+                    <button 
+                        onClick={() => navigator.clipboard.writeText(displayCode)}
+                        className="text-slate-400 hover:text-white transition-colors"
+                        title="Copy Code"
+                    >
+                        <Copy className="w-3 h-3" />
+                    </button>
+                </div>
+            </div>
+            <div className="p-4 overflow-x-auto custom-scrollbar">
+                <pre className="font-mono text-xs text-blue-100 whitespace-pre">{displayCode}</pre>
+            </div>
+            {displayErrors.length > 0 && (
+                <div className="px-4 py-2 bg-slate-900/50 border-t border-slate-800 space-y-1">
+                    {displayErrors.map((err, i) => (
+                        <div key={i} className={`flex items-start gap-2 text-[11px] ${err.type === 'error' ? 'text-red-400' : 'text-yellow-400'}`}>
+                            {err.type === 'error' ? <XCircle className="w-3 h-3 mt-0.5 flex-shrink-0" /> : <AlertTriangle className="w-3 h-3 mt-0.5 flex-shrink-0" />}
+                            <span>Line {err.line}: {err.message}</span>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
 
 const MarkdownRenderer = ({ content }: { content: string }) => {
     if (!content) return null;
@@ -35,24 +279,8 @@ const MarkdownRenderer = ({ content }: { content: string }) => {
                     const match = part.match(/^```([\w-]*)\n([\s\S]*?)```$/);
                     const lang = match ? match[1] : 'code';
                     const code = match ? match[2] : part.slice(3, -3);
-
-                    return (
-                        <div key={index} className="my-3 bg-slate-950 rounded-lg border border-slate-800 overflow-hidden group relative">
-                            <div className="bg-slate-900 px-4 py-2 flex items-center justify-between border-b border-slate-800">
-                                <span className="text-xs font-mono text-slate-400">{lang}</span>
-                                <button 
-                                    onClick={() => navigator.clipboard.writeText(code)}
-                                    className="text-slate-400 hover:text-white transition-colors"
-                                    title="Copy Code"
-                                >
-                                    <Copy className="w-3 h-3" />
-                                </button>
-                            </div>
-                            <div className="p-4 overflow-x-auto custom-scrollbar">
-                                <pre className="font-mono text-xs text-blue-100 whitespace-pre">{code}</pre>
-                            </div>
-                        </div>
-                    );
+                    
+                    return <CodeBlock key={index} lang={lang} originalCode={code} index={index} />;
                 } else {
                     return (
                         <div key={index} className="whitespace-pre-wrap">
