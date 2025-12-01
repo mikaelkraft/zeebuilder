@@ -66,8 +66,64 @@ const ZeeLogo = () => (
 );
 
 const App: React.FC = () => {
-  // Restore view from localStorage, default to HOME
+  // URL-based routing: Map paths to views
+  const getViewFromPath = (): View => {
+    const path = window.location.pathname.toLowerCase();
+    const routes: Record<string, View> = {
+      '/': View.HOME,
+      '/home': View.HOME,
+      '/dashboard': View.DASHBOARD,
+      '/builder': View.BUILDER,
+      '/projects': View.PROJECTS,
+      '/tasks': View.TASKS,
+      '/chat': View.CHAT,
+      '/image-studio': View.IMAGE_STUDIO,
+      '/audio-studio': View.AUDIO_STUDIO,
+      '/profile': View.PROFILE,
+      '/developers': View.DEVELOPERS,
+      '/integrations': View.INTEGRATIONS,
+      '/admin': View.ADMIN,
+      '/privacy': View.POLICY,
+      '/privacy-policy': View.POLICY,
+      '/terms': View.TERMS,
+      '/terms-of-service': View.TERMS,
+      '/docs': View.DOCS,
+      '/documentation': View.DOCS,
+    };
+    return routes[path] || View.HOME;
+  };
+
+  // Update URL when view changes
+  const updateURL = (view: View) => {
+    const viewPaths: Record<View, string> = {
+      [View.HOME]: '/',
+      [View.DASHBOARD]: '/dashboard',
+      [View.BUILDER]: '/builder',
+      [View.PROJECTS]: '/projects',
+      [View.TASKS]: '/tasks',
+      [View.CHAT]: '/chat',
+      [View.IMAGE_STUDIO]: '/image-studio',
+      [View.AUDIO_STUDIO]: '/audio-studio',
+      [View.PROFILE]: '/profile',
+      [View.DEVELOPERS]: '/developers',
+      [View.INTEGRATIONS]: '/integrations',
+      [View.ADMIN]: '/admin',
+      [View.POLICY]: '/privacy',
+      [View.TERMS]: '/terms',
+      [View.DOCS]: '/docs',
+    };
+    const path = viewPaths[view] || '/';
+    if (window.location.pathname !== path) {
+      window.history.pushState({}, '', path);
+    }
+  };
+
+  // Initialize view from URL or localStorage
   const [currentView, setCurrentView] = useState<View>(() => {
+    const urlView = getViewFromPath();
+    if (urlView !== View.HOME || window.location.pathname === '/' || window.location.pathname === '/home') {
+      return urlView;
+    }
     const savedView = localStorage.getItem('zee_current_view');
     if (savedView && Object.values(View).includes(savedView as View)) {
       return savedView as View;
@@ -80,10 +136,21 @@ const App: React.FC = () => {
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [pendingView, setPendingView] = useState<View | null>(null);
 
-  // Persist current view to localStorage
+  // Persist current view to localStorage and update URL
   useEffect(() => {
     localStorage.setItem('zee_current_view', currentView);
+    updateURL(currentView);
   }, [currentView]);
+
+  // Handle browser back/forward navigation
+  useEffect(() => {
+    const handlePopState = () => {
+      const view = getViewFromPath();
+      setCurrentView(view);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('zee_theme');
@@ -380,7 +447,7 @@ const App: React.FC = () => {
 
         {/* View Content & Footer Wrapper */}
         <div className="flex-1 overflow-y-auto flex flex-col w-full relative">
-            <div className="flex-1 p-4 lg:p-8 w-full max-w-7xl mx-auto min-h-full">
+            <div className="flex-1 p-4 sm:p-6 lg:p-8 xl:px-12 w-full min-h-full">
                 {currentView === View.HOME && <Home onNavigate={handleNavigation} />}
                 {currentView === View.DASHBOARD && <Dashboard user={user} onNavigate={handleNavigation} />}
                 {currentView === View.BUILDER && <Builder user={user} />}
@@ -422,7 +489,7 @@ const App: React.FC = () => {
                      </svg>
                  </div>
 
-                 <div className="flex flex-col items-center justify-center gap-6 max-w-7xl mx-auto relative z-10">
+                 <div className="flex flex-col items-center justify-center gap-6 w-full px-4 relative z-10">
                      {/* Logo Branding */}
                      <div className="mb-2 transform hover:scale-105 transition-transform duration-300 flex items-center gap-3">
                         <ZeeLogo />

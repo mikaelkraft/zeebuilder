@@ -43,6 +43,7 @@ const getStackIcon = (stack: Stack) => {
         'react-ts': '⚛️',
         'vue': '💚',
         'nextjs': '▲',
+        'html': '🌐',
         'python': '🐍',
         'flutter': '💙'
     };
@@ -432,8 +433,8 @@ const Integrations: React.FC<IntegrationsProps> = ({ onNavigate }) => {
     return (
         <div className="min-h-full pb-20">
             {/* Header */}
-            <div className="sticky top-0 z-10 bg-white/80 dark:bg-slate-950/80 backdrop-blur-lg border-b border-gray-200 dark:border-slate-800 px-6 py-6">
-                <div className="max-w-7xl mx-auto">
+            <div className="sticky top-0 z-10 bg-white/80 dark:bg-slate-950/80 backdrop-blur-lg border-b border-gray-200 dark:border-slate-800 px-4 sm:px-6 lg:px-8 py-6">
+                <div className="w-full">
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
                         <div>
                             <h1 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white flex items-center gap-3">
@@ -489,7 +490,7 @@ const Integrations: React.FC<IntegrationsProps> = ({ onNavigate }) => {
             </div>
 
             {/* How it Works Banner */}
-            <div className="max-w-7xl mx-auto px-6 py-6">
+            <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
                 <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-6 text-white mb-8">
                     <div className="flex flex-col md:flex-row items-center gap-6">
                         <div className="flex-shrink-0">

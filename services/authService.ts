@@ -28,14 +28,37 @@ const hash = (str: string) => {
 export const authService = {
     register: async (email: string, password: string, username: string): Promise<User> => {
         if (USE_REAL_API) {
-            // Example of how the Real Vercel API call would look
+            // Real Vercel API call for production
             const res = await fetch('/api/auth/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, password, username })
             });
-            if (!res.ok) throw new Error('Registration failed');
-            return await res.json();
+            
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                throw new Error(errorData.error || 'Registration failed');
+            }
+            
+            const data = await res.json();
+            
+            // Store token if provided
+            if (data.token) {
+                localStorage.setItem('zee_auth_token', data.token);
+            }
+            
+            // Return user object
+            const user: User = data.user || {
+                username: data.username || username,
+                email: data.email || email,
+                avatar: data.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`,
+                isAdmin: data.isAdmin || false
+            };
+            
+            // Initialize usage tracking
+            usageService.init(user.email);
+            
+            return user;
         }
 
         // Simulate network delay
@@ -76,8 +99,27 @@ export const authService = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, password })
             });
-            if (!res.ok) throw new Error('Login failed');
-            const user = await res.json();
+            
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                throw new Error(errorData.error || 'Login failed');
+            }
+            
+            const data = await res.json();
+            
+            // Store token if provided
+            if (data.token) {
+                localStorage.setItem('zee_auth_token', data.token);
+            }
+            
+            // Return user object
+            const user: User = data.user || {
+                username: data.username,
+                email: data.email,
+                avatar: data.avatar,
+                isAdmin: data.isAdmin || false
+            };
+            
             usageService.init(user.email);
             return user;
         }

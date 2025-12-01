@@ -308,7 +308,7 @@ const stream = await zee.audio.stream({ text: '...' });`
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
-            <div className="max-w-7xl mx-auto px-4 py-8">
+            <div className="w-full px-4 sm:px-6 lg:px-8 py-8">
                 {/* Header */}
                 <div className="mb-8">
                     <div className="flex items-center gap-3 mb-2">

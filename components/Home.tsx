@@ -513,7 +513,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
     };
 
     return (
-        <div className="max-w-7xl mx-auto animate-in fade-in duration-700 pb-20">
+        <div className="w-full px-4 sm:px-6 lg:px-8 animate-in fade-in duration-700 pb-20">
             {/* Hero Section */}
             <div className="pt-16 lg:pt-24 pb-8 text-center relative overflow-hidden">
                  {/* Background Ambient Glow */}

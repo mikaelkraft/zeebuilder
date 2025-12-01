@@ -804,9 +804,66 @@ if __name__ == "__main__":
                  { name: 'requirements.txt', content: `# Add Python packages here
 # numpy
 # pandas
-# matplotlib`, language: 'html' }
+# matplotlib`, language: 'markdown' }
              ];
              setActiveFile('main.py');
+        } else if (type === 'nextjs') {
+            const nextPkgJson = { name: "nextjs-app", version: "1.0.0", scripts: { dev: "next dev", build: "next build", start: "next start" }, dependencies: { "next": "^14.0.0", "react": "^18.2.0", "react-dom": "^18.2.0" } };
+            initialFiles = [
+                { name: 'package.json', content: JSON.stringify(nextPkgJson, null, 2), language: 'json' },
+                { name: 'app/page.tsx', content: `export default function Home() {
+  return (
+    <main className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-8">
+      <div className="text-center">
+        <h1 className="text-4xl font-bold mb-4">Welcome to Next.js</h1>
+        <p className="text-slate-400 mb-6">Built with Zee Builder</p>
+        <div className="flex gap-4 justify-center">
+          <a href="https://nextjs.org/docs" className="px-6 py-3 bg-blue-600 rounded-lg hover:bg-blue-500 transition">
+            Documentation
+          </a>
+        </div>
+      </div>
+    </main>
+  );
+}`, language: 'typescript' },
+                { name: 'app/layout.tsx', content: `export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>{children}</body>
+    </html>
+  )
+}`, language: 'typescript' },
+                { name: 'app/globals.css', content: `@tailwind base;
+@tailwind components;
+@tailwind utilities;`, language: 'css' }
+            ];
+            setActiveFile('app/page.tsx');
+        } else if (type === 'html') {
+            initialFiles = [
+                { name: 'index.html', content: `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Website</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 min-h-screen flex items-center justify-center">
+    <div class="text-center">
+        <h1 class="text-4xl font-bold text-white mb-4">Hello World</h1>
+        <p class="text-slate-400">Built with Zee Builder</p>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>`, language: 'html' },
+                { name: 'app.js', content: `// Your JavaScript code here
+console.log('Hello from Zee Builder!');`, language: 'javascript' },
+                { name: 'styles.css', content: `/* Custom styles */
+body {
+    font-family: system-ui, -apple-system, sans-serif;
+}`, language: 'css' }
+            ];
+            setActiveFile('index.html');
         } else {
             initialFiles = [{ name: 'index.html', content: '<html><body><h1>Hello World</h1></body></html>', language: 'html'}];
             setActiveFile('index.html');
@@ -1804,7 +1861,7 @@ root.render(<App />);`;
     const getSandpackTemplate = (): 'react' | 'react-ts' | 'vanilla' | 'vanilla-ts' | 'static' | 'vue' | undefined => {
         // Return appropriate template for each stack
         if (stack === 'react' || stack === 'react-ts' || stack === 'nextjs') return undefined;
-        if (stack === 'vue') return 'static'; // Vue CDN uses static template
+        if (stack === 'vue' || stack === 'html') return 'static'; // Static HTML template
         return undefined;
     };
 
@@ -1839,7 +1896,7 @@ root.render(<App />);`;
     };
 
     // Check if stack can use Sandpack
-    const canUseSandpack = ['react', 'react-ts', 'vue', 'nextjs'].includes(stack) && files.length > 0;
+    const canUseSandpack = ['react', 'react-ts', 'vue', 'nextjs', 'html'].includes(stack) && files.length > 0;
 
     // Inlined Panels
     const renderPreviewPanel = (fullScreen = false) => (
@@ -1934,7 +1991,7 @@ root.render(<App />);`;
                         theme="light"
                         customSetup={{
                             dependencies: getSandpackDependencies(),
-                            entry: stack === 'vue' ? '/index.html' : 
+                            entry: (stack === 'vue' || stack === 'html') ? '/index.html' : 
                                    (stack === 'react-ts' || stack === 'nextjs' ? '/index.tsx' : '/index.jsx')
                         }}
                         options={{
@@ -2132,13 +2189,14 @@ root.render(<App />);`;
                     </button>
                     <h2 className="text-3xl font-bold text-white mb-2">Create Project</h2>
                     <p className="text-slate-400 mb-8">Choose a stack to get started.</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-8">
                         {[
                             { id: 'react', label: 'React', icon: CodeIcon, color: 'text-blue-500' },
-                            { id: 'react-ts', label: 'React TS', icon: FileType, color: 'text-blue-400' },
+                            { id: 'react-ts', label: 'TypeScript', icon: FileType, color: 'text-blue-400' },
                             { id: 'vue', label: 'Vue.js', icon: Layers, color: 'text-green-500' },
                             { id: 'flutter', label: 'Flutter', icon: Smartphone, color: 'text-cyan-500' },
                             { id: 'python', label: 'Python', icon: TerminalIcon, color: 'text-yellow-500' },
+                            { id: 'nextjs', label: 'Next.js', icon: Globe, color: 'text-slate-400' },
                             { id: 'html', label: 'HTML/JS', icon: Globe, color: 'text-orange-500' },
                         ].map((s) => (
                             <button key={s.id} onClick={() => initProject(s.id as Stack)} className="p-6 bg-slate-800 rounded-xl border border-slate-700 hover:border-blue-500 hover:bg-slate-750 text-left transition-all group">
