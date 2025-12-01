@@ -67,7 +67,7 @@ export interface ProjectFile {
   language: 'javascript' | 'typescript' | 'html' | 'css' | 'json' | 'dart' | 'vue' | 'image' | 'python' | 'java' | 'xml' | 'markdown';
 }
 
-export type Stack = 'react' | 'react-ts' | 'flutter' | 'html' | 'vue' | 'python';
+export type Stack = 'react' | 'react-ts' | 'flutter' | 'vue' | 'python' | 'nextjs';
 
 export interface Snapshot {
     id: string;

@@ -1039,8 +1039,9 @@ if __name__ == "__main__":
             const repoFiles = await githubService.getRepoFiles(ghOctokit, owner, name);
             if (repoFiles.length > 0) {
                 // Detect stack from files
-                let detectedStack: Stack = 'html';
-                if (repoFiles.some((f: any) => f.name.includes('package.json'))) detectedStack = 'react';
+                let detectedStack: Stack = 'react';
+                if (repoFiles.some((f: any) => f.name.includes('next.config'))) detectedStack = 'nextjs';
+                else if (repoFiles.some((f: any) => f.name.includes('package.json'))) detectedStack = 'react';
                 if (repoFiles.some((f: any) => f.name.endsWith('.py'))) detectedStack = 'python';
                 if (repoFiles.some((f: any) => f.name.endsWith('.dart'))) detectedStack = 'flutter';
                 
@@ -1400,8 +1401,9 @@ if __name__ == "__main__":
             const contents = await zip.loadAsync(file);
             const newFiles: ProjectFile[] = [];
             const entries = Object.keys(contents.files);
-            let detectedStack: Stack = 'html';
-            if (entries.some(e => e.endsWith('package.json'))) detectedStack = 'react';
+            let detectedStack: Stack = 'react';
+            if (entries.some(e => e.includes('next.config'))) detectedStack = 'nextjs';
+            else if (entries.some(e => e.endsWith('package.json'))) detectedStack = 'react';
             if (entries.some(e => e.endsWith('main.py'))) detectedStack = 'python';
 
             for (const filename of entries) {
@@ -1443,8 +1445,8 @@ if __name__ == "__main__":
         const cssFiles = files.filter(f => f.name.endsWith('.css'));
         const inlineCss = cssFiles.map(f => f.content).join('\n');
         
-        // For pure HTML stack, use index.html directly
-        if (stack === 'html') {
+        // For Vue stack, use index.html directly (CDN-based)
+        if (stack === 'vue') {
             const htmlFile = files.find(f => f.name === 'index.html' || f.name.endsWith('.html'));
             const jsFiles = files.filter(f => f.name.endsWith('.js'));
             
@@ -1500,67 +1502,6 @@ if __name__ == "__main__":
         
         // Get all component files (not App) to bundle them
         const componentFiles = jsFiles.filter(f => !f.name.match(/App\.(js|jsx|ts|tsx)$/));
-        
-        // Vue 3 Preview
-        if (stack === 'vue') {
-            const vueFile = files.find(f => f.name.endsWith('.vue'));
-            const vueContent = vueFile?.content || '';
-            
-            // Extract template, script, and style from .vue file
-            const templateMatch = vueContent.match(/<template>([\s\S]*?)<\/template>/);
-            const scriptMatch = vueContent.match(/<script[^>]*>([\s\S]*?)<\/script>/);
-            const styleMatch = vueContent.match(/<style[^>]*>([\s\S]*?)<\/style>/);
-            
-            const template = templateMatch ? templateMatch[1].trim() : '<div>No template</div>';
-            let script = scriptMatch ? scriptMatch[1].trim() : '';
-            const style = styleMatch ? styleMatch[1].trim() : '';
-            
-            // Clean up script - extract component options
-            script = script.replace(/export\s+default\s*/, '');
-            script = script.replace(/import\s+.*?from\s+['"][^'"]+['"];?\s*/g, '');
-            
-            const vueHtml = `<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    <style>
-        body { background-color: #ffffff; margin: 0; font-family: system-ui, -apple-system, sans-serif; }
-        #app { min-height: 100vh; }
-        ${style}
-        ${inlineCss}
-    </style>
-</head>
-<body>
-    <div id="app"></div>
-    <script>
-        const { createApp, ref, reactive, computed, onMounted, watch } = Vue;
-        
-        try {
-            const componentOptions = ${script || '{}'};
-            
-            const app = createApp({
-                ...componentOptions,
-                template: \`${template.replace(/`/g, '\`')}\`
-            });
-            
-            app.mount('#app');
-        } catch (e) {
-            console.error('Vue error:', e);
-            document.getElementById('app').innerHTML = '<div style="padding:20px;color:#ef4444;font-family:monospace;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;margin:20px;"><strong>Vue Error:</strong><br>' + e.message + '</div>';
-        }
-    </script>
-</body>
-</html>`;
-            
-            const blob = new Blob([vueHtml], {type: 'text/html'});
-            setIframeSrc(URL.createObjectURL(blob));
-            setPreviewKey(p => p + 1);
-            setTimeout(() => setIsRefreshing(false), 300);
-            return;
-        }
         
         // Clean TypeScript syntax from code - remove ALL imports
         const cleanTS = (code: string) => {
@@ -1845,8 +1786,8 @@ root.render(<App />);`;
             }
         }
         
-        // For HTML/Vue stack, ensure index.html exists
-        if (stack === 'html' || stack === 'vue') {
+        // For Vue stack, ensure index.html exists
+        if (stack === 'vue') {
             const hasHtml = Object.keys(sandpackFiles).some(p => p.endsWith('.html'));
             if (!hasHtml) {
                 sandpackFiles['/index.html'] = { code: '<!DOCTYPE html>\n<html>\n<head>\n  <title>Preview</title>\n</head>\n<body>\n  <h1>Hello World</h1>\n</body>\n</html>' };
@@ -1862,8 +1803,8 @@ root.render(<App />);`;
 
     const getSandpackTemplate = (): 'react' | 'react-ts' | 'vanilla' | 'vanilla-ts' | 'static' | 'vue' | undefined => {
         // Return appropriate template for each stack
-        if (stack === 'react' || stack === 'react-ts') return undefined;
-        if (stack === 'html' || stack === 'vue') return 'static'; // Vue CDN uses static template
+        if (stack === 'react' || stack === 'react-ts' || stack === 'nextjs') return undefined;
+        if (stack === 'vue') return 'static'; // Vue CDN uses static template
         return undefined;
     };
 
@@ -1873,15 +1814,18 @@ root.render(<App />);`;
         // Base dependencies differ by stack
         let baseDeps: Record<string, string> = {};
         
-        if (stack === 'react' || stack === 'react-ts') {
+        if (stack === 'react' || stack === 'react-ts' || stack === 'nextjs') {
             baseDeps = {
                 'react': '^18.2.0',
                 'react-dom': '^18.2.0',
                 'lucide-react': 'latest',
                 ...dependencies
             };
+            if (stack === 'nextjs') {
+                baseDeps['next'] = '^14.0.0';
+            }
         }
-        // For html and vue with CDN, no deps needed
+        // For vue with CDN, no deps needed
         
         if (pkgFile) {
             try {
@@ -1895,7 +1839,7 @@ root.render(<App />);`;
     };
 
     // Check if stack can use Sandpack
-    const canUseSandpack = ['react', 'react-ts', 'html', 'vue'].includes(stack) && files.length > 0;
+    const canUseSandpack = ['react', 'react-ts', 'vue', 'nextjs'].includes(stack) && files.length > 0;
 
     // Inlined Panels
     const renderPreviewPanel = (fullScreen = false) => (
@@ -1990,8 +1934,8 @@ root.render(<App />);`;
                         theme="light"
                         customSetup={{
                             dependencies: getSandpackDependencies(),
-                            entry: stack === 'html' || stack === 'vue' ? '/index.html' : 
-                                   (stack === 'react-ts' ? '/index.tsx' : '/index.jsx')
+                            entry: stack === 'vue' ? '/index.html' : 
+                                   (stack === 'react-ts' || stack === 'nextjs' ? '/index.tsx' : '/index.jsx')
                         }}
                         options={{
                             externalResources: ["https://cdn.tailwindcss.com"],

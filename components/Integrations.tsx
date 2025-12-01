@@ -42,7 +42,7 @@ const getStackIcon = (stack: Stack) => {
         'react': '⚛️',
         'react-ts': '⚛️',
         'vue': '💚',
-        'html': '🌐',
+        'nextjs': '▲',
         'python': '🐍',
         'flutter': '💙'
     };
