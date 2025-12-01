@@ -6,37 +6,7 @@
     <meta name="HandheldFriendly" content="true" />
     <meta name="MobileOptimized" content="width" />
     <title>Zee Builder--Imagine app and images</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        darkMode: 'class',
-        theme: {
-          extend: {
-            colors: {
-              slate: {
-                850: '#151f32',
-                900: '#0f172a',
-                950: '#020617',
-              },
-              primary: {
-                DEFAULT: '#3b82f6', // Blue 500
-                hover: '#2563eb',   // Blue 600
-              }
-            },
-            animation: {
-              'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-              'shimmer': 'shimmer 3s linear infinite',
-            },
-            keyframes: {
-              shimmer: {
-                '0%': { backgroundPosition: '200% 0' },
-                '100%': { backgroundPosition: '-200% 0' }
-              }
-            }
-          },
-        },
-      }
-    </script>
+    
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css" />
     <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
@@ -59,62 +29,6 @@
     <!-- Pyodide for Python runtime -->
     <script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js"></script>
     
-    <!-- SweetAlert for better confirmations -->
-    <script src="https://mikaelkraft.github.io/ivytag/libs/sweetalert/sweetalert.min.js"></script>
-    
-    <style>
-      /* Prevent text scaling on mobile browsers like Kiwi */
-      html {
-        -webkit-text-size-adjust: 100%;
-        -moz-text-size-adjust: 100%;
-        -ms-text-size-adjust: 100%;
-        text-size-adjust: 100%;
-        font-size: 16px;
-      }
-      
-      body {
-        font-size: 1rem;
-        -webkit-font-smoothing: antialiased;
-        -moz-osx-font-smoothing: grayscale;
-      }
-      
-      /* Ensure consistent sizing on mobile */
-      * {
-        -webkit-tap-highlight-color: transparent;
-      }
-      
-      /* Custom scrollbar for code editor feel */
-      ::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
-      }
-      ::-webkit-scrollbar-track {
-        background: transparent; 
-      }
-      ::-webkit-scrollbar-thumb {
-        background: #334155; 
-        border-radius: 4px;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #475569; 
-      }
-      .xterm-viewport {
-        overflow-y: auto !important;
-      }
-      /* Fix Sandpack preview height */
-      .sp-wrapper,
-      .sp-layout,
-      .sp-preview,
-      .sp-preview-container,
-      .sp-preview-iframe,
-      .sp-stack {
-        height: 100% !important;
-        min-height: 100% !important;
-      }
-      .sp-preview-container iframe {
-        height: 100% !important;
-      }
-    </style>
   <script type="importmap">
 {
   "imports": {

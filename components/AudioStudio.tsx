@@ -3,6 +3,7 @@ import React, { useState, useRef } from 'react';
 import { generateSpeech, transcribeAudio, decodeAudio, arrayBufferToAudioBuffer, pcm16ToWavBlob, ensureApiKey, blobToBase64 } from '../services/geminiService';
 import { Volume2, Loader2, FileText, Download, Activity, Copy, Check, Mic, MicOff, FolderPlus, Cloud, AlertCircle } from 'lucide-react';
 import { View, SavedProject, CloudProviderConfig } from '../types';
+import { alertService } from '../services/alertService';
 
 interface AudioStudioProps {
     onNavigate?: (view: View) => void;
@@ -51,10 +52,10 @@ const AudioStudio: React.FC<AudioStudioProps> = ({ onNavigate }) => {
                  setAudioBlob(wavBlob);
                  setSaveStatus('idle');
             } else {
-                (window as any).swal("Generation Failed", "Failed to generate speech. Please try again.", "error");
+                alertService.error('Generation Failed', 'Failed to generate speech. Please try again.');
             }
         } catch (e: any) {
-            (window as any).swal("TTS Error", (e as any).message, "error");
+            alertService.error('TTS Error', (e as any).message);
         } finally {
             setIsGeneratingTTS(false);
         }
@@ -130,7 +131,7 @@ const AudioStudio: React.FC<AudioStudioProps> = ({ onNavigate }) => {
                 setIsRecording(true);
             } catch (error) {
                 console.error("Error accessing microphone:", error);
-                (window as any).swal("Microphone Error", "Could not access microphone. Please check permissions.", "error");
+                alertService.error('Microphone Error', 'Could not access microphone. Please check permissions.');
             }
         }
     };
@@ -163,12 +164,7 @@ const AudioStudio: React.FC<AudioStudioProps> = ({ onNavigate }) => {
         // Get active project
         const activeId = localStorage.getItem('zee_active_project_id');
         if (!activeId) {
-            (window as any).swal({
-                title: "No Active Project",
-                text: "Please open a project in the Builder first.",
-                icon: "warning",
-                button: "OK"
-            });
+            alertService.warning('No Active Project', 'Please open a project in the Builder first.');
             setSaveStatus('idle');
             return;
         }
@@ -207,13 +203,7 @@ const AudioStudio: React.FC<AudioStudioProps> = ({ onNavigate }) => {
                         localStorage.setItem('zee_projects', JSON.stringify(projects));
                         setSaveStatus('saved');
                         
-                        (window as any).swal({
-                            title: "Audio Added!",
-                            text: `Audio saved to ${fileName}${cloudConfig?.enabled ? ` (${cloudConfig.provider} sync enabled)` : ''}`,
-                            icon: "success",
-                            timer: 2000,
-                            buttons: false
-                        });
+                        alertService.toast.success(`Audio saved to ${fileName}`);
                         
                         setTimeout(() => setSaveStatus('idle'), 3000);
                     }
@@ -226,13 +216,13 @@ const AudioStudio: React.FC<AudioStudioProps> = ({ onNavigate }) => {
             // Prompt to connect cloud if not connected
             const cloudConfigExists = localStorage.getItem('zee_cloud_config');
             if (!cloudConfigExists) {
-                (window as any).swal({
-                    title: "Connect Cloud Storage?",
-                    text: "For larger files, connect a cloud provider in your Profile settings.",
-                    icon: "info",
-                    buttons: ["Later", "Go to Profile"]
-                }).then((goToProfile: boolean) => {
-                    if (goToProfile && onNavigate) {
+                alertService.confirm({
+                    title: 'Connect Cloud Storage?',
+                    text: 'For larger files, connect a cloud provider in your Profile settings.',
+                    confirmText: 'Go to Profile',
+                    cancelText: 'Later'
+                }).then((confirmed) => {
+                    if (confirmed && onNavigate) {
                         onNavigate(View.PROFILE);
                     }
                 });

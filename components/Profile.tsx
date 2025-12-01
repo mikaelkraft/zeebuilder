@@ -4,6 +4,7 @@ import { User, SupabaseConfig, CloudProviderType, CloudProviderConfig, SavedProj
 import { User as UserIcon, Mail, Shield, Save, Loader2, Lock, KeyRound, AlertCircle, Cloud, Database, Check, Unlink, Info, Server, Flame, Zap, Camera, RefreshCw, Download, Upload, Image as ImageIcon } from 'lucide-react';
 import { authService } from '../services/authService';
 import { storageService } from '../services/storageService';
+import { alertService } from '../services/alertService';
 
 interface ProfileProps {
     user: User | null;
@@ -212,21 +213,21 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser }) => {
         setMessage({ type: 'success', text: `${cloudProvider.charAt(0).toUpperCase() + cloudProvider.slice(1)} cloud sync connected!` });
     };
 
-    const handleDisconnectCloud = () => {
-        (window as any).swal({
-            title: "Disconnect Cloud Sync?",
-            text: "Your local data will remain, but syncing will stop.",
-            icon: "warning",
-            buttons: ["Cancel", "Disconnect"],
-            dangerMode: true,
-        }).then((willDisconnect: boolean) => {
-            if (willDisconnect) {
-                const emptyConfig: CloudProviderConfig = { provider: 'supabase', enabled: false };
-                setCloudConfig(emptyConfig);
-                localStorage.removeItem('zee_cloud_config');
-                setMessage({ type: 'success', text: "Cloud sync disconnected." });
-            }
+    const handleDisconnectCloud = async () => {
+        const confirmed = await alertService.confirm({
+            title: 'Disconnect Cloud Sync?',
+            text: 'Your local data will remain, but syncing will stop.',
+            confirmText: 'Disconnect',
+            cancelText: 'Cancel',
+            isDanger: true
         });
+        
+        if (confirmed) {
+            const emptyConfig: CloudProviderConfig = { provider: 'supabase', enabled: false };
+            setCloudConfig(emptyConfig);
+            localStorage.removeItem('zee_cloud_config');
+            setMessage({ type: 'success', text: "Cloud sync disconnected." });
+        }
     };
 
     const handleResetRequest = () => {

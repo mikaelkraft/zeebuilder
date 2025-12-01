@@ -2,6 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createChatSession, transcribeAudio, blobToBase64, ensureApiKey } from '../services/geminiService';
 import { ChatMessage, ModelType, ChatSession, FileAttachment, Task } from '../types';
+import { alertService } from '../services/alertService';
 import { 
     Send, 
     Map, 
@@ -411,14 +412,14 @@ const ChatInterface: React.FC = () => {
 
     const deleteSession = (e: React.MouseEvent, id: string) => {
         e.stopPropagation();
-        (window as any).swal({
-            title: "Delete Conversation?",
-            text: "This conversation will be permanently deleted.",
-            icon: "warning",
-            buttons: ["Cancel", "Delete"],
-            dangerMode: true,
-        }).then((willDelete: boolean) => {
-            if (willDelete) {
+        alertService.confirm({
+            title: 'Delete Conversation?',
+            text: 'This conversation will be permanently deleted.',
+            confirmText: 'Delete',
+            cancelText: 'Cancel',
+            isDanger: true
+        }).then((confirmed) => {
+            if (confirmed) {
                 const newSessions = savedSessions.filter(s => s.id !== id);
                 setSavedSessions(newSessions);
                 localStorage.setItem('zee_chat_sessions', JSON.stringify(newSessions));
@@ -513,8 +514,8 @@ const ChatInterface: React.FC = () => {
                     return await chatSessionRef.current.sendMessage({ message: text || ' ' });
                 } catch (error: any) {
                     if ((error?.toString().includes("403") || error?.toString().includes("404")) && !retry) {
-                        if (window.aistudio && window.aistudio.openSelectKey) {
-                            await window.aistudio.openSelectKey();
+                        if ((window as any).aistudio && (window as any).aistudio.openSelectKey) {
+                            await (window as any).aistudio.openSelectKey();
                             return await performSend(text, true);
                         }
                     }
@@ -565,7 +566,7 @@ const ChatInterface: React.FC = () => {
                         }
                     } catch (error) {
                         console.error("Transcription failed:", error);
-                        (window as any).swal("Transcription Failed", "Failed to transcribe audio. Please try again.", "error");
+                        alertService.error('Transcription Failed', 'Failed to transcribe audio. Please try again.');
                     } finally {
                         setIsTranscribingAudio(false);
                     }
@@ -575,7 +576,7 @@ const ChatInterface: React.FC = () => {
                 setIsRecording(true);
             } catch (error) {
                 console.error("Error accessing microphone:", error);
-                (window as any).swal("Microphone Error", "Could not access microphone. Please check permissions.", "error");
+                alertService.error('Microphone Error', 'Could not access microphone. Please check permissions.');
             }
         }
     };

@@ -4,6 +4,7 @@ import { generateProject, blobToBase64, generateImage, transcribeAudio, ensureAp
 import { githubService } from '../services/githubService';
 import { cloudStorage, ServiceConfig } from '../services/cloudStorage';
 import { DatabaseConfig, User, ModelType, ProjectFile, Stack, BuilderChatMessage, SavedProject, FileAttachment, Snapshot } from '../types';
+import alert, { alertService } from '../services/alertService';
 import { 
     Code as CodeIcon, Download, Plus, Trash2, Github, Bot, Send, Loader2,
     File, RefreshCw, Terminal as TerminalIcon, X, Sidebar,
@@ -889,47 +890,37 @@ body {
         setShowProjectModal(false);
     };
 
-    const deleteProject = (id: string) => {
+    const deleteProject = async (id: string) => {
         const project = savedProjects.find(p => p.id === id);
         const projectName = project?.name || 'this project';
         
-        // Use SweetAlert for confirmation
-        (window as any).swal({
+        const confirmed = await alert.confirm({
             title: "Delete Project?",
             text: `Are you sure you want to delete "${projectName}"? This action cannot be undone.`,
-            icon: "warning",
-            buttons: {
-                cancel: {
-                    text: "Cancel",
-                    value: false,
-                    visible: true,
-                    closeModal: true,
-                },
-                confirm: {
-                    text: "Delete",
-                    value: true,
-                    visible: true,
-                    className: "swal-button--danger",
-                    closeModal: true
-                }
-            },
-            dangerMode: true,
-        }).then((willDelete: boolean) => {
-            if (willDelete) {
-                const newProjects = savedProjects.filter(p => p.id !== id);
-                setSavedProjects(newProjects);
-                localStorage.setItem('zee_projects', JSON.stringify(newProjects));
-                if (currentProjectId === id) {
-                    setCurrentProjectId(null);
-                    setIsWizardOpen(true);
-                }
-                (window as any).swal("Deleted!", `"${projectName}" has been deleted.`, "success");
-            }
+            icon: 'warning',
+            confirmText: "Delete",
+            isDanger: true
         });
+        
+        if (confirmed) {
+            const newProjects = savedProjects.filter(p => p.id !== id);
+            setSavedProjects(newProjects);
+            localStorage.setItem('zee_projects', JSON.stringify(newProjects));
+            if (currentProjectId === id) {
+                setCurrentProjectId(null);
+                setIsWizardOpen(true);
+            }
+            alert.success("Deleted!", `"${projectName}" has been deleted.`);
+        }
     };
 
-    const createSnapshot = () => {
-        const name = prompt("Name this checkpoint:", `Snapshot ${snapshots.length + 1}`);
+    const createSnapshot = async () => {
+        const name = await alert.prompt({
+            title: "Create Checkpoint",
+            text: "Name this checkpoint:",
+            inputValue: `Snapshot ${snapshots.length + 1}`,
+            confirmText: "Create"
+        });
         if (!name) return;
         const newSnapshot: Snapshot = {
             id: Date.now().toString(),
@@ -941,21 +932,21 @@ body {
         setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: `📍 Checkpoint created: **${name}**`, timestamp: Date.now() }]);
     };
 
-    const restoreSnapshot = (snapshot: Snapshot) => {
-        (window as any).swal({
+    const restoreSnapshot = async (snapshot: Snapshot) => {
+        const confirmed = await alert.confirm({
             title: "Restore Checkpoint?",
             text: `Restore to "${snapshot.name}"? Current unsaved changes will be lost.`,
-            icon: "warning",
-            buttons: ["Cancel", "Restore"],
-            dangerMode: true,
-        }).then((willRestore: boolean) => {
-            if (willRestore) {
-                setHistoryStack(prev => [...prev, files]);
-                setFiles(JSON.parse(JSON.stringify(snapshot.files)));
-                setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: `↺ Restored checkpoint: **${snapshot.name}**`, timestamp: Date.now() }]);
-                (window as any).swal("Restored!", `Checkpoint "${snapshot.name}" has been restored.`, "success");
-            }
+            icon: 'warning',
+            confirmText: "Restore",
+            isDanger: true
         });
+        
+        if (confirmed) {
+            setHistoryStack(prev => [...prev, files]);
+            setFiles(JSON.parse(JSON.stringify(snapshot.files)));
+            setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: `↺ Restored checkpoint: **${snapshot.name}**`, timestamp: Date.now() }]);
+            alert.success("Restored!", `Checkpoint "${snapshot.name}" has been restored.`);
+        }
     };
 
     // File Management Functions
@@ -969,24 +960,24 @@ body {
         }
     };
 
-    const handleDeleteFile = (path: string) => {
-        (window as any).swal({
+    const handleDeleteFile = async (path: string) => {
+        const confirmed = await alert.confirm({
             title: "Delete File?",
             text: `Delete "${path}"? This cannot be undone.`,
-            icon: "warning",
-            buttons: ["Cancel", "Delete"],
-            dangerMode: true,
-        }).then((willDelete: boolean) => {
-            if (willDelete) {
-                setFiles(prevFiles => prevFiles.filter(f => f.name !== path));
-                if (activeFile === path) {
-                    const remaining = files.filter(f => f.name !== path);
-                    if (remaining.length > 0) {
-                        setActiveFile(remaining[0].name);
-                    }
+            icon: 'warning',
+            confirmText: "Delete",
+            isDanger: true
+        });
+        
+        if (confirmed) {
+            setFiles(prevFiles => prevFiles.filter(f => f.name !== path));
+            if (activeFile === path) {
+                const remaining = files.filter(f => f.name !== path);
+                if (remaining.length > 0) {
+                    setActiveFile(remaining[0].name);
                 }
             }
-        });
+        }
     };
 
     // Python Runtime Functions
@@ -1073,7 +1064,7 @@ body {
             setGhStatus('');
         } catch (e: any) {
             setGhStatus('');
-            (window as any).swal("Connection Failed", e.message, "error");
+            alertService.error('Connection Failed', e.message);
         } finally {
             setGhLoading(false);
         }
@@ -1125,7 +1116,7 @@ body {
             setGhStatus('');
         } catch (e: any) {
             setGhStatus('');
-            (window as any).swal("Clone Failed", e.message, "error");
+            alertService.error('Clone Failed', e.message);
         } finally {
             setGhLoading(false);
         }
@@ -1133,7 +1124,7 @@ body {
 
     const pushToRepo = async () => {
         if (!ghOctokit || !selectedRepo) {
-            (window as any).swal("No Repository", "Please select a repository first.", "warning");
+            alertService.warning('No Repository', 'Please select a repository first.');
             return;
         }
         setGhLoading(true);
@@ -1161,7 +1152,7 @@ body {
             }]);
         } catch (e: any) {
             setGhStatus('');
-            (window as any).swal("Push Failed", e.message, "error");
+            alertService.error('Push Failed', e.message);
         } finally {
             setGhLoading(false);
         }
@@ -1192,7 +1183,7 @@ body {
             await pushToRepo();
         } catch (e: any) {
             setGhStatus('');
-            (window as any).swal("Repository Creation Failed", e.message, "error");
+            alertService.error('Repository Creation Failed', e.message);
         } finally {
             setGhLoading(false);
         }
@@ -1200,17 +1191,16 @@ body {
 
     const pullFromRepo = async () => {
         if (!ghOctokit || !selectedRepo) return;
-        (window as any).swal({
-            title: "Pull Changes?",
-            text: "This will overwrite your local files with the latest from the repository.",
-            icon: "warning",
-            buttons: ["Cancel", "Pull"],
-            dangerMode: true,
-        }).then(async (willPull: boolean) => {
-            if (willPull) {
-                await cloneRepo(selectedRepo.owner, selectedRepo.name);
-            }
+        const confirmed = await alertService.confirm({
+            title: 'Pull Changes?',
+            text: 'This will overwrite your local files with the latest from the repository.',
+            confirmText: 'Pull',
+            cancelText: 'Cancel',
+            icon: 'warning'
         });
+        if (confirmed) {
+            await cloneRepo(selectedRepo.owner, selectedRepo.name);
+        }
     };
 
     // Progress status messages for generation
@@ -1408,7 +1398,7 @@ body {
                 };
                 mediaRecorder.start();
                 setIsRecording(true);
-            } catch (error) { (window as any).swal("Microphone Error", "Microphone access denied. Please check permissions.", "error"); }
+            } catch (error) { alertService.error('Microphone Error', 'Microphone access denied. Please check permissions.'); }
         }
     };
 
@@ -1490,7 +1480,7 @@ body {
                 if (entry) setActiveFile(entry.name); else setActiveFile(newFiles[0].name);
                 updateWebPreview();
             }
-        } catch (error: any) { (window as any).swal("Import Failed", error.message, "error"); }
+        } catch (error: any) { alertService.error('Import Failed', error.message); }
     };
 
     const updateWebPreview = () => {
@@ -2597,7 +2587,7 @@ root.render(<App />);`;
                                             <h4 className="text-[10px] text-slate-400 font-bold uppercase">Quick Actions</h4>
                                             <button 
                                                 onClick={async()=>{
-                                                    if(!selectedRepo) return (window as any).swal("No Repository", "Please select a repository first.", "warning");
+                                                    if(!selectedRepo) { alertService.warning('No Repository', 'Please select a repository first.'); return; }
                                                     await cloneRepo(selectedRepo.owner, selectedRepo.name);
                                                 }}
                                                 disabled={ghLoading || !selectedRepo}
@@ -2709,9 +2699,9 @@ root.render(<App />);`;
                                     
                                     <button 
                                         onClick={()=>{
-                                            if (newDbType === 'appwrite' && !newDbConfig.endpoint) return (window as any).swal("Missing Field", "Please enter Appwrite endpoint.", "warning");
-                                            if (newDbType !== 'vercel' && !newDbConfig.url && !newDbConfig.endpoint) return (window as any).swal("Missing Field", "Please enter connection details.", "warning");
-                                            if (newDbType === 'vercel' && !newDbConfig.key) return (window as any).swal("Missing Field", "Please enter Vercel token.", "warning");
+                                            if (newDbType === 'appwrite' && !newDbConfig.endpoint) { alertService.warning('Missing Field', 'Please enter Appwrite endpoint.'); return; }
+                                            if (newDbType !== 'vercel' && !newDbConfig.url && !newDbConfig.endpoint) { alertService.warning('Missing Field', 'Please enter connection details.'); return; }
+                                            if (newDbType === 'vercel' && !newDbConfig.key) { alertService.warning('Missing Field', 'Please enter Vercel token.'); return; }
                                             
                                             const config: any = { key: newDbConfig.key };
                                             if (newDbConfig.url) config.url = newDbConfig.url;
@@ -2759,7 +2749,7 @@ root.render(<App />);`;
                                             const result = await cloudStorage.syncAll();
                                             setIsSyncing(false);
                                             if (result.success) {
-                                                (window as any).swal("Synced!", `Synced ${result.synced.join(', ')} to cloud.`, "success");
+                                                alertService.toast.success(`Synced ${result.synced.join(', ')} to cloud.`);
                                             }
                                         }}
                                         className="text-[10px] text-blue-400 hover:text-blue-300 flex items-center"
@@ -2873,7 +2863,8 @@ root.render(<App />);`;
                                                         // Check required fields
                                                         const missing = service.fields.filter(f => !newServiceConfig[f]);
                                                         if (missing.length > 0) {
-                                                            return (window as any).swal("Missing Fields", `Please fill in: ${missing.join(', ')}`, "warning");
+                                                            alertService.warning('Missing Fields', `Please fill in: ${missing.join(', ')}`);
+                                                            return;
                                                         }
                                                         
                                                         const config: ServiceConfig = {
