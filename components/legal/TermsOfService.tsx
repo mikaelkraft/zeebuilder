@@ -1,7 +1,7 @@
 import React from 'react';
 import { View } from '../../types';
 import { 
-    FileText, Code, Image, Video, Mic, MessageSquare, Layers, GitBranch, Database,
+    FileText, Code, Image, Mic, MessageSquare, Layers, GitBranch, Database,
     ChevronRight, AlertTriangle, CheckCircle
 } from 'lucide-react';
 
@@ -54,7 +54,6 @@ const TermsOfService: React.FC<TermsOfServiceProps> = ({ onNavigate }) => {
                                     {[
                                         { icon: Code, text: 'AI-assisted code generation' },
                                         { icon: Image, text: 'Image generation with Imagen 3' },
-                                        { icon: Video, text: 'Video generation with Veo 2' },
                                         { icon: Mic, text: 'Voice and audio capabilities' },
                                         { icon: MessageSquare, text: 'AI chat interface' },
                                         { icon: Layers, text: 'Multi-framework app builder' },
@@ -195,8 +194,7 @@ const TermsOfService: React.FC<TermsOfServiceProps> = ({ onNavigate }) => {
                             <section>
                                 <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">9. Contact</h2>
                                 <p className="text-gray-600 dark:text-slate-300">
-                                    For questions about these terms, contact{' '}
-                                    <a href="mailto:legal@zee.ai" className="text-purple-500 hover:underline">legal@zee.ai</a>
+                                    For questions about these terms, please reach out through our website contact form.
                                 </p>
                             </section>
                         </div>

@@ -182,8 +182,7 @@ const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({ onNavigate }) => {
                                     Contact Us
                                 </h2>
                                 <p className="text-gray-600 dark:text-slate-300">
-                                    For privacy-related inquiries, contact us at{' '}
-                                    <a href="mailto:privacy@zee.ai" className="text-blue-500 hover:underline">privacy@zee.ai</a>
+                                    For privacy-related inquiries, please reach out through our website contact form.
                                 </p>
                             </section>
                         </div>

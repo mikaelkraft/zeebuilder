@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View } from '../../types';
 import { 
-    Book, Zap, Code, MessageSquare, Image, Video, Mic, Layers, Users, GitBranch, Terminal,
+    Book, Zap, Code, MessageSquare, Image, Mic, Layers, Users, GitBranch, Terminal,
     ChevronRight, CheckCircle, Copy, ArrowRight, Sparkles, Settings, Globe, Eye, Box,
     FileText
 } from 'lucide-react';
@@ -46,7 +46,6 @@ const Documentation: React.FC<DocumentationProps> = ({ onNavigate }) => {
         { id: 'builder', label: 'App Builder', icon: Code },
         { id: 'chat', label: 'AI Chat', icon: MessageSquare },
         { id: 'image-studio', label: 'Image Studio', icon: Image },
-        { id: 'video-studio', label: 'Video Studio', icon: Video },
         { id: 'audio', label: 'Voice & Audio', icon: Mic },
         { id: 'projects', label: 'Projects', icon: Layers },
         { id: 'community', label: 'Community', icon: Users },
@@ -136,7 +135,6 @@ const Documentation: React.FC<DocumentationProps> = ({ onNavigate }) => {
                                                 { icon: Code, title: 'Multi-Framework Builder', desc: 'Build with React, Vue, Angular, Flutter, HTML/CSS, Python, and more' },
                                                 { icon: MessageSquare, title: 'AI Chat Interface', desc: 'Conversational coding assistant for questions and debugging' },
                                                 { icon: Image, title: 'Image Studio', desc: 'Generate, edit, and upscale images with Imagen 3' },
-                                                { icon: Video, title: 'Video Studio', desc: 'Create videos from text with Veo 2 model' },
                                                 { icon: Mic, title: 'Voice & Audio', desc: 'Live voice chat, TTS, and audio transcription' },
                                                 { icon: Layers, title: 'Project Management', desc: 'Organize, version, and sync projects across devices' },
                                                 { icon: Users, title: 'Community Showcase', desc: 'Share, discover, and remix community projects' },
@@ -307,29 +305,6 @@ JWT tokens, and SQLite database."`}
                                                 <span key={i} className="px-3 py-1.5 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-lg text-sm font-medium">
                                                     {format}
                                                 </span>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Video Studio */}
-                            {activeSection === 'video-studio' && (
-                                <div className="space-y-8">
-                                    <div>
-                                        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Video Studio</h1>
-                                        <p className="text-lg text-gray-600 dark:text-slate-300">
-                                            Create videos from text prompts using Google's Veo 2 model.
-                                        </p>
-                                    </div>
-
-                                    <div className="bg-gradient-to-r from-pink-500 to-rose-500 rounded-xl p-6 text-white">
-                                        <Video className="w-12 h-12 mb-4 opacity-80" />
-                                        <h2 className="text-2xl font-bold mb-2">Text-to-Video Generation</h2>
-                                        <p className="text-white/80 mb-4">Generate high-quality videos from natural language descriptions.</p>
-                                        <div className="flex flex-wrap gap-2">
-                                            {['1080p', '4K', '5-30 seconds', 'MP4 export'].map((spec, i) => (
-                                                <span key={i} className="px-3 py-1 bg-white/20 rounded-full text-sm">{spec}</span>
                                             ))}
                                         </div>
                                     </div>
