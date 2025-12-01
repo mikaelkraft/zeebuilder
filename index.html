@@ -2,7 +2,9 @@
 <html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="HandheldFriendly" content="true" />
+    <meta name="MobileOptimized" content="width" />
     <title>Zee Builder--Imagine app and images</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -61,6 +63,26 @@
     <script src="https://mikaelkraft.github.io/ivytag/libs/sweetalert/sweetalert.min.js"></script>
     
     <style>
+      /* Prevent text scaling on mobile browsers like Kiwi */
+      html {
+        -webkit-text-size-adjust: 100%;
+        -moz-text-size-adjust: 100%;
+        -ms-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+        font-size: 16px;
+      }
+      
+      body {
+        font-size: 1rem;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+      
+      /* Ensure consistent sizing on mobile */
+      * {
+        -webkit-tap-highlight-color: transparent;
+      }
+      
       /* Custom scrollbar for code editor feel */
       ::-webkit-scrollbar {
         width: 8px;
