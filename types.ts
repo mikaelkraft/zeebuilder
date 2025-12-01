@@ -103,6 +103,7 @@ export interface CommunityProject {
   files: ProjectFile[];
   likes: number;
   views: number;
+  remixCount?: number;
   publishedAt: number;
   featured?: boolean;
 }

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { View, CommunityProject } from '../types';
-import { getFeaturedProjects } from '../services/communityService';
+import { getFeaturedProjects, toggleLike, incrementViews, incrementRemix, getProjectLikes, getProjectViews, getProjectRemixes, hasUserLiked } from '../services/communityService';
 import { 
     Code, 
     MessageSquare, 
@@ -38,7 +38,8 @@ import {
     Eye,
     Users,
     ExternalLink,
-    Rocket
+    Rocket,
+    GitFork
 } from 'lucide-react';
 
 interface HomeProps {
@@ -116,10 +117,50 @@ const EngagementChat = ({ onNavigate }: { onNavigate: (view: View) => void }) =>
 const CommunityShowcase = ({ onNavigate }: { onNavigate: (view: View) => void }) => {
     const [projects, setProjects] = useState<CommunityProject[]>([]);
     const [selectedProject, setSelectedProject] = useState<CommunityProject | null>(null);
+    const [projectStats, setProjectStats] = useState<Record<string, { likes: number; views: number; remixes: number; isLiked: boolean }>>({});
 
     useEffect(() => {
-        setProjects(getFeaturedProjects().slice(0, 6));
+        const fetched = getFeaturedProjects().slice(0, 6);
+        setProjects(fetched);
+        
+        // Initialize stats for all projects
+        const stats: Record<string, { likes: number; views: number; remixes: number; isLiked: boolean }> = {};
+        fetched.forEach(p => {
+            stats[p.id] = {
+                likes: getProjectLikes(p.id),
+                views: getProjectViews(p.id),
+                remixes: getProjectRemixes(p.id),
+                isLiked: hasUserLiked(p.id)
+            };
+        });
+        setProjectStats(stats);
     }, []);
+
+    const handleLike = (e: React.MouseEvent, projectId: string) => {
+        e.stopPropagation();
+        const result = toggleLike(projectId);
+        setProjectStats(prev => ({
+            ...prev,
+            [projectId]: {
+                ...prev[projectId],
+                likes: result.likes,
+                isLiked: result.isLiked
+            }
+        }));
+    };
+
+    const handleProjectClick = (project: CommunityProject) => {
+        // Increment view count when project is opened
+        const newViews = incrementViews(project.id);
+        setProjectStats(prev => ({
+            ...prev,
+            [project.id]: {
+                ...prev[project.id],
+                views: newViews
+            }
+        }));
+        setSelectedProject(project);
+    };
 
     const getStackIcon = (stack: string) => {
         switch(stack) {
@@ -159,10 +200,20 @@ const CommunityShowcase = ({ onNavigate }: { onNavigate: (view: View) => void })
     };
 
     const openInBuilder = (project: CommunityProject) => {
+        // Increment remix count
+        const newRemixes = incrementRemix(project.id);
+        setProjectStats(prev => ({
+            ...prev,
+            [project.id]: {
+                ...prev[project.id],
+                remixes: newRemixes
+            }
+        }));
+        
         // Save the project files temporarily for the builder to pick up
         const tempProject = {
-            id: `community-${project.id}`,
-            name: `${project.name} (Copy)`,
+            id: `community-${project.id}-${Date.now()}`,
+            name: `${project.name} (Remix)`,
             stack: project.stack,
             files: project.files,
             lastModified: Date.now(),
@@ -198,10 +249,12 @@ const CommunityShowcase = ({ onNavigate }: { onNavigate: (view: View) => void })
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {projects.map((project) => (
+                    {projects.map((project) => {
+                        const stats = projectStats[project.id] || { likes: project.likes, views: project.views, remixes: 0, isLiked: false };
+                        return (
                         <div 
                             key={project.id}
-                            onClick={() => setSelectedProject(project)}
+                            onClick={() => handleProjectClick(project)}
                             className="group bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl overflow-hidden hover:border-blue-500 dark:hover:border-blue-500 transition-all cursor-pointer shadow-sm hover:shadow-xl"
                         >
                             {/* Thumbnail */}
@@ -248,17 +301,26 @@ const CommunityShowcase = ({ onNavigate }: { onNavigate: (view: View) => void })
                                         <span className="text-xs text-slate-500">{project.authorName}</span>
                                     </div>
                                     <div className="flex items-center gap-3 text-xs text-slate-400">
+                                        <button 
+                                            onClick={(e) => handleLike(e, project.id)}
+                                            className={`flex items-center gap-1 hover:scale-110 transition-all ${stats.isLiked ? 'text-red-500' : 'hover:text-red-400'}`}
+                                        >
+                                            <Heart className={`w-3.5 h-3.5 transition-all ${stats.isLiked ? 'fill-red-500' : ''}`} />
+                                            {formatNumber(stats.likes)}
+                                        </button>
                                         <span className="flex items-center gap-1">
-                                            <Heart className="w-3 h-3" /> {formatNumber(project.likes)}
+                                            <Eye className="w-3 h-3" /> {formatNumber(stats.views)}
                                         </span>
-                                        <span className="flex items-center gap-1">
-                                            <Eye className="w-3 h-3" /> {formatNumber(project.views)}
-                                        </span>
+                                        {stats.remixes > 0 && (
+                                            <span className="flex items-center gap-1 text-purple-400">
+                                                <GitFork className="w-3 h-3" /> {formatNumber(stats.remixes)}
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    ))}
+                    )})}
                 </div>
 
                 <div className="text-center mt-8">
@@ -320,15 +382,28 @@ const CommunityShowcase = ({ onNavigate }: { onNavigate: (view: View) => void })
                                     <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">
                                         {selectedProject.name}
                                     </h2>
+                                    {(() => {
+                                        const modalStats = projectStats[selectedProject.id] || { likes: selectedProject.likes, views: selectedProject.views, remixes: 0, isLiked: false };
+                                        return (
                                     <div className="flex items-center gap-3 text-sm text-slate-500">
+                                        <button 
+                                            onClick={(e) => handleLike(e, selectedProject.id)}
+                                            className={`flex items-center gap-1 transition-all hover:scale-105 ${modalStats.isLiked ? 'text-red-500' : 'hover:text-red-400'}`}
+                                        >
+                                            <Heart className={`w-4 h-4 ${modalStats.isLiked ? 'fill-red-500' : ''}`} /> {formatNumber(modalStats.likes)} likes
+                                        </button>
                                         <span className="flex items-center gap-1">
-                                            <Heart className="w-4 h-4 text-red-400" /> {formatNumber(selectedProject.likes)} likes
+                                            <Eye className="w-4 h-4" /> {formatNumber(modalStats.views)} views
                                         </span>
-                                        <span className="flex items-center gap-1">
-                                            <Eye className="w-4 h-4" /> {formatNumber(selectedProject.views)} views
-                                        </span>
+                                        {modalStats.remixes > 0 && (
+                                            <span className="flex items-center gap-1 text-purple-500">
+                                                <GitFork className="w-4 h-4" /> {formatNumber(modalStats.remixes)} remixes
+                                            </span>
+                                        )}
                                         <span>• {timeAgo(selectedProject.publishedAt)}</span>
                                     </div>
+                                        );
+                                    })()}
                                 </div>
                                 {selectedProject.featured && (
                                     <span className="px-3 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 text-xs font-bold rounded-full flex items-center gap-1">

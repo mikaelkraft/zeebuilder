@@ -2,6 +2,10 @@
 import { CommunityProject, SavedProject, Stack } from '../types';
 
 const COMMUNITY_STORAGE_KEY = 'zee_community_projects';
+const USER_LIKES_KEY = 'zee_user_likes'; // Tracks which projects each user has liked
+const PROJECT_VIEWS_KEY = 'zee_project_views'; // Tracks view counts for all projects (including featured)
+const PROJECT_LIKES_KEY = 'zee_project_likes'; // Tracks like counts for all projects (including featured)
+const PROJECT_REMIXES_KEY = 'zee_project_remixes'; // Tracks remix counts
 
 // Featured showcase projects (pre-built examples)
 const FEATURED_PROJECTS: CommunityProject[] = [
@@ -766,30 +770,126 @@ export const unpublishFromCommunity = (projectId: string): boolean => {
     return filtered.length < userProjects.length;
 };
 
-// Like a project
-export const likeProject = (projectId: string): void => {
-    const stored = localStorage.getItem(COMMUNITY_STORAGE_KEY);
-    if (!stored) return;
-    
-    const userProjects: CommunityProject[] = JSON.parse(stored);
-    const project = userProjects.find(p => p.id === projectId || p.projectId === projectId);
-    if (project) {
-        project.likes++;
-        localStorage.setItem(COMMUNITY_STORAGE_KEY, JSON.stringify(userProjects));
-    }
+// Get user's liked projects from localStorage
+const getUserLikes = (): Set<string> => {
+    const stored = localStorage.getItem(USER_LIKES_KEY);
+    return stored ? new Set(JSON.parse(stored)) : new Set();
 };
 
-// Increment view count
-export const incrementViews = (projectId: string): void => {
-    const stored = localStorage.getItem(COMMUNITY_STORAGE_KEY);
-    if (!stored) return;
+// Get global project likes/views/remixes (for featured projects too)
+const getProjectStats = (key: string): Record<string, number> => {
+    const stored = localStorage.getItem(key);
+    return stored ? JSON.parse(stored) : {};
+};
+
+const saveProjectStats = (key: string, stats: Record<string, number>) => {
+    localStorage.setItem(key, JSON.stringify(stats));
+};
+
+// Check if current user has liked a project
+export const hasUserLiked = (projectId: string): boolean => {
+    return getUserLikes().has(projectId);
+};
+
+// Toggle like on a project (returns new like count and whether it's liked)
+export const toggleLike = (projectId: string): { likes: number; isLiked: boolean } => {
+    const userLikes = getUserLikes();
+    const likesStats = getProjectStats(PROJECT_LIKES_KEY);
     
-    const userProjects: CommunityProject[] = JSON.parse(stored);
-    const project = userProjects.find(p => p.id === projectId || p.projectId === projectId);
-    if (project) {
-        project.views++;
-        localStorage.setItem(COMMUNITY_STORAGE_KEY, JSON.stringify(userProjects));
+    // Get base likes (from featured projects or user projects)
+    const allProjects = getCommunityProjects();
+    const project = allProjects.find(p => p.id === projectId || p.projectId === projectId);
+    const baseLikes = project?.likes || 0;
+    
+    // Get additional likes from stats
+    const additionalLikes = likesStats[projectId] || 0;
+    let totalLikes = baseLikes + additionalLikes;
+    
+    let isLiked: boolean;
+    if (userLikes.has(projectId)) {
+        // Unlike
+        userLikes.delete(projectId);
+        likesStats[projectId] = Math.max(0, additionalLikes - 1);
+        totalLikes = Math.max(0, totalLikes - 1);
+        isLiked = false;
+    } else {
+        // Like
+        userLikes.add(projectId);
+        likesStats[projectId] = additionalLikes + 1;
+        totalLikes++;
+        isLiked = true;
     }
+    
+    localStorage.setItem(USER_LIKES_KEY, JSON.stringify([...userLikes]));
+    saveProjectStats(PROJECT_LIKES_KEY, likesStats);
+    
+    return { likes: totalLikes, isLiked };
+};
+
+// Get total likes for a project (base + additional)
+export const getProjectLikes = (projectId: string): number => {
+    const allProjects = getCommunityProjects();
+    const project = allProjects.find(p => p.id === projectId || p.projectId === projectId);
+    const baseLikes = project?.likes || 0;
+    const likesStats = getProjectStats(PROJECT_LIKES_KEY);
+    return baseLikes + (likesStats[projectId] || 0);
+};
+
+// Increment view count (only once per session)
+const viewedThisSession = new Set<string>();
+export const incrementViews = (projectId: string): number => {
+    if (viewedThisSession.has(projectId)) {
+        // Already viewed this session, just return current count
+        return getProjectViews(projectId);
+    }
+    
+    viewedThisSession.add(projectId);
+    const viewsStats = getProjectStats(PROJECT_VIEWS_KEY);
+    viewsStats[projectId] = (viewsStats[projectId] || 0) + 1;
+    saveProjectStats(PROJECT_VIEWS_KEY, viewsStats);
+    
+    return getProjectViews(projectId);
+};
+
+// Get total views for a project
+export const getProjectViews = (projectId: string): number => {
+    const allProjects = getCommunityProjects();
+    const project = allProjects.find(p => p.id === projectId || p.projectId === projectId);
+    const baseViews = project?.views || 0;
+    const viewsStats = getProjectStats(PROJECT_VIEWS_KEY);
+    return baseViews + (viewsStats[projectId] || 0);
+};
+
+// Increment remix count when someone uses a project as template
+export const incrementRemix = (projectId: string): number => {
+    const remixStats = getProjectStats(PROJECT_REMIXES_KEY);
+    remixStats[projectId] = (remixStats[projectId] || 0) + 1;
+    saveProjectStats(PROJECT_REMIXES_KEY, remixStats);
+    return getProjectRemixes(projectId);
+};
+
+// Get total remixes for a project
+export const getProjectRemixes = (projectId: string): number => {
+    const allProjects = getCommunityProjects();
+    const project = allProjects.find(p => p.id === projectId || p.projectId === projectId);
+    const baseRemixes = project?.remixCount || 0;
+    const remixStats = getProjectStats(PROJECT_REMIXES_KEY);
+    return baseRemixes + (remixStats[projectId] || 0);
+};
+
+// Get all stats for a project
+export const getProjectStats_all = (projectId: string): { likes: number; views: number; remixes: number; isLiked: boolean } => {
+    return {
+        likes: getProjectLikes(projectId),
+        views: getProjectViews(projectId),
+        remixes: getProjectRemixes(projectId),
+        isLiked: hasUserLiked(projectId)
+    };
+};
+
+// Legacy function for backwards compatibility
+export const likeProject = (projectId: string): void => {
+    toggleLike(projectId);
 };
 
 // Check if a project is published
