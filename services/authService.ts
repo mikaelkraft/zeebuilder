@@ -4,7 +4,15 @@ import { usageService } from './usageService';
 
 const USERS_KEY = 'zee_users_db';
 const SESSION_KEY = 'zee_user';
-const USE_REAL_API = true; // Backend is deployed to Vercel
+
+// Auto-detect: Use real API only in production (when deployed)
+// In development (localhost), use mock auth for immediate testing
+const isProduction = typeof window !== 'undefined' && 
+    !window.location.hostname.includes('localhost') && 
+    !window.location.hostname.includes('127.0.0.1') &&
+    !window.location.hostname.includes('0.0.0.0');
+
+const USE_REAL_API = isProduction; // Auto-switches based on environment
 
 // Simple mock hash for "security" (not real crypto but better than plain text for demo)
 const hash = (str: string) => {

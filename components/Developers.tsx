@@ -1,13 +1,15 @@
 
 import React, { useState, useEffect } from 'react';
 import { User, ApiKey, ApiQuota } from '../types';
-import { Terminal, Key, Copy, Plus, Trash2, Book, Server, ShieldCheck, Code, Play, Loader2, Activity, CreditCard, AlertTriangle, Clock, Zap, Image, Mic, FileCode, RefreshCw } from 'lucide-react';
+import { Terminal, Key, Copy, Plus, Trash2, Book, Server, ShieldCheck, Code, Play, Loader2, Activity, CreditCard, AlertTriangle, Clock, Zap, Image, Mic, FileCode, RefreshCw, ChevronRight, ExternalLink, Rocket, CheckCircle2, ArrowRight, Sparkles, Globe, Shield, Settings, Database, Video, Cpu, Layers, Box, Download } from 'lucide-react';
 import { simulateApiCall } from '../services/geminiService';
 import { usageService, UsageStats } from '../services/usageService';
 
 interface DevelopersProps {
     user: User | null;
 }
+
+type DeveloperTab = 'overview' | 'keys' | 'playground' | 'sdk';
 
 // API Quota Plans
 const QUOTA_PLANS: Record<string, ApiQuota['limits']> = {
@@ -35,11 +37,13 @@ const QUOTA_PLANS: Record<string, ApiQuota['limits']> = {
 };
 
 const Developers: React.FC<DevelopersProps> = ({ user }) => {
+    const [activeTab, setActiveTab] = useState<DeveloperTab>('overview');
     const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
     const [newKeyName, setNewKeyName] = useState('');
     const [generatedKey, setGeneratedKey] = useState<string | null>(null);
-    const [baseUrl, setBaseUrl] = useState('https://api.zee.com');
+    const [baseUrl, setBaseUrl] = useState('https://api.zee.ai');
     const [stats, setStats] = useState<UsageStats | null>(null);
+    const [copiedSnippet, setCopiedSnippet] = useState<string | null>(null);
 
     // Playground State
     const [testKey, setTestKey] = useState('');
@@ -147,8 +151,91 @@ const Developers: React.FC<DevelopersProps> = ({ user }) => {
         }
     };
 
-    const copyToClipboard = (text: string) => {
+    const copyToClipboard = (text: string, id?: string) => {
         navigator.clipboard.writeText(text);
+        if (id) {
+            setCopiedSnippet(id);
+            setTimeout(() => setCopiedSnippet(null), 2000);
+        }
+    };
+
+    // SDK Code Examples
+    const codeExamples = {
+        javascript: `// Install: npm install @zee/sdk
+import { ZeeAI } from '@zee/sdk';
+
+const zee = new ZeeAI({ apiKey: 'zee_live_...' });
+
+// Generate a complete React app
+const result = await zee.generate({
+  prompt: 'Create a todo app with React and TypeScript',
+  framework: 'react',
+  features: ['typescript', 'tailwind', 'dark-mode']
+});
+
+console.log(result.files); // Array of generated files`,
+
+        python: `# Install: pip install zee-ai
+from zee import ZeeAI
+
+client = ZeeAI(api_key="zee_live_...")
+
+# Generate code from natural language
+result = client.generate(
+    prompt="Create a FastAPI backend with user auth",
+    framework="fastapi",
+    features=["jwt", "postgresql", "docker"]
+)
+
+for file in result.files:
+    print(f"{file.name}: {len(file.content)} bytes")`,
+
+        curl: `# Generate code via REST API
+curl -X POST ${window.location.origin}/api/v1/generate \\
+  -H "Content-Type: application/json" \\
+  -H "X-API-Key: zee_live_..." \\
+  -d '{
+    "prompt": "Create a landing page",
+    "framework": "nextjs",
+    "features": ["typescript", "tailwind"]
+  }'`,
+
+        chat: `// Chat completion with streaming
+const stream = await zee.chat.stream({
+  messages: [
+    { role: 'system', content: 'You are a helpful coding assistant' },
+    { role: 'user', content: 'How do I implement OAuth in Next.js?' }
+  ],
+  model: 'gemini-2.5-flash'
+});
+
+for await (const chunk of stream) {
+  process.stdout.write(chunk.content);
+}`,
+
+        image: `// Generate images from text
+const image = await zee.images.generate({
+  prompt: 'A futuristic city skyline at sunset, cyberpunk style',
+  model: 'imagen-3.0',
+  size: '1024x1024',
+  style: 'photorealistic'
+});
+
+// Returns base64 or URL
+console.log(image.url);`,
+
+        audio: `// Text-to-Speech
+const audio = await zee.audio.synthesize({
+  text: 'Welcome to Zee AI, the future of code generation.',
+  voice: 'alloy',
+  model: 'tts-1-hd'
+});
+
+// Save to file
+await audio.save('welcome.mp3');
+
+// Or stream directly
+const stream = await zee.audio.stream({ text: '...' });`
     };
 
     const handleTestApi = async () => {
@@ -235,95 +322,293 @@ const Developers: React.FC<DevelopersProps> = ({ user }) => {
     };
 
     return (
-        <div className="max-w-5xl mx-auto animate-in fade-in duration-500 pb-20">
-            <div className="text-center mb-12">
-                <div className="w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-blue-900/20">
-                    <Terminal className="w-8 h-8 text-blue-500" />
+        <div className="max-w-6xl mx-auto animate-in fade-in duration-500 pb-20">
+            {/* Hero Section */}
+            <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 rounded-3xl p-8 md:p-12 mb-10">
+                <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0zNiAzNGM0LjQxOCAwIDgtMy41ODIgOC04cy0zLjU4Mi04LTgtOC04IDMuNTgyLTggOCAzLjU4MiA4IDggOHoiIHN0cm9rZT0iIzMzMyIgc3Ryb2tlLW9wYWNpdHk9Ii4xIi8+PC9nPjwvc3ZnPg==')] opacity-30"></div>
+                <div className="relative z-10">
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+                            <Code className="w-7 h-7 text-white" />
+                        </div>
+                        <div>
+                            <span className="text-xs font-bold text-blue-400 uppercase tracking-wider">Developer Platform</span>
+                            <h1 className="text-3xl md:text-4xl font-bold text-white">Zee AI for Developers</h1>
+                        </div>
+                    </div>
+                    <p className="text-lg text-slate-300 max-w-2xl mb-8">
+                        Integrate powerful generative AI capabilities into your applications. Build smarter with code generation, 
+                        vision analysis, audio synthesis, and more.
+                    </p>
+                    <div className="flex flex-wrap gap-4">
+                        <a href="#keys" onClick={() => setActiveTab('keys')} className="inline-flex items-center px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl transition-colors shadow-lg shadow-blue-900/30">
+                            <Key className="w-4 h-4 mr-2" /> Get API Key
+                        </a>
+                        <a href="#sdk" onClick={() => setActiveTab('sdk')} className="inline-flex items-center px-5 py-2.5 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-xl transition-colors border border-white/20">
+                            <Download className="w-4 h-4 mr-2" /> View SDK
+                        </a>
+                    </div>
                 </div>
-                <h1 className="text-4xl font-bold text-slate-900 dark:text-white mb-4">Zee AI for Developers</h1>
-                <p className="text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
-                    Integrate the power of Zee's Generative AI, Vision, and Audio models directly into your own applications.
-                </p>
+                {/* Floating badges */}
+                <div className="absolute right-8 top-8 hidden lg:flex flex-col gap-2">
+                    <span className="px-3 py-1.5 bg-green-500/20 text-green-400 text-xs font-bold rounded-full border border-green-500/30">v2.0 API</span>
+                    <span className="px-3 py-1.5 bg-purple-500/20 text-purple-400 text-xs font-bold rounded-full border border-purple-500/30">TypeScript Ready</span>
+                </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* API Key Management */}
-                <div className="lg:col-span-2 space-y-8">
-                    
-                    {/* Keys Panel */}
-                    <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-6 shadow-sm">
-                        <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center">
-                                <Key className="w-5 h-5 mr-2 text-yellow-500" /> API Keys
-                            </h2>
-                            <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-2 py-1 rounded-full font-mono">
-                                Environment: Production
-                            </span>
+            {/* Quick Stats Row */}
+            {user && stats && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+                    <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+                                <Activity className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                            </div>
+                            <div>
+                                <p className="text-2xl font-bold text-slate-900 dark:text-white">{stats.requests}</p>
+                                <p className="text-xs text-slate-500">Total Requests</p>
+                            </div>
                         </div>
-
-                        <div className="flex gap-3 mb-8">
-                            <input 
-                                type="text" 
-                                placeholder="Key Name (e.g. iOS App)" 
-                                value={newKeyName}
-                                onChange={(e) => setNewKeyName(e.target.value)}
-                                className="flex-1 bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-lg px-4 py-2 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
-                            />
-                            <button 
-                                onClick={generateKey}
-                                disabled={!newKeyName}
-                                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg text-sm flex items-center disabled:opacity-50 transition-colors"
-                            >
-                                <Plus className="w-4 h-4 mr-2" /> Create Key
-                            </button>
+                    </div>
+                    <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+                                <FileCode className="w-5 h-5 text-green-600 dark:text-green-400" />
+                            </div>
+                            <div>
+                                <p className="text-2xl font-bold text-slate-900 dark:text-white">{stats.generations.code}</p>
+                                <p className="text-xs text-slate-500">Code Generations</p>
+                            </div>
                         </div>
+                    </div>
+                    <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
+                                <Image className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                            </div>
+                            <div>
+                                <p className="text-2xl font-bold text-slate-900 dark:text-white">{stats.generations.image}</p>
+                                <p className="text-xs text-slate-500">Images Created</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center">
+                                <Key className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                            </div>
+                            <div>
+                                <p className="text-2xl font-bold text-slate-900 dark:text-white">{apiKeys.length}</p>
+                                <p className="text-xs text-slate-500">Active Keys</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
-                        {generatedKey && (
-                            <div className="mb-8 p-4 bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-900/30 rounded-xl">
-                                <div className="flex items-start">
-                                    <ShieldCheck className="w-5 h-5 text-green-600 mt-0.5 mr-3" />
-                                    <div className="flex-1">
-                                        <h3 className="text-sm font-bold text-green-800 dark:text-green-400 mb-1">API Key Created</h3>
-                                        <p className="text-xs text-green-700 dark:text-green-500 mb-3">
-                                            Copy this key now. You won't be able to see it again!
-                                        </p>
-                                        <div className="flex items-center bg-white dark:bg-slate-950 border border-green-200 dark:border-green-900/30 rounded p-2">
-                                            <code className="text-xs font-mono text-slate-600 dark:text-slate-300 flex-1 break-all">{generatedKey}</code>
-                                            <button onClick={() => copyToClipboard(generatedKey)} className="ml-2 text-slate-400 hover:text-slate-900 dark:hover:text-white">
-                                                <Copy className="w-4 h-4" />
-                                            </button>
+            {/* Tab Navigation */}
+            <div className="flex items-center gap-1 mb-8 bg-gray-100 dark:bg-slate-800 p-1.5 rounded-xl w-fit">
+                {[
+                    { id: 'overview' as DeveloperTab, label: 'Overview', icon: Layers },
+                    { id: 'keys' as DeveloperTab, label: 'API Keys', icon: Key },
+                    { id: 'playground' as DeveloperTab, label: 'Playground', icon: Play },
+                    { id: 'sdk' as DeveloperTab, label: 'SDK & Docs', icon: Book },
+                ].map(tab => (
+                    <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id)}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                            activeTab === tab.id
+                                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
+                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                        }`}
+                    >
+                        <tab.icon className="w-4 h-4" />
+                        {tab.label}
+                    </button>
+                ))}
+            </div>
+
+            {/* Overview Tab */}
+            {activeTab === 'overview' && (
+                <div className="space-y-8">
+                    {/* Features Grid */}
+                    <div>
+                        <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">Platform Capabilities</h2>
+                        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {[
+                                { icon: FileCode, title: 'Code Generation', desc: 'Generate complete applications from natural language prompts. React, Vue, Python, Node.js and more.', color: 'blue', badge: 'Popular' },
+                                { icon: Terminal, title: 'Chat Completions', desc: 'Conversational AI with context awareness. Perfect for coding assistants and support bots.', color: 'green' },
+                                { icon: Image, title: 'Image Generation', desc: 'Create stunning visuals with Imagen 3.0. Photorealistic images, art, and designs.', color: 'purple' },
+                                { icon: Video, title: 'Video Generation', desc: 'Generate short video clips from text prompts using cutting-edge Veo models.', color: 'pink', badge: 'Beta' },
+                                { icon: Mic, title: 'Audio & Speech', desc: 'Text-to-speech, speech-to-text, and real-time audio conversations.', color: 'orange' },
+                                { icon: Cpu, title: 'Vision Analysis', desc: 'Analyze images, extract text, describe content, and understand visual context.', color: 'cyan' },
+                            ].map((feature, i) => (
+                                <div key={i} className="group bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-6 hover:border-blue-500 dark:hover:border-blue-500 transition-all hover:shadow-lg">
+                                    <div className="flex items-start justify-between mb-4">
+                                        <div className={`w-12 h-12 bg-${feature.color}-100 dark:bg-${feature.color}-900/30 rounded-xl flex items-center justify-center`}>
+                                            <feature.icon className={`w-6 h-6 text-${feature.color}-600 dark:text-${feature.color}-400`} />
+                                        </div>
+                                        {feature.badge && (
+                                            <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${feature.badge === 'Beta' ? 'bg-purple-100 text-purple-600' : 'bg-blue-100 text-blue-600'}`}>
+                                                {feature.badge}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <h3 className="font-bold text-slate-900 dark:text-white mb-2">{feature.title}</h3>
+                                    <p className="text-sm text-slate-600 dark:text-slate-400">{feature.desc}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Quick Start */}
+                    <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-8 text-white">
+                        <div className="flex flex-col md:flex-row md:items-center gap-6">
+                            <div className="flex-1">
+                                <h3 className="text-2xl font-bold mb-2">Quick Start Guide</h3>
+                                <p className="text-blue-100 mb-4">Get up and running in under 5 minutes with our SDK.</p>
+                                <div className="flex items-center gap-4 text-sm">
+                                    <span className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4" /> Install SDK</span>
+                                    <span className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4" /> Add API Key</span>
+                                    <span className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4" /> Make first call</span>
+                                </div>
+                            </div>
+                            <div className="flex gap-3">
+                                <button onClick={() => setActiveTab('keys')} className="px-5 py-2.5 bg-white text-blue-600 font-bold rounded-xl hover:bg-blue-50 transition-colors">
+                                    Get API Key
+                                </button>
+                                <button onClick={() => setActiveTab('sdk')} className="px-5 py-2.5 bg-white/20 text-white font-bold rounded-xl hover:bg-white/30 transition-colors border border-white/30">
+                                    Read Docs
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* API Endpoints Overview */}
+                    <div>
+                        <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">API Endpoints</h2>
+                        <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 divide-y divide-gray-200 dark:divide-slate-800">
+                            {[
+                                { method: 'POST', path: '/api/v1/generate', desc: 'Generate complete project structures from prompts', latency: '~3s' },
+                                { method: 'POST', path: '/api/v1/chat', desc: 'Send messages to AI and receive completions', latency: '~500ms' },
+                                { method: 'POST', path: '/api/v1/image', desc: 'Generate images from text descriptions', latency: '~5s' },
+                                { method: 'POST', path: '/api/v1/video', desc: 'Generate short video clips (beta)', latency: '~30s' },
+                                { method: 'POST', path: '/api/v1/audio/transcribe', desc: 'Transcribe audio files to text', latency: '~2s' },
+                                { method: 'POST', path: '/api/v1/audio/tts', desc: 'Convert text to natural speech', latency: '~1s' },
+                                { method: 'GET', path: '/api/v1/usage', desc: 'Get current usage statistics and quotas', latency: '~100ms' },
+                            ].map((endpoint, i) => (
+                                <div key={i} className="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors">
+                                    <div className="flex items-center gap-4">
+                                        <span className={`text-[10px] font-bold px-2 py-1 rounded ${endpoint.method === 'GET' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'}`}>
+                                            {endpoint.method}
+                                        </span>
+                                        <div>
+                                            <code className="text-sm font-mono text-slate-700 dark:text-slate-300">{endpoint.path}</code>
+                                            <p className="text-xs text-slate-500 mt-0.5">{endpoint.desc}</p>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="text-xs text-slate-400">{endpoint.latency}</span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* API Keys Tab */}
+            {activeTab === 'keys' && (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div className="lg:col-span-2 space-y-6">
+                        {/* Create New Key */}
+                        <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-6">
+                            <div className="flex items-center justify-between mb-6">
+                                <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center">
+                                    <Key className="w-5 h-5 mr-2 text-yellow-500" /> API Keys
+                                </h2>
+                                <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-1 rounded-full font-mono flex items-center gap-1">
+                                    <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+                                    Production
+                                </span>
+                            </div>
+
+                            <div className="flex gap-3 mb-6">
+                                <input 
+                                    type="text" 
+                                    placeholder="Key Name (e.g. iOS App, Web Dashboard)" 
+                                    value={newKeyName}
+                                    onChange={(e) => setNewKeyName(e.target.value)}
+                                    className="flex-1 bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-lg px-4 py-3 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                />
+                                <button 
+                                    onClick={generateKey}
+                                    disabled={!newKeyName}
+                                    className="px-5 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg text-sm flex items-center disabled:opacity-50 transition-colors"
+                                >
+                                    <Plus className="w-4 h-4 mr-2" /> Create Key
+                                </button>
+                            </div>
+
+                            {generatedKey && (
+                                <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-900/30 rounded-xl">
+                                    <div className="flex items-start">
+                                        <ShieldCheck className="w-5 h-5 text-green-600 mt-0.5 mr-3 flex-shrink-0" />
+                                        <div className="flex-1 min-w-0">
+                                            <h3 className="text-sm font-bold text-green-800 dark:text-green-400 mb-1">🎉 API Key Created Successfully</h3>
+                                            <p className="text-xs text-green-700 dark:text-green-500 mb-3">
+                                                Copy this key now and store it securely. You won't be able to see it again!
+                                            </p>
+                                            <div className="flex items-center bg-white dark:bg-slate-950 border border-green-200 dark:border-green-900/30 rounded-lg p-3">
+                                                <code className="text-xs font-mono text-slate-600 dark:text-slate-300 flex-1 break-all">{generatedKey}</code>
+                                                <button onClick={() => copyToClipboard(generatedKey, 'generated')} className="ml-3 p-2 text-slate-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors">
+                                                    {copiedSnippet === 'generated' ? <CheckCircle2 className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-                        )}
-
-                        <div className="space-y-3">
-                            {apiKeys.length === 0 ? (
-                                <p className="text-sm text-slate-500 text-center py-8 italic">No API keys generated yet.</p>
-                            ) : (
-                                apiKeys.map(key => (
-                                    <div key={key.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-slate-950/50 border border-gray-100 dark:border-slate-800 rounded-lg group">
-                                        <div>
-                                            <p className="font-bold text-sm text-slate-900 dark:text-white">{key.name}</p>
-                                            <p className="text-xs font-mono text-slate-500 mt-1">
-                                                {key.key.substring(0, 12)}... • Created {new Date(key.createdAt).toLocaleDateString()}
-                                            </p>
-                                        </div>
-                                        <div className="flex items-center gap-4">
-                                            <div className="text-right hidden sm:block">
-                                                <p className="text-xs text-slate-400 uppercase">Requests</p>
-                                                <p className="text-sm font-mono font-bold text-slate-700 dark:text-slate-300">{key.requests}</p>
-                                            </div>
-                                            <button onClick={() => deleteKey(key.id)} className="p-2 text-slate-400 hover:text-red-500 transition-colors">
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))
                             )}
+
+                            {/* Existing Keys List */}
+                            <div className="space-y-3">
+                                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Your API Keys ({apiKeys.length})</h3>
+                                {apiKeys.length === 0 ? (
+                                    <div className="text-center py-12 border-2 border-dashed border-gray-200 dark:border-slate-700 rounded-xl">
+                                        <Key className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+                                        <p className="text-sm text-slate-500 mb-2">No API keys generated yet</p>
+                                        <p className="text-xs text-slate-400">Create your first key to start using the API</p>
+                                    </div>
+                                ) : (
+                                    apiKeys.map(key => (
+                                        <div key={key.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-slate-950/50 border border-gray-100 dark:border-slate-800 rounded-lg group hover:border-blue-200 dark:hover:border-blue-900 transition-colors">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-10 h-10 bg-yellow-100 dark:bg-yellow-900/20 rounded-lg flex items-center justify-center">
+                                                    <Key className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+                                                </div>
+                                                <div>
+                                                    <p className="font-bold text-sm text-slate-900 dark:text-white">{key.name}</p>
+                                                    <p className="text-xs font-mono text-slate-500 mt-0.5">
+                                                        {key.key.substring(0, 16)}•••••••• 
+                                                        <span className="text-slate-400 ml-2">Created {new Date(key.createdAt).toLocaleDateString()}</span>
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-4">
+                                                <div className="text-right hidden sm:block">
+                                                    <p className="text-lg font-bold text-slate-700 dark:text-slate-300">{key.requests}</p>
+                                                    <p className="text-[10px] text-slate-400 uppercase">requests</p>
+                                                </div>
+                                                <button onClick={() => deleteKey(key.id)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all">
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
                         </div>
-                    </div>
 
                     {/* API Playground */}
                     <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
