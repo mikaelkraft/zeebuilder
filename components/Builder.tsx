@@ -2176,8 +2176,9 @@ root.render(<App />);`;
 
     if (isWizardOpen) {
         return (
-            <div className="fixed inset-0 z-50 bg-slate-950/90 flex items-center justify-center p-4 backdrop-blur-sm">
-                <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-5xl max-h-[85vh] overflow-y-auto shadow-2xl p-8 animate-in zoom-in-95 duration-200 relative">
+            <div className="fixed inset-0 z-50 bg-slate-950/90 p-4 backdrop-blur-sm overflow-y-auto">
+                <div className="min-h-full flex items-center justify-center py-4">
+                <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-5xl shadow-2xl p-8 animate-in zoom-in-95 duration-200 relative">
                     <button 
                         onClick={() => setIsWizardOpen(false)} 
                         className="absolute top-4 right-4 p-2 text-slate-500 hover:text-white bg-slate-800 rounded-full hover:bg-slate-700 transition-colors z-10"
@@ -2213,6 +2214,7 @@ root.render(<App />);`;
                             </div>
                         </div>
                     )}
+                </div>
                 </div>
             </div>
         );
@@ -3114,7 +3116,8 @@ root.render(<App />);`;
             </div>
 
             {showProjectModal && (
-                <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 backdrop-blur-sm">
+                <div className="fixed inset-0 z-50 bg-black/50 p-4 backdrop-blur-sm overflow-y-auto">
+                    <div className="min-h-full flex items-center justify-center py-4">
                     <div className="bg-slate-900 rounded-xl p-6 w-full max-w-md border border-slate-800">
                         <h3 className="text-lg font-bold text-white mb-4">Switch Project</h3>
                         <div className="space-y-2 max-h-60 overflow-y-auto">
@@ -3131,6 +3134,7 @@ root.render(<App />);`;
                             ))}
                         </div>
                         <button onClick={() => setShowProjectModal(false)} className="mt-4 w-full py-2 bg-slate-800 text-slate-300 rounded hover:bg-slate-700 transition-colors">Close</button>
+                    </div>
                     </div>
                 </div>
             )}

@@ -229,7 +229,8 @@ const Projects: React.FC<ProjectsProps> = ({ onNavigate, setActiveProject }) => 
 
             {/* Publish Modal */}
             {publishModal.open && publishModal.project && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setPublishModal({ open: false, project: null })}>
+                <div className="fixed inset-0 bg-black/50 z-50 p-4 overflow-y-auto" onClick={() => setPublishModal({ open: false, project: null })}>
+                    <div className="min-h-full flex items-center justify-center py-4">
                     <div 
                         className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-md p-6 shadow-2xl animate-in zoom-in-95 duration-200"
                         onClick={(e) => e.stopPropagation()}
@@ -288,6 +289,7 @@ const Projects: React.FC<ProjectsProps> = ({ onNavigate, setActiveProject }) => 
                                 Publish
                             </button>
                         </div>
+                    </div>
                     </div>
                 </div>
             )}

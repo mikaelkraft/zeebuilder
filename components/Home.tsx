@@ -343,11 +343,12 @@ const CommunityShowcase = ({ onNavigate }: { onNavigate: (view: View) => void })
             {/* Project Detail Modal */}
             {selectedProject && (
                 <div 
-                    className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+                    className="fixed inset-0 bg-black/60 z-50 p-4 overflow-y-auto"
                     onClick={() => setSelectedProject(null)}
                 >
+                    <div className="min-h-full flex items-center justify-center py-4">
                     <div 
-                        className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200"
+                        className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-2xl shadow-2xl animate-in zoom-in-95 duration-200 my-auto"
                         onClick={(e) => e.stopPropagation()}
                     >
                         {/* Modal Header with Thumbnail */}
@@ -465,6 +466,7 @@ const CommunityShowcase = ({ onNavigate }: { onNavigate: (view: View) => void })
                                 </button>
                             </div>
                         </div>
+                    </div>
                     </div>
                 </div>
             )}

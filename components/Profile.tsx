@@ -640,7 +640,8 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser }) => {
             </div>
             
             {showReset && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                <div className="fixed inset-0 z-50 bg-black/50 p-4 overflow-y-auto">
+                    <div className="min-h-full flex items-center justify-center py-4">
                     <div className="bg-white dark:bg-slate-900 rounded-xl p-6 max-w-sm w-full">
                         <h4 className="text-lg font-bold mb-2 dark:text-white">Reset Password</h4>
                         <p className="text-sm text-slate-500 mb-4">Send recovery link to {user.email}.</p>
@@ -649,12 +650,14 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser }) => {
                             <button onClick={handleResetRequest} className="px-4 py-2 bg-blue-600 text-white rounded-lg">Send</button>
                         </div>
                     </div>
+                    </div>
                 </div>
             )}
             
             {/* Avatar Picker Modal */}
             {showAvatarPicker && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+                <div className="fixed inset-0 z-50 bg-black/50 p-4 backdrop-blur-sm overflow-y-auto">
+                    <div className="min-h-full flex items-center justify-center py-4">
                     <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 max-w-md w-full border border-gray-200 dark:border-slate-700 shadow-2xl">
                         <div className="flex items-center justify-between mb-4">
                             <h4 className="text-lg font-bold text-slate-900 dark:text-white flex items-center">
@@ -729,6 +732,7 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser }) => {
                                 Random
                             </button>
                         </div>
+                    </div>
                     </div>
                 </div>
             )}

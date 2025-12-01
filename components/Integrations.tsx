@@ -113,15 +113,16 @@ const ProjectSelectorModal: React.FC<{
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 p-4 overflow-y-auto">
             {/* Backdrop */}
             <div 
-                className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                className="fixed inset-0 bg-black/60 backdrop-blur-sm"
                 onClick={onClose}
             />
             
             {/* Modal */}
-            <div className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-lg w-full max-h-[80vh] overflow-hidden border border-gray-200 dark:border-slate-700">
+            <div className="min-h-full flex items-center justify-center py-4">
+            <div className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-lg w-full max-h-[85vh] overflow-hidden border border-gray-200 dark:border-slate-700">
                 {/* Header */}
                 <div className="p-5 border-b border-gray-200 dark:border-slate-800">
                     <div className="flex items-center justify-between">
@@ -207,6 +208,7 @@ const ProjectSelectorModal: React.FC<{
                         AI will generate the integration code with proper setup, configuration, and examples
                     </p>
                 </div>
+            </div>
             </div>
         </div>
     );

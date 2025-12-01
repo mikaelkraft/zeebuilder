@@ -309,7 +309,8 @@ const TaskBoard: React.FC = () => {
             </div>
 
             {showAddModal && (
-                <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+                <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 p-4 animate-in fade-in duration-200 overflow-y-auto">
+                    <div className="min-h-full flex items-center justify-center py-4">
                     <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl w-full max-w-md overflow-hidden shadow-2xl">
                         <div className="p-6 border-b border-gray-200 dark:border-slate-800 flex justify-between items-center">
                             <h3 className="text-lg font-bold text-slate-900 dark:text-white">{editingTask ? 'Edit Task' : 'Add New Task'}</h3>
@@ -366,6 +367,7 @@ const TaskBoard: React.FC = () => {
                                 {editingTask ? 'Update Task' : 'Create Task'}
                             </button>
                         </div>
+                    </div>
                     </div>
                 </div>
             )}
