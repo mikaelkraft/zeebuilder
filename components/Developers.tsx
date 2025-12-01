@@ -113,10 +113,9 @@ const Developers: React.FC<DevelopersProps> = ({ user }) => {
             id: Date.now().toString(),
             name: newKeyName,
             key: key,
-            createdAt: new Date().toISOString(),
-            lastUsed: null,
-            permissions: ['read', 'write'],
-            rateLimit: 100
+            createdAt: Date.now(),
+            lastUsed: undefined,
+            requests: 0
         };
         const updatedKeys = [...apiKeys, newKey];
         setApiKeys(updatedKeys);
@@ -222,10 +221,10 @@ const stream = await zee.audio.stream({ text: '...' });`
         setTestResponse(null);
         setQuotaWarning(null);
         try {
-            const result = await simulateApiCall(testPrompt, testEndpoint);
+            const result = await simulateApiCall(testPrompt);
             setTestResponse(JSON.stringify(result, null, 2));
             incrementUsage(requestType);
-            if (user) usageService.trackRequest(user.email, 'api_test');
+            if (user) usageService.trackRequest(user.email, 'code');
         } catch (error) {
             setTestResponse(JSON.stringify({ error: 'API call failed', details: error }, null, 2));
         } finally {
@@ -240,10 +239,9 @@ const stream = await zee.audio.stream({ text: '...' });`
             id: Date.now().toString(),
             name: newKeyName,
             key,
-            createdAt: new Date().toISOString(),
-            lastUsed: null,
-            permissions: ['read', 'write'],
-            rateLimit: quota?.limits.requestsPerMinute || 10
+            createdAt: Date.now(),
+            lastUsed: undefined,
+            requests: 0
         };
         const newKeys = [...apiKeys, newKey];
         setApiKeys(newKeys);
@@ -661,8 +659,8 @@ const stream = await zee.audio.stream({ text: '...' });`
                                     <span className="font-mono font-bold text-slate-700 dark:text-slate-300">{stats.requests.toLocaleString()}</span>
                                 </div>
                                 <div className="flex justify-between items-center">
-                                    <span className="text-sm text-slate-500">Tokens Used</span>
-                                    <span className="font-mono text-slate-700 dark:text-slate-300">{stats.tokensUsed.toLocaleString()}</span>
+                                    <span className="text-sm text-slate-500">Storage Used</span>
+                                    <span className="font-mono text-slate-700 dark:text-slate-300">{(stats.storageBytes / 1024).toFixed(1)} KB</span>
                                 </div>
                                 <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2 mt-2">
                                     <div 

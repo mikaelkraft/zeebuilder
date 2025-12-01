@@ -32,11 +32,13 @@ import TaskBoard from './components/TaskBoard';
 import AuthModal from './components/AuthModal';
 import Dashboard from './components/Dashboard';
 import Profile from './components/Profile';
-import LegalDocs from './components/LegalDocs';
 import Developers from './components/Developers';
 import Projects from './components/Projects';
 import Integrations from './components/Integrations';
 import AdminAnalytics from './components/AdminAnalytics';
+import PrivacyPolicy from './components/legal/PrivacyPolicy';
+import TermsOfService from './components/legal/TermsOfService';
+import Documentation from './components/legal/Documentation';
 import { usageService } from './services/usageService';
 import { supabase, onAuthStateChange } from './services/supabaseClient';
 
@@ -400,9 +402,9 @@ const App: React.FC = () => {
                 {currentView === View.PROFILE && <Profile user={user} onUpdateUser={setUser} />}
                 {currentView === View.DEVELOPERS && <Developers user={user} />}
                 {currentView === View.ADMIN && user?.isAdmin && <AdminAnalytics />}
-                {(currentView === View.POLICY || currentView === View.TERMS || currentView === View.DOCS) && (
-                    <LegalDocs view={currentView} onNavigate={handleNavigation} />
-                )}
+                {currentView === View.POLICY && <PrivacyPolicy onNavigate={handleNavigation} />}
+                {currentView === View.TERMS && <TermsOfService onNavigate={handleNavigation} />}
+                {currentView === View.DOCS && <Documentation onNavigate={handleNavigation} />}
             </div>
 
             {/* Global Footer */}

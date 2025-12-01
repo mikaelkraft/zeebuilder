@@ -1234,7 +1234,7 @@ if __name__ == "__main__":
             // Check if we have saved config for this service
             const savedConfig = savedServiceConfigs[serviceRequest.service];
             if (savedConfig) {
-                setGenerationStatus(`Using saved ${savedConfig.name} configuration...`);
+                setGenerationStatus(`Using saved ${savedConfig.serviceName} configuration...`);
             }
         }
         
@@ -1250,8 +1250,9 @@ if __name__ == "__main__":
                     ...enhancedDbConfigs,
                     {
                         type: serviceRequest.service as any,
-                        ...config.config,
-                        name: config.name
+                        name: config.serviceName,
+                        connected: true,
+                        config: config.config
                     }
                 ];
             }
@@ -1435,7 +1436,7 @@ if __name__ == "__main__":
 
     const updateWebPreview = () => {
         // Stacks that need external runtime
-        if (stack === 'flutter' || stack === 'python' || stack === 'java' || stack === 'node') return;
+        if (stack === 'flutter' || stack === 'python') return;
         setIsRefreshing(true);
         
         // Get inline CSS
