@@ -1955,9 +1955,16 @@ root.render(<App />);`;
                 <div className="flex-1 flex flex-col bg-slate-900">
                     <div className="flex items-center justify-between px-4 py-2 bg-slate-800 border-b border-slate-700">
                         <span className="text-xs text-cyan-400 font-mono flex items-center gap-2">
-                            <Smartphone className="w-4 h-4" /> Flutter Preview
+                            <Smartphone className="w-4 h-4" /> Flutter Preview (DartPad)
                         </span>
                         <div className="flex items-center gap-2">
+                            <button 
+                                onClick={() => { setIsRefreshing(true); setPreviewKey(p => p + 1); setTimeout(() => setIsRefreshing(false), 500); }}
+                                className="p-1.5 bg-slate-700 text-white rounded text-xs hover:bg-slate-600"
+                                title="Refresh Preview"
+                            >
+                                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                            </button>
                             <button 
                                 onClick={handleDownload}
                                 className="px-3 py-1 bg-slate-600 text-white rounded text-xs font-bold hover:bg-slate-500 flex items-center gap-1"
@@ -1966,13 +1973,22 @@ root.render(<App />);`;
                             </button>
                         </div>
                     </div>
-                    <iframe 
-                        key={previewKey}
-                        src={`https://dartpad.dev/embed-flutter.html?theme=dark&run=true`}
-                        className="flex-1 w-full border-none"
-                        title="Flutter Preview"
-                        allow="clipboard-read; clipboard-write"
-                    />
+                    {(() => {
+                        // Get Flutter code from main.dart file
+                        const mainDart = files.find(f => f.name === 'lib/main.dart' || f.name === 'main.dart');
+                        const code = mainDart?.content || `import 'package:flutter/material.dart';\nvoid main() => runApp(const MyApp());\nclass MyApp extends StatelessWidget {\n  const MyApp({super.key});\n  @override\n  Widget build(BuildContext context) {\n    return MaterialApp(\n      home: Scaffold(\n        appBar: AppBar(title: const Text('Zee Flutter')),\n        body: const Center(child: Text('Hello World')),\n      ),\n    );\n  }\n}`;
+                        // Encode code for URL - DartPad accepts code via ?code= parameter (gzip+base64)
+                        const encodedCode = encodeURIComponent(code);
+                        return (
+                            <iframe 
+                                key={previewKey}
+                                src={`https://dartpad.dev/embed-flutter.html?theme=dark&run=true&split=50&code=${encodedCode}`}
+                                className="flex-1 w-full border-none"
+                                title="Flutter Preview"
+                                allow="clipboard-read; clipboard-write"
+                            />
+                        );
+                    })()}
                 </div>
             ) : canUseSandpack ? (
                 <div className="flex-1 w-full" key={previewKey} style={{ height: 'calc(100% - 40px)', minHeight: '400px' }}>
