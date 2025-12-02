@@ -21,8 +21,8 @@
   }
 }
 
-/* Enable dark mode via class */
-@variant dark (&:where(.dark, .dark *));
+/* Enable dark mode via class - Tailwind v4 syntax */
+@custom-variant dark (&:where(.dark, .dark *));
 
 /* Prevent text scaling on mobile browsers */
 html {

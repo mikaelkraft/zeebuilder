@@ -123,7 +123,12 @@ const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(true);
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    // Check localStorage first, then system preference
+    const savedTheme = localStorage.getItem('zee_theme');
+    if (savedTheme) return savedTheme === 'dark';
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
   const [pendingView, setPendingView] = useState<View | null>(null);
 
   // Sync view with URL changes (browser back/forward)
@@ -144,13 +149,7 @@ const App: React.FC = () => {
     localStorage.setItem('zee_current_view', view);
   };
 
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('zee_theme');
-    if (savedTheme) {
-        setIsDarkMode(savedTheme === 'dark');
-    }
-  }, []);
-
+  // Apply dark mode class on mount and when it changes
   useEffect(() => {
     if (isDarkMode) {
         document.documentElement.classList.add('dark');

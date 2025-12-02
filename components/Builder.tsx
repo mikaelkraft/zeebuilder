@@ -1981,12 +1981,13 @@ root.render(<App />);`;
                         files={getSandpackFiles()}
                         theme="light"
                         customSetup={{
-                            dependencies: getSandpackDependencies(),
-                            entry: (stack === 'vue' || stack === 'html') ? '/index.html' : 
-                                   (stack === 'react-ts' || stack === 'nextjs' ? '/index.tsx' : '/index.jsx')
+                            dependencies: getSandpackDependencies()
                         }}
                         options={{
                             externalResources: ["https://cdn.tailwindcss.com"],
+                            bundlerURL: "https://sandpack-bundler.codesandbox.io",
+                            initMode: "lazy",
+                            initModeObserverOptions: { rootMargin: '1000px 0px' },
                             classes: {
                                 'sp-wrapper': 'h-full',
                                 'sp-preview': 'h-full',
