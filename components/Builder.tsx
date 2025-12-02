@@ -1833,11 +1833,11 @@ root.render(<App />);`;
             }
         }
         
-        // For Vue stack, ensure index.html exists
-        if (stack === 'vue') {
+        // For Vue or HTML stack, ensure index.html exists and is active
+        if (stack === 'vue' || stack === 'html') {
             const hasHtml = Object.keys(sandpackFiles).some(p => p.endsWith('.html'));
             if (!hasHtml) {
-                sandpackFiles['/index.html'] = { code: '<!DOCTYPE html>\n<html>\n<head>\n  <title>Preview</title>\n</head>\n<body>\n  <h1>Hello World</h1>\n</body>\n</html>' };
+                sandpackFiles['/index.html'] = { code: '<!DOCTYPE html>\n<html>\n<head>\n  <title>Preview</title>\n  <script src="https://cdn.tailwindcss.com"></script>\n</head>\n<body class="bg-slate-950 min-h-screen">\n  <h1 class="text-white text-center pt-20">Hello World</h1>\n</body>\n</html>' };
             }
             // Mark index.html as active for static template
             if (sandpackFiles['/index.html']) {
@@ -1852,7 +1852,7 @@ root.render(<App />);`;
         // Return appropriate template for each stack
         if (stack === 'react' || stack === 'nextjs') return 'react';
         if (stack === 'react-ts') return 'react-ts';
-        if (stack === 'vue' || stack === 'html') return 'static'; // Static HTML template
+        if (stack === 'vue' || stack === 'html') return 'static'; // Static HTML template for Vue CDN and plain HTML/JS
         return 'react'; // Default fallback
     };
 
@@ -1873,7 +1873,10 @@ root.render(<App />);`;
                 baseDeps['next'] = '^14.0.0';
             }
         }
-        // For vue with CDN, no deps needed
+        // For vue/html with CDN, no deps needed - return empty object
+        if (stack === 'vue' || stack === 'html') {
+            return {};
+        }
         
         if (pkgFile) {
             try {
@@ -1951,20 +1954,21 @@ root.render(<App />);`;
                     </div>
                 </div>
             ) : stack === 'flutter' ? (
-                // Flutter preview with embedded runtime
+                // Flutter preview with Zapp.run - more reliable than DartPad
                 <div className="flex-1 flex flex-col bg-slate-900">
                     <div className="flex items-center justify-between px-4 py-2 bg-slate-800 border-b border-slate-700">
                         <span className="text-xs text-cyan-400 font-mono flex items-center gap-2">
-                            <Smartphone className="w-4 h-4" /> Flutter Preview (DartPad)
+                            <Smartphone className="w-4 h-4" /> Flutter Preview
                         </span>
                         <div className="flex items-center gap-2">
-                            <button 
-                                onClick={() => { setIsRefreshing(true); setPreviewKey(p => p + 1); setTimeout(() => setIsRefreshing(false), 500); }}
-                                className="p-1.5 bg-slate-700 text-white rounded text-xs hover:bg-slate-600"
-                                title="Refresh Preview"
+                            <a 
+                                href="https://zapp.run/new"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-3 py-1 bg-cyan-600 text-white rounded text-xs font-bold hover:bg-cyan-500 flex items-center gap-1"
                             >
-                                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
-                            </button>
+                                <MonitorPlay className="w-3 h-3" /> Open in Zapp
+                            </a>
                             <button 
                                 onClick={handleDownload}
                                 className="px-3 py-1 bg-slate-600 text-white rounded text-xs font-bold hover:bg-slate-500 flex items-center gap-1"
@@ -1973,22 +1977,51 @@ root.render(<App />);`;
                             </button>
                         </div>
                     </div>
-                    {(() => {
-                        // Get Flutter code from main.dart file
-                        const mainDart = files.find(f => f.name === 'lib/main.dart' || f.name === 'main.dart');
-                        const code = mainDart?.content || `import 'package:flutter/material.dart';\nvoid main() => runApp(const MyApp());\nclass MyApp extends StatelessWidget {\n  const MyApp({super.key});\n  @override\n  Widget build(BuildContext context) {\n    return MaterialApp(\n      home: Scaffold(\n        appBar: AppBar(title: const Text('Zee Flutter')),\n        body: const Center(child: Text('Hello World')),\n      ),\n    );\n  }\n}`;
-                        // Encode code for URL - DartPad accepts code via ?code= parameter (gzip+base64)
-                        const encodedCode = encodeURIComponent(code);
-                        return (
-                            <iframe 
-                                key={previewKey}
-                                src={`https://dartpad.dev/embed-flutter.html?theme=dark&run=true&split=50&code=${encodedCode}`}
-                                className="flex-1 w-full border-none"
-                                title="Flutter Preview"
-                                allow="clipboard-read; clipboard-write"
-                            />
-                        );
-                    })()}
+                    <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+                        <Smartphone className="w-16 h-16 text-cyan-500 mb-4" />
+                        <h3 className="text-xl font-bold text-white mb-2">Flutter Project</h3>
+                        <p className="text-slate-400 text-sm mb-6 max-w-md">
+                            Flutter apps require a native runtime. Use the code editor to write your Dart code, 
+                            then click "Open in Zapp" to run it in a full Flutter environment.
+                        </p>
+                        <div className="bg-slate-800 rounded-lg p-4 border border-slate-700 max-w-lg w-full">
+                            <div className="flex items-center justify-between mb-3">
+                                <span className="text-xs text-slate-500 font-mono">lib/main.dart</span>
+                                <button 
+                                    onClick={() => {
+                                        const mainDart = files.find(f => f.name === 'lib/main.dart' || f.name === 'main.dart');
+                                        if (mainDart) navigator.clipboard.writeText(mainDart.content);
+                                        alert.toast.success('Code copied! Paste it in Zapp.run');
+                                    }}
+                                    className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                                >
+                                    <Copy className="w-3 h-3" /> Copy Code
+                                </button>
+                            </div>
+                            <pre className="text-xs text-slate-300 font-mono overflow-x-auto max-h-48 text-left">
+                                {files.find(f => f.name === 'lib/main.dart' || f.name === 'main.dart')?.content.slice(0, 500) || 'No main.dart file found'}
+                                {(files.find(f => f.name === 'lib/main.dart' || f.name === 'main.dart')?.content.length || 0) > 500 ? '...' : ''}
+                            </pre>
+                        </div>
+                        <div className="mt-4 flex gap-3">
+                            <a 
+                                href="https://zapp.run/new"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-6 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg font-bold flex items-center gap-2 transition-colors"
+                            >
+                                <Globe className="w-4 h-4" /> Open Zapp.run
+                            </a>
+                            <a 
+                                href="https://dartpad.dev/?id=flutter"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-6 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-bold flex items-center gap-2 transition-colors"
+                            >
+                                <MonitorPlay className="w-4 h-4" /> DartPad
+                            </a>
+                        </div>
+                    </div>
                 </div>
             ) : canUseSandpack ? (
                 <div className="flex-1 w-full" key={previewKey} style={{ height: 'calc(100% - 40px)', minHeight: '400px' }}>

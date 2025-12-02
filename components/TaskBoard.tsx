@@ -1,31 +1,50 @@
 
 import React, { useState, useEffect } from 'react';
-import { Task } from '../types';
+import { Task, User } from '../types';
 import { Plus, Trash2, Clock, CheckCircle2, Circle, AlertCircle, MoreVertical, X, Edit2, ArrowRight, ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
+import alert from '../services/alertService';
 
-const TaskBoard: React.FC = () => {
+interface TaskBoardProps {
+    user: User | null;
+}
+
+const TaskBoard: React.FC<TaskBoardProps> = ({ user }) => {
     const [tasks, setTasks] = useState<Task[]>([]);
     const [showAddModal, setShowAddModal] = useState(false);
     const [editingTask, setEditingTask] = useState<Task | null>(null);
     const [taskForm, setTaskForm] = useState({ title: '', description: '', priority: 'medium' as 'low'|'medium'|'high' });
     const [activeTab, setActiveTab] = useState<'todo' | 'in-progress' | 'done'>('todo');
 
-    useEffect(() => {
-        const stored = localStorage.getItem('zee_tasks');
-        if (stored) {
-            setTasks(JSON.parse(stored));
-        } else {
-            setTasks([
-                { id: '1', title: 'Design Home Screen', description: 'Create the main dashboard layout', status: 'done', priority: 'high', createdAt: Date.now() },
-                { id: '2', title: 'Integrate Gemini API', description: 'Connect chat interface to backend', status: 'in-progress', priority: 'high', createdAt: Date.now() },
-                { id: '3', title: 'User Authentication', description: 'Implement Firebase login flow', status: 'todo', priority: 'medium', createdAt: Date.now() }
-            ]);
-        }
-    }, []);
+    // Get storage key based on user
+    const getStorageKey = () => {
+        return user ? `zee_tasks_${user.email}` : 'zee_tasks_guest';
+    };
 
     useEffect(() => {
-        localStorage.setItem('zee_tasks', JSON.stringify(tasks));
-    }, [tasks]);
+        const storageKey = getStorageKey();
+        const stored = localStorage.getItem(storageKey);
+        if (stored) {
+            try {
+                setTasks(JSON.parse(stored));
+            } catch (e) {
+                console.error('Failed to parse tasks:', e);
+                setTasks([]);
+            }
+        } else {
+            // Set default sample tasks for new users
+            const defaultTasks: Task[] = [
+                { id: '1', title: 'Design Home Screen', description: 'Create the main dashboard layout', status: 'done', priority: 'high', createdAt: Date.now() },
+                { id: '2', title: 'Integrate Gemini API', description: 'Connect chat interface to backend', status: 'in-progress', priority: 'high', createdAt: Date.now() },
+                { id: '3', title: 'User Authentication', description: 'Implement login flow', status: 'todo', priority: 'medium', createdAt: Date.now() }
+            ];
+            setTasks(defaultTasks);
+        }
+    }, [user]);
+
+    useEffect(() => {
+        const storageKey = getStorageKey();
+        localStorage.setItem(storageKey, JSON.stringify(tasks));
+    }, [tasks, user]);
 
     const openAddModal = () => {
         setEditingTask(null);
@@ -68,18 +87,18 @@ const TaskBoard: React.FC = () => {
         setTaskForm({ title: '', description: '', priority: 'medium' });
     };
 
-    const deleteTask = (id: string) => {
-        (window as any).swal({
+    const deleteTask = async (id: string) => {
+        const confirmed = await alert.confirm({
             title: "Delete Task?",
             text: "Are you sure you want to delete this task?",
             icon: "warning",
-            buttons: ["Cancel", "Delete"],
-            dangerMode: true,
-        }).then((willDelete: boolean) => {
-            if (willDelete) {
-                setTasks(tasks.filter(t => t.id !== id));
-            }
+            confirmText: "Delete",
+            isDanger: true
         });
+        
+        if (confirmed) {
+            setTasks(tasks.filter(t => t.id !== id));
+        }
     };
 
     const moveTask = (id: string, status: 'todo' | 'in-progress' | 'done') => {

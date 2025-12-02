@@ -452,7 +452,7 @@ const App: React.FC = () => {
                         }} 
                     />
                 )}
-                {currentView === View.TASKS && <TaskBoard />}
+                {currentView === View.TASKS && <TaskBoard user={user} />}
                 {currentView === View.INTEGRATIONS && <Integrations onNavigate={handleNavigation} />}
                 {currentView === View.CHAT && <ChatInterface />}
                 {currentView === View.IMAGE_STUDIO && <ImageStudio />}
