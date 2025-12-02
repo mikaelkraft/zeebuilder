@@ -6,6 +6,14 @@
     <meta name="HandheldFriendly" content="true" />
     <meta name="MobileOptimized" content="width" />
     <title>Zee Builder--Imagine app and images</title>
+    <!-- Apply dark mode class on initial load to prevent FOUC -->
+    <script>
+      document.documentElement.classList.toggle(
+        'dark',
+        localStorage.getItem('zee_theme') === 'dark' ||
+          (!localStorage.getItem('zee_theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)
+      );
+    </script>
     
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css" />
     <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
