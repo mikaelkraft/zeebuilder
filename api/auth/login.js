@@ -24,8 +24,9 @@ export default async function handler(req, res) {
 
   try {
     // Check for super admin (from environment variables)
-    const adminEmail = process.env.VITE_ADMIN_EMAIL;
-    const adminPasswordHash = process.env.VITE_ADMIN_PASSWORD_HASH;
+    // Use non-VITE prefixed vars for serverless, fallback to VITE_ for compatibility
+    const adminEmail = process.env.ADMIN_EMAIL || process.env.VITE_ADMIN_EMAIL;
+    const adminPasswordHash = process.env.ADMIN_PASSWORD_HASH || process.env.VITE_ADMIN_PASSWORD_HASH;
     
     // Simple hash function (matching the frontend)
     const simpleHash = (str) => {
@@ -54,6 +55,11 @@ export default async function handler(req, res) {
           isAdmin: true
         }
       });
+    }
+
+    // Check if Supabase is configured
+    if (!supabaseAdmin) {
+      return res.status(500).json({ error: 'Database not configured. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.' });
     }
 
     // Find user in Supabase

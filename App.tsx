@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { View, User } from './types';
 import { 
   LayoutDashboard, 
@@ -42,6 +43,47 @@ import Documentation from './components/legal/Documentation';
 import { usageService } from './services/usageService';
 import { supabase, onAuthStateChange } from './services/supabaseClient';
 
+// Route configuration
+const ROUTES: Record<string, View> = {
+  '/': View.HOME,
+  '/home': View.HOME,
+  '/dashboard': View.DASHBOARD,
+  '/builder': View.BUILDER,
+  '/projects': View.PROJECTS,
+  '/tasks': View.TASKS,
+  '/chat': View.CHAT,
+  '/image-studio': View.IMAGE_STUDIO,
+  '/audio-studio': View.AUDIO_STUDIO,
+  '/profile': View.PROFILE,
+  '/developers': View.DEVELOPERS,
+  '/integrations': View.INTEGRATIONS,
+  '/admin': View.ADMIN,
+  '/privacy': View.POLICY,
+  '/privacy-policy': View.POLICY,
+  '/terms': View.TERMS,
+  '/terms-of-service': View.TERMS,
+  '/docs': View.DOCS,
+  '/documentation': View.DOCS,
+};
+
+const VIEW_PATHS: Record<View, string> = {
+  [View.HOME]: '/',
+  [View.DASHBOARD]: '/dashboard',
+  [View.BUILDER]: '/builder',
+  [View.PROJECTS]: '/projects',
+  [View.TASKS]: '/tasks',
+  [View.CHAT]: '/chat',
+  [View.IMAGE_STUDIO]: '/image-studio',
+  [View.AUDIO_STUDIO]: '/audio-studio',
+  [View.PROFILE]: '/profile',
+  [View.DEVELOPERS]: '/developers',
+  [View.INTEGRATIONS]: '/integrations',
+  [View.ADMIN]: '/admin',
+  [View.POLICY]: '/privacy',
+  [View.TERMS]: '/terms',
+  [View.DOCS]: '/docs',
+};
+
 // Zee Logo Component
 const ZeeLogo = () => (
   <svg viewBox="0 0 100 100" className="w-10 h-10 text-slate-900 dark:text-white transition-colors duration-300" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -66,69 +108,17 @@ const ZeeLogo = () => (
 );
 
 const App: React.FC = () => {
-  // URL-based routing: Map paths to views
-  const getViewFromPath = (): View => {
-    const path = window.location.pathname.toLowerCase();
-    const routes: Record<string, View> = {
-      '/': View.HOME,
-      '/home': View.HOME,
-      '/dashboard': View.DASHBOARD,
-      '/builder': View.BUILDER,
-      '/projects': View.PROJECTS,
-      '/tasks': View.TASKS,
-      '/chat': View.CHAT,
-      '/image-studio': View.IMAGE_STUDIO,
-      '/audio-studio': View.AUDIO_STUDIO,
-      '/profile': View.PROFILE,
-      '/developers': View.DEVELOPERS,
-      '/integrations': View.INTEGRATIONS,
-      '/admin': View.ADMIN,
-      '/privacy': View.POLICY,
-      '/privacy-policy': View.POLICY,
-      '/terms': View.TERMS,
-      '/terms-of-service': View.TERMS,
-      '/docs': View.DOCS,
-      '/documentation': View.DOCS,
-    };
-    return routes[path] || View.HOME;
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Get view from current URL path
+  const getViewFromPath = (pathname: string): View => {
+    return ROUTES[pathname.toLowerCase()] || View.HOME;
   };
 
-  // Update URL when view changes
-  const updateURL = (view: View) => {
-    const viewPaths: Record<View, string> = {
-      [View.HOME]: '/',
-      [View.DASHBOARD]: '/dashboard',
-      [View.BUILDER]: '/builder',
-      [View.PROJECTS]: '/projects',
-      [View.TASKS]: '/tasks',
-      [View.CHAT]: '/chat',
-      [View.IMAGE_STUDIO]: '/image-studio',
-      [View.AUDIO_STUDIO]: '/audio-studio',
-      [View.PROFILE]: '/profile',
-      [View.DEVELOPERS]: '/developers',
-      [View.INTEGRATIONS]: '/integrations',
-      [View.ADMIN]: '/admin',
-      [View.POLICY]: '/privacy',
-      [View.TERMS]: '/terms',
-      [View.DOCS]: '/docs',
-    };
-    const path = viewPaths[view] || '/';
-    if (window.location.pathname !== path) {
-      window.history.pushState({}, '', path);
-    }
-  };
-
-  // Initialize view from URL or localStorage
+  // Initialize view from URL
   const [currentView, setCurrentView] = useState<View>(() => {
-    const urlView = getViewFromPath();
-    if (urlView !== View.HOME || window.location.pathname === '/' || window.location.pathname === '/home') {
-      return urlView;
-    }
-    const savedView = localStorage.getItem('zee_current_view');
-    if (savedView && Object.values(View).includes(savedView as View)) {
-      return savedView as View;
-    }
-    return View.HOME;
+    return getViewFromPath(location.pathname);
   });
   const [user, setUser] = useState<User | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -136,21 +126,23 @@ const App: React.FC = () => {
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [pendingView, setPendingView] = useState<View | null>(null);
 
-  // Persist current view to localStorage and update URL
+  // Sync view with URL changes (browser back/forward)
   useEffect(() => {
-    localStorage.setItem('zee_current_view', currentView);
-    updateURL(currentView);
-  }, [currentView]);
+    const newView = getViewFromPath(location.pathname);
+    if (newView !== currentView) {
+      setCurrentView(newView);
+    }
+  }, [location.pathname]);
 
-  // Handle browser back/forward navigation
-  useEffect(() => {
-    const handlePopState = () => {
-      const view = getViewFromPath();
-      setCurrentView(view);
-    };
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
+  // Update URL when view changes programmatically
+  const navigateToView = (view: View) => {
+    const path = VIEW_PATHS[view] || '/';
+    if (location.pathname !== path) {
+      navigate(path);
+    }
+    setCurrentView(view);
+    localStorage.setItem('zee_current_view', view);
+  };
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('zee_theme');
@@ -179,7 +171,7 @@ const App: React.FC = () => {
         // If no user but on a protected view, redirect to home
         const protectedViews = [View.DASHBOARD, View.BUILDER, View.TASKS, View.PROFILE, View.DEVELOPERS, View.PROJECTS, View.ADMIN];
         if (protectedViews.includes(currentView)) {
-            setCurrentView(View.HOME);
+            navigateToView(View.HOME);
         }
     }
   }, []);
@@ -207,7 +199,7 @@ const App: React.FC = () => {
         setUser(newUser);
         usageService.init(newUser.email);
         setShowAuth(false);
-        setCurrentView(View.DASHBOARD);
+        navigateToView(View.DASHBOARD);
       }
     });
 
@@ -233,7 +225,7 @@ const App: React.FC = () => {
         
         setUser(newUser);
         usageService.init(newUser.email);
-        setCurrentView(View.DASHBOARD);
+        navigateToView(View.DASHBOARD);
       }
       } catch (e) {
         console.error('Error checking session:', e);
@@ -255,7 +247,7 @@ const App: React.FC = () => {
     localStorage.removeItem('zee_user');
     localStorage.removeItem('zee_github_token');
     localStorage.removeItem('zee_current_view');
-    setCurrentView(View.HOME);
+    navigateToView(View.HOME);
   };
 
   const handleNavigation = (view: View) => {
@@ -264,7 +256,7 @@ const App: React.FC = () => {
           setPendingView(view);
           setShowAuth(true);
       } else {
-          setCurrentView(view);
+          navigateToView(view);
       }
       setIsSidebarOpen(false);
       window.scrollTo(0,0);
@@ -301,10 +293,10 @@ const App: React.FC = () => {
             usageService.init(u.email);
             setShowAuth(false);
             if (pendingView) {
-                setCurrentView(pendingView);
+                navigateToView(pendingView);
                 setPendingView(null);
             } else {
-                setCurrentView(View.DASHBOARD);
+                navigateToView(View.DASHBOARD);
             }
           }} 
           onClose={() => {
@@ -328,7 +320,7 @@ const App: React.FC = () => {
       >
         {/* Logo header - only visible on mobile */}
         <div className="p-6 border-b border-gray-200 dark:border-slate-800 flex items-center justify-between h-20 lg:hidden">
-            <div className="flex items-center space-x-3 cursor-pointer" onClick={() => setCurrentView(View.HOME)}>
+            <div className="flex items-center space-x-3 cursor-pointer" onClick={() => navigateToView(View.HOME)}>
                 <ZeeLogo />
                 <span className="text-xl font-black tracking-tight text-slate-900 dark:text-white">Zee<span className="text-blue-600">Builder</span></span>
             </div>
@@ -407,7 +399,7 @@ const App: React.FC = () => {
       <main className="flex-1 flex flex-col min-h-screen overflow-hidden relative bg-gray-50 dark:bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] dark:from-slate-900 dark:via-slate-950 dark:to-slate-950">
         {/* Desktop Header - Sticky */}
         <div className="hidden lg:flex items-center justify-between px-8 py-4 border-b border-gray-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md z-30 shrink-0 sticky top-0">
-            <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView(View.HOME)}>
+            <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigateToView(View.HOME)}>
                 <ZeeLogo />
                 <span className="text-lg font-black tracking-tight text-slate-900 dark:text-white">Zee<span className="text-blue-600">Builder</span></span>
             </div>
@@ -433,7 +425,7 @@ const App: React.FC = () => {
             <button onClick={() => setIsSidebarOpen(true)} className="text-slate-900 dark:text-white p-2">
                 <Menu className="w-6 h-6" />
             </button>
-            <div className="flex items-center space-x-2 cursor-pointer" onClick={() => setCurrentView(View.HOME)}>
+            <div className="flex items-center space-x-2 cursor-pointer" onClick={() => navigateToView(View.HOME)}>
                 <ZeeLogo />
                 <span className="font-black text-lg text-slate-900 dark:text-white">Zee<span className="text-blue-600">Builder</span></span>
             </div>

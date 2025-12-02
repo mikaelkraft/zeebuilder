@@ -11,6 +11,11 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
+  // Check if Supabase is configured
+  if (!supabaseAdmin) {
+    return res.status(500).json({ error: 'Database not configured' });
+  }
+
   // Verify JWT token
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {

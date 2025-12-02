@@ -1850,9 +1850,10 @@ root.render(<App />);`;
 
     const getSandpackTemplate = (): 'react' | 'react-ts' | 'vanilla' | 'vanilla-ts' | 'static' | 'vue' | undefined => {
         // Return appropriate template for each stack
-        if (stack === 'react' || stack === 'react-ts' || stack === 'nextjs') return undefined;
+        if (stack === 'react' || stack === 'nextjs') return 'react';
+        if (stack === 'react-ts') return 'react-ts';
         if (stack === 'vue' || stack === 'html') return 'static'; // Static HTML template
-        return undefined;
+        return 'react'; // Default fallback
     };
 
     const getSandpackDependencies = () => {

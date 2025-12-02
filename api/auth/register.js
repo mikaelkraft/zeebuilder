@@ -16,6 +16,11 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
+  // Check if Supabase is configured
+  if (!supabaseAdmin) {
+    return res.status(503).json({ error: 'Database service temporarily unavailable. Please try again later.' });
+  }
+
   const { email, password, username } = req.body;
 
   if (!email || !password || !username) {
