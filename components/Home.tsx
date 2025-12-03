@@ -850,15 +850,24 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                 }
                 .animate-scroll-left {
                     animation: scroll-left 30s linear infinite;
-                    width: max-content;
+                    display: flex;
+                    width: fit-content;
                 }
                 .animate-scroll-right {
                     animation: scroll-right 30s linear infinite;
-                    width: max-content;
+                    display: flex;
+                    width: fit-content;
                 }
                 .animate-scroll-left:hover,
                 .animate-scroll-right:hover {
                     animation-play-state: paused;
+                }
+                /* Ensure touch scrolling works on mobile */
+                @media (max-width: 768px) {
+                    .animate-scroll-left,
+                    .animate-scroll-right {
+                        touch-action: pan-y;
+                    }
                 }
             `}</style>
 

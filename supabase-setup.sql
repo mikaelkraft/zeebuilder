@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS users (
 -- Create projects table (stores user projects)
 CREATE TABLE IF NOT EXISTS projects (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
   project_id TEXT NOT NULL, -- Local project ID for syncing
   name TEXT NOT NULL,
   stack TEXT NOT NULL,
@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS projects (
 -- Create service_configs table (stores API keys and service connections)
 CREATE TABLE IF NOT EXISTS service_configs (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
   service_id TEXT NOT NULL, -- e.g., 'stripe', 'resend', 'tailwindcss'
   service_name TEXT NOT NULL,
   service_type TEXT NOT NULL, -- 'api' (requires keys) or 'integration' (no keys)
@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS service_configs (
 -- Create tasks table (for task board)
 CREATE TABLE IF NOT EXISTS tasks (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
   task_id TEXT NOT NULL, -- Local task ID
   title TEXT NOT NULL,
   description TEXT,
@@ -62,7 +62,7 @@ CREATE TABLE IF NOT EXISTS tasks (
 -- Create community_projects table (for published/shared projects)
 CREATE TABLE IF NOT EXISTS community_projects (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
   project_id TEXT NOT NULL, -- Local project ID reference
   name TEXT NOT NULL,
   description TEXT,
@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS community_projects (
 -- Create community_likes table (track who liked what)
 CREATE TABLE IF NOT EXISTS community_likes (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
   project_id UUID REFERENCES community_projects(id) ON DELETE CASCADE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   UNIQUE(user_id, project_id)
