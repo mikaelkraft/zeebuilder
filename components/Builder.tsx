@@ -1954,74 +1954,88 @@ root.render(<App />);`;
                     </div>
                 </div>
             ) : stack === 'flutter' ? (
-                // Flutter preview with Zapp.run - more reliable than DartPad
+                // Flutter preview with embedded DartPad
                 <div className="flex-1 flex flex-col bg-slate-900">
                     <div className="flex items-center justify-between px-4 py-2 bg-slate-800 border-b border-slate-700">
                         <span className="text-xs text-cyan-400 font-mono flex items-center gap-2">
-                            <Smartphone className="w-4 h-4" /> Flutter Preview
+                            <Smartphone className="w-4 h-4" /> Flutter Preview (DartPad)
                         </span>
                         <div className="flex items-center gap-2">
+                            <button 
+                                onClick={() => { setIsRefreshing(true); setPreviewKey(p => p + 1); setTimeout(() => setIsRefreshing(false), 500); }}
+                                className="p-1.5 bg-slate-700 text-white rounded text-xs hover:bg-slate-600"
+                                title="Refresh Preview"
+                            >
+                                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                            </button>
+                            <button 
+                                onClick={() => {
+                                    const mainDart = files.find(f => f.name === 'lib/main.dart' || f.name === 'main.dart');
+                                    if (mainDart) navigator.clipboard.writeText(mainDart.content);
+                                    alert.toast.success('Code copied!');
+                                }}
+                                className="px-2 py-1 bg-slate-700 text-white rounded text-xs hover:bg-slate-600 flex items-center gap-1"
+                            >
+                                <Copy className="w-3 h-3" /> Copy
+                            </button>
+                            <a 
+                                href="https://flutlab.io/"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-2 py-1 bg-purple-600 text-white rounded text-xs font-bold hover:bg-purple-500 flex items-center gap-1"
+                            >
+                                <Globe className="w-3 h-3" /> FlutLab
+                            </a>
                             <a 
                                 href="https://zapp.run/new"
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="px-3 py-1 bg-cyan-600 text-white rounded text-xs font-bold hover:bg-cyan-500 flex items-center gap-1"
+                                className="px-2 py-1 bg-cyan-600 text-white rounded text-xs font-bold hover:bg-cyan-500 flex items-center gap-1"
                             >
-                                <MonitorPlay className="w-3 h-3" /> Open in Zapp
+                                <MonitorPlay className="w-3 h-3" /> Zapp
                             </a>
                             <button 
                                 onClick={handleDownload}
-                                className="px-3 py-1 bg-slate-600 text-white rounded text-xs font-bold hover:bg-slate-500 flex items-center gap-1"
+                                className="px-2 py-1 bg-slate-600 text-white rounded text-xs font-bold hover:bg-slate-500 flex items-center gap-1"
                             >
                                 <Download className="w-3 h-3" /> Download
                             </button>
                         </div>
                     </div>
-                    <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-                        <Smartphone className="w-16 h-16 text-cyan-500 mb-4" />
-                        <h3 className="text-xl font-bold text-white mb-2">Flutter Project</h3>
-                        <p className="text-slate-400 text-sm mb-6 max-w-md">
-                            Flutter apps require a native runtime. Use the code editor to write your Dart code, 
-                            then click "Open in Zapp" to run it in a full Flutter environment.
-                        </p>
-                        <div className="bg-slate-800 rounded-lg p-4 border border-slate-700 max-w-lg w-full">
-                            <div className="flex items-center justify-between mb-3">
-                                <span className="text-xs text-slate-500 font-mono">lib/main.dart</span>
-                                <button 
-                                    onClick={() => {
-                                        const mainDart = files.find(f => f.name === 'lib/main.dart' || f.name === 'main.dart');
-                                        if (mainDart) navigator.clipboard.writeText(mainDart.content);
-                                        alert.toast.success('Code copied! Paste it in Zapp.run');
-                                    }}
-                                    className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
-                                >
-                                    <Copy className="w-3 h-3" /> Copy Code
-                                </button>
-                            </div>
-                            <pre className="text-xs text-slate-300 font-mono overflow-x-auto max-h-48 text-left">
-                                {files.find(f => f.name === 'lib/main.dart' || f.name === 'main.dart')?.content.slice(0, 500) || 'No main.dart file found'}
-                                {(files.find(f => f.name === 'lib/main.dart' || f.name === 'main.dart')?.content.length || 0) > 500 ? '...' : ''}
-                            </pre>
-                        </div>
-                        <div className="mt-4 flex gap-3">
-                            <a 
-                                href="https://zapp.run/new"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="px-6 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg font-bold flex items-center gap-2 transition-colors"
-                            >
-                                <Globe className="w-4 h-4" /> Open Zapp.run
-                            </a>
-                            <a 
-                                href="https://dartpad.dev/?id=flutter"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="px-6 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-bold flex items-center gap-2 transition-colors"
-                            >
-                                <MonitorPlay className="w-4 h-4" /> DartPad
-                            </a>
-                        </div>
-                    </div>
+                    {(() => {
+                        // Get Flutter code from main.dart file
+                        const mainDart = files.find(f => f.name === 'lib/main.dart' || f.name === 'main.dart');
+                        const code = mainDart?.content || `import 'package:flutter/material.dart';
+
+void main() => runApp(const MyApp());
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+  
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        appBar: AppBar(title: const Text('Zee Flutter')),
+        body: const Center(child: Text('Hello World')),
+      ),
+    );
+  }
+}`;
+                        // Encode code for DartPad embed URL
+                        const encodedCode = encodeURIComponent(code);
+                        return (
+                            <iframe 
+                                key={previewKey}
+                                src={`https://dartpad.dev/embed-flutter.html?theme=dark&run=true&split=0&code=${encodedCode}`}
+                                className="flex-1 w-full border-none"
+                                title="Flutter Preview"
+                                allow="clipboard-read; clipboard-write"
+                                sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+                            />
+                        );
+                    })()}
                 </div>
             ) : canUseSandpack ? (
                 <div className="flex-1 w-full" key={previewKey} style={{ height: 'calc(100% - 40px)', minHeight: '400px' }}>
@@ -2030,11 +2044,11 @@ root.render(<App />);`;
                         files={getSandpackFiles()}
                         theme="light"
                         customSetup={{
-                            dependencies: getSandpackDependencies(),
-                            entry: stack === 'html' || stack === 'vue' ? '/index.html' : (stack === 'react-ts' ? '/index.tsx' : '/index.jsx')
+                            dependencies: getSandpackDependencies()
                         }}
                         options={{
                             externalResources: ["https://cdn.tailwindcss.com"],
+                            bundlerURL: "https://sandpack-bundler.codesandbox.io",
                             classes: {
                                 'sp-wrapper': 'h-full',
                                 'sp-preview': 'h-full',
@@ -3150,6 +3164,13 @@ root.render(<App />);`;
                             className={`flex-1 py-2 text-xs font-bold flex items-center justify-center ${rightPanelTab === 'preview' ? 'text-green-500 bg-slate-900 border-t-2 border-green-500' : 'text-slate-500 hover:text-slate-300'}`}
                         >
                             <Play className="w-3.5 h-3.5 mr-2"/> Preview
+                        </button>
+                        <button 
+                            onClick={() => setIsFullScreenPreview(true)} 
+                            className="py-2 px-3 text-xs font-bold flex items-center justify-center text-purple-500 hover:text-purple-400 hover:bg-slate-800"
+                            title="Full Device Preview"
+                        >
+                            <Maximize2 className="w-3.5 h-3.5"/>
                         </button>
                     </div>
                     <div className="flex-1 overflow-hidden relative">
