@@ -173,7 +173,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ onLogin, onClose }) => {
                                     />
                                 </div>
                                 <div className="flex justify-end mt-1">
-                                    <button type="button" onClick={() => { setView('FORGOT_EMAIL'); setError(null); }} className="text-xs text-blue-600 dark:text-blue-400 hover:underline">
+                                    <button type="button" onClick={() => { setView('FORGOT_EMAIL'); setResetEmail(email); setError(null); }} className="text-xs text-blue-600 dark:text-blue-400 hover:underline">
                                         Forgot password?
                                     </button>
                                 </div>

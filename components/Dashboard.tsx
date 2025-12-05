@@ -38,9 +38,15 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigate }) => {
         totalFiles: 0 
     });
 
+    // Get user-specific storage key
+    const getTasksKey = () => user ? `zee_tasks_${user.email}` : 'zee_tasks_guest';
+    const getProjectsKey = () => user ? `zee_projects_${user.email}` : 'zee_projects_guest';
+
     useEffect(() => {
-        // Load tasks
-        const storedTasks = localStorage.getItem('zee_tasks');
+        if (!user) return; // Don't load data until user is available
+        
+        // Load tasks with user-specific key
+        const storedTasks = localStorage.getItem(getTasksKey());
         if (storedTasks) {
             const parsedTasks: Task[] = JSON.parse(storedTasks);
             setTasks(parsedTasks);
@@ -49,10 +55,13 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigate }) => {
                 inProgress: parsedTasks.filter(t => t.status === 'in-progress').length,
                 done: parsedTasks.filter(t => t.status === 'done').length
             });
+        } else {
+            setTasks([]);
+            setStats({ todo: 0, inProgress: 0, done: 0 });
         }
         
-        // Load projects
-        const storedProjects = localStorage.getItem('zee_projects');
+        // Load projects with user-specific key
+        const storedProjects = localStorage.getItem(getProjectsKey());
         if (storedProjects) {
             const parsedProjects: SavedProject[] = JSON.parse(storedProjects);
             setProjects(parsedProjects);
@@ -75,8 +84,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigate }) => {
                 recentlyModified,
                 totalFiles
             });
+        } else {
+            setProjects([]);
+            setProjectStats({ total: 0, byStack: {}, recentlyModified: 0, totalFiles: 0 });
         }
-    }, []);
+    }, [user]);
 
     const StatCard = ({ title, count, icon: Icon, color, onClick }: any) => (
         <div onClick={onClick} className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all cursor-pointer">

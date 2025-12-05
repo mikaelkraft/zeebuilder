@@ -143,10 +143,12 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser }) => {
                 setCloudProvider(config.provider || 'supabase');
             }
             
-            // Calculate sync stats
+            // Calculate sync stats - use user-specific keys
+            const projectsKey = `zee_projects_${user.email}`;
+            const tasksKey = `zee_tasks_${user.email}`;
             try {
-                const projects: SavedProject[] = JSON.parse(localStorage.getItem('zee_projects') || '[]');
-                const tasks: Task[] = JSON.parse(localStorage.getItem('zee_tasks') || '[]');
+                const projects: SavedProject[] = JSON.parse(localStorage.getItem(projectsKey) || '[]');
+                const tasks: Task[] = JSON.parse(localStorage.getItem(tasksKey) || '[]');
                 const services = JSON.parse(localStorage.getItem('zee_service_configs') || '[]');
                 setSyncStats({
                     projects: projects.length,
@@ -252,13 +254,20 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser }) => {
             return;
         }
         
+        if (!user) {
+            setMessage({ type: 'error', text: 'Please login first.' });
+            return;
+        }
+        
         setIsSyncing(true);
         setMessage(null);
         
         try {
-            // Get local data
-            const projects: SavedProject[] = JSON.parse(localStorage.getItem('zee_projects') || '[]');
-            const tasks: Task[] = JSON.parse(localStorage.getItem('zee_tasks') || '[]');
+            // Get local data - use user-specific keys
+            const projectsKey = `zee_projects_${user.email}`;
+            const tasksKey = `zee_tasks_${user.email}`;
+            const projects: SavedProject[] = JSON.parse(localStorage.getItem(projectsKey) || '[]');
+            const tasks: Task[] = JSON.parse(localStorage.getItem(tasksKey) || '[]');
             const services = JSON.parse(localStorage.getItem('zee_service_configs') || '[]');
             
             // Simulate sync to user's cloud backend

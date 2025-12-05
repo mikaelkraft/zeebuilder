@@ -539,8 +539,11 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
     const shellRef = useRef<Shell | null>(null);
     const fitAddonRef = useRef<any>(null);
 
+    // Helper function to get user-specific storage key
+    const getProjectsKey = () => user ? `zee_projects_${user.email}` : 'zee_projects_guest';
+
     useEffect(() => {
-        const storedProjects = localStorage.getItem('zee_projects');
+        const storedProjects = localStorage.getItem(getProjectsKey());
         if (storedProjects) {
             const parsed = JSON.parse(storedProjects);
             setSavedProjects(parsed);
@@ -593,7 +596,7 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
             setGhToken(savedGhToken);
             connectGitHub(savedGhToken);
         }
-    }, []);
+    }, [user]);
 
     useEffect(() => {
         if (currentProjectId) {
@@ -605,7 +608,7 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                 const newArr = [...prev];
                 if (idx >= 0) newArr[idx] = p;
                 else newArr.push(p);
-                localStorage.setItem('zee_projects', JSON.stringify(newArr));
+                localStorage.setItem(getProjectsKey(), JSON.stringify(newArr));
                 return newArr;
             });
             localStorage.setItem('zee_active_project_id', currentProjectId);
@@ -616,7 +619,7 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                 try { setDependencies(JSON.parse(pkg.content).dependencies || {}); } catch(e) {}
             }
         }
-    }, [files, messages, dbConfigs, projectName, stack, currentProjectId, snapshots]);
+    }, [files, messages, dbConfigs, projectName, stack, currentProjectId, snapshots, user]);
 
     useLayoutEffect(() => {
         const initTimer = setTimeout(() => {
@@ -905,7 +908,7 @@ body {
         if (confirmed) {
             const newProjects = savedProjects.filter(p => p.id !== id);
             setSavedProjects(newProjects);
-            localStorage.setItem('zee_projects', JSON.stringify(newProjects));
+            localStorage.setItem(getProjectsKey(), JSON.stringify(newProjects));
             if (currentProjectId === id) {
                 setCurrentProjectId(null);
                 setIsWizardOpen(true);

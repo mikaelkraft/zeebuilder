@@ -439,11 +439,12 @@ const App: React.FC = () => {
         {/* View Content & Footer Wrapper */}
         <div className="flex-1 overflow-y-auto flex flex-col w-full relative">
             <div className="flex-1 p-4 sm:p-6 lg:p-8 xl:px-12 w-full min-h-full">
-                {currentView === View.HOME && <Home onNavigate={handleNavigation} />}
+                {currentView === View.HOME && <Home user={user} onNavigate={handleNavigation} />}
                 {currentView === View.DASHBOARD && <Dashboard user={user} onNavigate={handleNavigation} />}
                 {currentView === View.BUILDER && <Builder user={user} />}
                 {currentView === View.PROJECTS && (
                     <Projects 
+                        user={user}
                         onNavigate={handleNavigation} 
                         setActiveProject={(id) => {
                             // Force update if switching to Builder
@@ -453,7 +454,7 @@ const App: React.FC = () => {
                     />
                 )}
                 {currentView === View.TASKS && <TaskBoard user={user} />}
-                {currentView === View.INTEGRATIONS && <Integrations onNavigate={handleNavigation} />}
+                {currentView === View.INTEGRATIONS && <Integrations user={user} onNavigate={handleNavigation} />}
                 {currentView === View.CHAT && <ChatInterface />}
                 {currentView === View.IMAGE_STUDIO && <ImageStudio />}
                 {currentView === View.AUDIO_STUDIO && <AudioStudio onNavigate={handleNavigation} />}

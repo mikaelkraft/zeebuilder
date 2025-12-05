@@ -41,8 +41,10 @@ import {
     Rocket,
     GitFork
 } from 'lucide-react';
+import { User } from '../types';
 
 interface HomeProps {
+    user: User | null;
     onNavigate: (view: View) => void;
 }
 
@@ -222,11 +224,12 @@ const CommunityShowcase = ({ onNavigate }: { onNavigate: (view: View) => void })
             snapshots: []
         };
         
-        // Add to user's projects
-        const stored = localStorage.getItem('zee_projects');
+        // Add to user's projects - use user-specific key
+        const projectsKey = user ? `zee_projects_${user.email}` : 'zee_projects_guest';
+        const stored = localStorage.getItem(projectsKey);
         const userProjects = stored ? JSON.parse(stored) : [];
         userProjects.unshift(tempProject);
-        localStorage.setItem('zee_projects', JSON.stringify(userProjects));
+        localStorage.setItem(projectsKey, JSON.stringify(userProjects));
         localStorage.setItem('zee_active_project_id', tempProject.id);
         
         setSelectedProject(null);
@@ -474,7 +477,7 @@ const CommunityShowcase = ({ onNavigate }: { onNavigate: (view: View) => void })
     );
 };
 
-const Home: React.FC<HomeProps> = ({ onNavigate }) => {
+const Home: React.FC<HomeProps> = ({ user, onNavigate }) => {
     const [currentWordIndex, setCurrentWordIndex] = useState(0);
     const [stackScrollPos, setStackScrollPos] = useState(0);
     

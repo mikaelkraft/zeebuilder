@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { SavedProject, View, Stack } from '../types';
+import { SavedProject, View, Stack, User } from '../types';
 import { 
     Folder, 
     Clock, 
@@ -23,19 +23,25 @@ import {
 import { isProjectPublished, publishToCommmunity, unpublishFromCommunity } from '../services/communityService';
 
 interface ProjectsProps {
+    user: User | null;
     onNavigate: (view: View) => void;
     setActiveProject: (id: string) => void;
 }
 
-const Projects: React.FC<ProjectsProps> = ({ onNavigate, setActiveProject }) => {
+const Projects: React.FC<ProjectsProps> = ({ user, onNavigate, setActiveProject }) => {
     const [projects, setProjects] = useState<SavedProject[]>([]);
     const [search, setSearch] = useState('');
     const [publishModal, setPublishModal] = useState<{ open: boolean; project: SavedProject | null }>({ open: false, project: null });
     const [publishDesc, setPublishDesc] = useState('');
     const [publishedIds, setPublishedIds] = useState<Set<string>>(new Set());
 
+    // Get user-specific storage key
+    const getProjectsKey = () => user ? `zee_projects_${user.email}` : 'zee_projects_guest';
+
     useEffect(() => {
-        const stored = localStorage.getItem('zee_projects');
+        if (!user) return;
+        
+        const stored = localStorage.getItem(getProjectsKey());
         if (stored) {
             try {
                 const loadedProjects = JSON.parse(stored);
@@ -51,8 +57,10 @@ const Projects: React.FC<ProjectsProps> = ({ onNavigate, setActiveProject }) => 
             } catch (e) {
                 console.error("Failed to load projects", e);
             }
+        } else {
+            setProjects([]);
         }
-    }, []);
+    }, [user]);
 
     const deleteProject = (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
@@ -67,7 +75,7 @@ const Projects: React.FC<ProjectsProps> = ({ onNavigate, setActiveProject }) => 
             if (willDelete) {
                 const updated = projects.filter(p => p.id !== id);
                 setProjects(updated);
-                localStorage.setItem('zee_projects', JSON.stringify(updated));
+                localStorage.setItem(getProjectsKey(), JSON.stringify(updated));
                 unpublishFromCommunity(id);
                 
                 const activeId = localStorage.getItem('zee_active_project_id');

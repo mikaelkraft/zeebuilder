@@ -24,19 +24,37 @@
 /* Enable dark mode via class - Tailwind v4 syntax */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Prevent text scaling on mobile browsers */
+/* Base styles for html and body */
 html {
   -webkit-text-size-adjust: 100%;
   -moz-text-size-adjust: 100%;
   -ms-text-size-adjust: 100%;
   text-size-adjust: 100%;
   font-size: 16px;
+  min-height: 100%;
 }
 
 body {
   font-size: 1rem;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  min-height: 100%;
+  background-color: #f8fafc; /* slate-50 for light mode */
+  color: #0f172a; /* slate-900 for light mode */
+  transition: background-color 0.2s, color 0.2s;
+}
+
+/* Dark mode background for body */
+.dark body,
+body.dark,
+.dark {
+  background-color: #020617; /* slate-950 for dark mode */
+  color: #f8fafc; /* slate-50 for dark mode */
+}
+
+html.dark {
+  background-color: #020617;
+  color-scheme: dark;
 }
 
 /* Ensure consistent sizing on mobile */

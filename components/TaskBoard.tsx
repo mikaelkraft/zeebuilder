@@ -31,13 +31,8 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ user }) => {
                 setTasks([]);
             }
         } else {
-            // Set default sample tasks for new users
-            const defaultTasks: Task[] = [
-                { id: '1', title: 'Design Home Screen', description: 'Create the main dashboard layout', status: 'done', priority: 'high', createdAt: Date.now() },
-                { id: '2', title: 'Integrate Gemini API', description: 'Connect chat interface to backend', status: 'in-progress', priority: 'high', createdAt: Date.now() },
-                { id: '3', title: 'User Authentication', description: 'Implement login flow', status: 'todo', priority: 'medium', createdAt: Date.now() }
-            ];
-            setTasks(defaultTasks);
+            // Start with empty tasks for new users - no mock/sample tasks
+            setTasks([]);
         }
     }, [user]);
 

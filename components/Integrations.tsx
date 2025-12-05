@@ -23,8 +23,10 @@ import {
     Plus,
     Code
 } from 'lucide-react';
+import { User } from '../types';
 
 interface IntegrationsProps {
+    user: User | null;
     onNavigate: (view: View) => void;
 }
 
@@ -215,16 +217,19 @@ const ProjectSelectorModal: React.FC<{
     );
 };
 
-const Integrations: React.FC<IntegrationsProps> = ({ onNavigate }) => {
+const Integrations: React.FC<IntegrationsProps> = ({ user, onNavigate }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [activeCategory, setActiveCategory] = useState<string | null>(null);
     const [showProjectModal, setShowProjectModal] = useState(false);
     const [selectedService, setSelectedService] = useState<string>('');
     const [savedProjects, setSavedProjects] = useState<SavedProject[]>([]);
 
+    // Helper to get user-specific storage key
+    const getProjectsKey = () => user ? `zee_projects_${user.email}` : 'zee_projects_guest';
+
     // Load saved projects
     useEffect(() => {
-        const stored = localStorage.getItem('zee_projects');
+        const stored = localStorage.getItem(getProjectsKey());
         if (stored) {
             try {
                 setSavedProjects(JSON.parse(stored));
