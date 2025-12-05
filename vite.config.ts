@@ -23,6 +23,10 @@ export default defineConfig(({ mode }) => {
       build: {
         rollupOptions: {
           output: {
+            // Content hash in filenames for cache busting
+            entryFileNames: 'assets/[name]-[hash].js',
+            chunkFileNames: 'assets/[name]-[hash].js',
+            assetFileNames: 'assets/[name]-[hash].[ext]',
             manualChunks(id) {
               // Vendor chunks based on node_modules
               if (id.includes('node_modules')) {
