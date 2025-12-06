@@ -158,6 +158,21 @@ export const authService = {
     },
 
     checkEmail: async (email: string): Promise<boolean> => {
+        if (USE_REAL_API) {
+            try {
+                const res = await fetch('/api/auth/check-email', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+                if (!res.ok) return false;
+                const data = await res.json();
+                return data.exists;
+            } catch (e) {
+                return false;
+            }
+        }
+
         await new Promise(resolve => setTimeout(resolve, 400));
         const usersStr = localStorage.getItem(USERS_KEY);
         const users = usersStr ? JSON.parse(usersStr) : {};
@@ -165,6 +180,20 @@ export const authService = {
     },
 
     resetPassword: async (email: string, newPassword: string): Promise<void> => {
+        if (USE_REAL_API) {
+            const res = await fetch('/api/auth/reset-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, newPassword })
+            });
+            
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                throw new Error(errorData.error || 'Password reset failed');
+            }
+            return;
+        }
+
         await new Promise(resolve => setTimeout(resolve, 800));
         
         const usersStr = localStorage.getItem(USERS_KEY);

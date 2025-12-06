@@ -1283,10 +1283,31 @@ body {
         // Check if user is requesting a service integration
         const serviceRequest = detectServiceRequest(userMsg.text);
         if (serviceRequest.detected && serviceRequest.service) {
+            const serviceName = serviceRequest.service.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
             // Check if we have saved config for this service
             const savedConfig = savedServiceConfigs[serviceRequest.service];
             if (savedConfig) {
                 setGenerationStatus(`Using saved ${savedConfig.serviceName} configuration...`);
+            } else {
+                setGenerationStatus(`Detected ${serviceName} integration request...`);
+                // If it's an API service (requires keys) and not configured, prompt user
+                const apiService = ALL_SERVICES.api.find(s => s.id === serviceRequest.service);
+                if (apiService) {
+                    setMessages(prev => [...prev, {
+                        id: Date.now().toString(),
+                        role: 'model',
+                        text: `I noticed you want to use **${serviceName}**. \n\nPlease configure it in the **Services** tab (⚡ icon) first so I can use your API keys securely.`,
+                        timestamp: Date.now()
+                    }]);
+                    // Open the services tab automatically
+                    setSidebarTab('services');
+                    setServiceCategory('api');
+                    setNewServiceType(serviceRequest.service);
+                    setIsSidebarCollapsed(false);
+                    setIsGenerating(false);
+                    stopProgressRotation();
+                    return; // Stop generation until configured
+                }
             }
         }
         
@@ -2161,10 +2182,10 @@ body {
             </header>
 
             {/* Main Layout */}
-            <div className="flex-1 flex overflow-hidden">
+            <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
                 
                 {/* Left Sidebar */}
-                <div className={`${isSidebarCollapsed ? 'w-0 opacity-0' : 'w-64 md:w-64'} bg-slate-900 border-r border-slate-800 flex flex-col transition-all duration-300 flex-shrink-0 overflow-hidden`}>
+                <div className={`${isSidebarCollapsed ? 'w-0 opacity-0' : 'w-64'} absolute md:relative z-20 h-full bg-slate-900 border-r border-slate-800 flex flex-col transition-all duration-300 flex-shrink-0 overflow-hidden shadow-2xl md:shadow-none`}>
                     <div className="flex border-b border-slate-800 overflow-x-auto custom-scrollbar">
                         {[{id:'files',icon:File,label:'Files'}, {id:'code',icon:CodeIcon,label:'Code'}, {id:'term',icon:TerminalIcon,label:'Terminal'}, {id:'git',icon:Github,label:'Git'}, {id:'db',icon:Database,label:'DB'}, {id:'services',icon:Zap,label:'Services'}, {id:'pkg',icon:PackageIcon,label:'Packages'}, {id:'snaps', icon:History,label:'Snaps'}].map((t:any) => (
                             <button key={t.id} onClick={() => setSidebarTab(t.id)} className={`flex-shrink-0 px-3 py-3 flex flex-col items-center border-b-2 transition-colors ${sidebarTab === t.id ? 'border-blue-500 text-blue-500 bg-slate-800/50' : 'border-transparent text-slate-500 hover:text-slate-300'}`} title={t.label}>
@@ -2976,7 +2997,7 @@ body {
                     </div>
                 </div>
 
-                <div className="flex-1 flex flex-col min-w-0 border-r border-slate-800 bg-[#0f172a]">
+                <div className="flex-1 flex flex-col min-w-0 border-r-0 md:border-r border-slate-800 bg-[#0f172a]">
                     <textarea 
                         value={files.find(f=>f.name===activeFile)?.content || ''} 
                         onChange={e=>{
@@ -2997,7 +3018,7 @@ body {
                     </div>
                 </div>
 
-                <div className="w-full md:w-[400px] lg:w-[450px] bg-slate-900 border-l border-slate-800 flex flex-col shrink-0">
+                <div className="w-full md:w-[400px] lg:w-[450px] h-1/2 md:h-auto bg-slate-900 border-t md:border-t-0 md:border-l border-slate-800 flex flex-col shrink-0">
                     <div className="flex border-b border-slate-800 bg-slate-950">
                         <button 
                             onClick={() => setRightPanelTab('chat')} 
