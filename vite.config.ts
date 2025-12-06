@@ -22,6 +22,7 @@ export default defineConfig(({ mode }) => {
         }
       },
       build: {
+        outDir: 'dist',
         rollupOptions: {
           output: {
             // Content hash in filenames for cache busting

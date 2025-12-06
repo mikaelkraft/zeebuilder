@@ -60,6 +60,16 @@
 </head>
   <body class="bg-gray-50 dark:bg-slate-950 text-slate-900 dark:text-white antialiased transition-colors duration-300">
     <div id="root"></div>
+    <script>
+      // Error boundary for blank page debugging
+      window.addEventListener('error', function(e) {
+        console.error('Runtime Error:', e.message);
+        // Only show UI if root is empty (app failed to mount)
+        if (!document.getElementById('root').hasChildNodes()) {
+           document.body.innerHTML = '<div style="color:#ef4444; padding:20px; font-family:sans-serif; text-align:center;"><h1>Something went wrong</h1><p>Please check the console for details.</p><pre style="background:#1e293b; color:#e2e8f0; padding:10px; border-radius:8px; text-align:left; overflow:auto; margin-top:20px;">' + e.message + '</pre></div>';
+        }
+      });
+    </script>
   <script type="module" src="/index.tsx"></script>
 </body>
 </html>
