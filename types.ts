@@ -89,11 +89,14 @@ export interface SavedProject {
   publishedAt?: number;
   description?: string;
   thumbnail?: string;
+  originalProjectId?: string; // For remixes
+  originalAuthor?: string;
 }
 
 export interface CommunityProject {
   id: string;
   projectId: string;
+  originalProjectId?: string; // For remixes
   name: string;
   description: string;
   stack: Stack;

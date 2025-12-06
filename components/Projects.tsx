@@ -117,16 +117,20 @@ const Projects: React.FC<ProjectsProps> = ({ user, onNavigate, setActiveProject 
         const user = localStorage.getItem('zee_user');
         const userData = user ? JSON.parse(user) : { username: 'Anonymous', avatar: '' };
         
-        publishToCommmunity(
-            publishModal.project,
-            publishDesc || `A ${publishModal.project.stack} project built with Zee AI`,
-            userData.username,
-            userData.avatar
-        );
-        
-        setPublishedIds(prev => new Set([...prev, publishModal.project!.id]));
-        setPublishModal({ open: false, project: null });
-        (window as any).swal("Published! 🎉", "Your project is now visible in the Community Showcase on the homepage!", "success");
+        try {
+            publishToCommmunity(
+                publishModal.project,
+                publishDesc || `A ${publishModal.project.stack} project built with Zee AI`,
+                userData.username,
+                userData.avatar
+            );
+            
+            setPublishedIds(prev => new Set([...prev, publishModal.project!.id]));
+            setPublishModal({ open: false, project: null });
+            (window as any).swal("Published! 🎉", "Your project is now visible in the Community Showcase on the homepage!", "success");
+        } catch (error: any) {
+            (window as any).swal("Publish Failed", error.message, "error");
+        }
     };
 
     const getIcon = (stack: Stack) => {

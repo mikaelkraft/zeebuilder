@@ -221,7 +221,9 @@ const CommunityShowcase = ({ onNavigate }: { onNavigate: (view: View) => void })
             lastModified: Date.now(),
             dbConfigs: [],
             messages: [],
-            snapshots: []
+            snapshots: [],
+            originalProjectId: project.projectId, // Track origin for remix validation
+            originalAuthor: project.authorName
         };
         
         // Add to user's projects - use user-specific key
@@ -282,6 +284,12 @@ const CommunityShowcase = ({ onNavigate }: { onNavigate: (view: View) => void })
                                 {project.featured && (
                                     <div className="absolute top-3 right-3 px-2 py-1 bg-yellow-500 text-white text-[10px] font-bold rounded-full flex items-center gap-1">
                                         <Sparkles className="w-3 h-3" /> Featured
+                                    </div>
+                                )}
+                                {/* Remix Badge */}
+                                {!project.featured && project.originalProjectId && (
+                                    <div className="absolute top-3 right-3 px-2 py-1 bg-purple-500/80 backdrop-blur-sm text-white text-[10px] font-bold rounded-full flex items-center gap-1">
+                                        <GitFork className="w-3 h-3" /> Remix
                                     </div>
                                 )}
                             </div>

@@ -720,6 +720,26 @@ export const getFeaturedProjects = (): CommunityProject[] => {
     return getCommunityProjects().filter(p => p.featured || p.likes > 50);
 };
 
+// Helper to check for significant changes
+const hasSignificantChanges = (originalFiles: any[], newFiles: any[]): boolean => {
+    // If file count changed, it's a modification
+    if (originalFiles.length !== newFiles.length) return true;
+    
+    let changes = 0;
+    const totalFiles = newFiles.length;
+
+    for (const file of newFiles) {
+        const original = originalFiles.find(f => f.name === file.name);
+        // If file is new or content is different
+        if (!original || original.content.trim() !== file.content.trim()) {
+            changes++;
+        }
+    }
+    
+    // Return true if any file has changed
+    return changes > 0;
+};
+
 // Publish a project to community
 export const publishToCommmunity = (
     project: SavedProject,
@@ -730,12 +750,26 @@ export const publishToCommmunity = (
     const stored = localStorage.getItem(COMMUNITY_STORAGE_KEY);
     const userProjects: CommunityProject[] = stored ? JSON.parse(stored) : [];
     
+    // Check for Remix Duplication
+    if (project.originalProjectId) {
+        const allProjects = getCommunityProjects();
+        const original = allProjects.find(p => p.projectId === project.originalProjectId);
+        
+        if (original) {
+            const isModified = hasSignificantChanges(original.files, project.files);
+            if (!isModified) {
+                throw new Error("Remixed projects must be modified before publishing.");
+            }
+        }
+    }
+
     // Check if already published
     const existingIndex = userProjects.findIndex(p => p.projectId === project.id);
     
     const communityProject: CommunityProject = {
         id: `community-${project.id}`,
         projectId: project.id,
+        originalProjectId: project.originalProjectId,
         name: project.name,
         description,
         stack: project.stack,
