@@ -1705,8 +1705,15 @@ body {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdn.tailwindcss.com"><\\/script>
-    <script crossorigin src="https://unpkg.com/react@19/umd/react.development.js"><\\/script>
-    <script crossorigin src="https://unpkg.com/react-dom@19/umd/react-dom.development.js"><\\/script>
+    <script type="module">
+        import React from "https://esm.sh/react@19.0.0?dev";
+        import * as ReactDOM from "https://esm.sh/react-dom@19.0.0/client?dev";
+        window.React = React;
+        window.ReactDOM = ReactDOM;
+        // Expose hooks to global scope for the user code
+        const hooks = ['useState', 'useEffect', 'useRef', 'useCallback', 'useMemo', 'useContext', 'useReducer', 'useLayoutEffect', 'createContext', 'Fragment', 'memo', 'forwardRef'];
+        hooks.forEach(h => window[h] = React[h]);
+    <\\/script>
     <script src="https://unpkg.com/@babel/standalone@7.23.5/babel.min.js"><\\/script>
     <style>
         body { background-color: #ffffff; margin: 0; font-family: system-ui, -apple-system, sans-serif; }
@@ -1722,8 +1729,6 @@ body {
             document.getElementById('root').innerHTML = '<div style="padding:20px;color:#ef4444;font-family:monospace;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;margin:20px;"><strong>Error:</strong><br>' + msg + '</div>';
             return true;
         };
-        // Make React hooks available as globals
-        const { useState, useEffect, useRef, useCallback, useMemo, useContext, useReducer, useLayoutEffect, createContext, Fragment, memo, forwardRef } = React;
     <\\/script>
     
     <script type="text/babel" data-presets="react">
