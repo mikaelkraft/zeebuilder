@@ -14,7 +14,8 @@ import {
     Mic, MicOff, UploadCloud, Copy, Save, History, GitBranch, GitCommit, ArrowUpFromLine, ArrowDownToLine, FolderGit2, Unlink, Edit, Zap, Cloud, Link
 } from 'lucide-react';
 import JSZip from 'jszip';
-import { SandpackProvider, SandpackPreview } from '@codesandbox/sandpack-react';
+import StackBlitzPreview from './previews/StackBlitzPreview';
+import DartPadPreview from './previews/DartPadPreview';
 
 interface BuilderProps {
     user: User | null;
@@ -1790,110 +1791,8 @@ body {
         return root.children || [];
     };
 
-    // Sandpack helpers - convert files to Sandpack format
-    const getSandpackFiles = () => {
-        const sandpackFiles: Record<string, { code: string; active?: boolean }> = {};
-        
-        // Add all user files with normalized paths
-        files.forEach(f => {
-            // Normalize path: ensure starts with /
-            let path = f.name;
-            // Remove src/ prefix for cleaner paths
-            if (path.startsWith('src/')) path = path.slice(4);
-            // Ensure path starts with /
-            if (!path.startsWith('/')) path = '/' + path;
-            sandpackFiles[path] = { code: f.content };
-        });
-        
-        // For React stacks, ensure we have essential entry files
-        if (stack === 'react' || stack === 'react-ts') {
-            const isTS = stack === 'react-ts';
-            const ext = isTS ? 'tsx' : 'jsx';
-            
-            // Check if user has index entry file
-            const hasIndex = Object.keys(sandpackFiles).some(p => p.match(/\/index\.(tsx|jsx|ts|js)$/));
-            if (!hasIndex) {
-                const indexContent = isTS 
-                    ? `import React from 'react';
-import ReactDOM from 'react-dom/client';
-import App from './App';
-
-const root = ReactDOM.createRoot(document.getElementById('root')!);
-root.render(<App />);`
-                    : `import React from 'react';
-import ReactDOM from 'react-dom/client';
-import App from './App';
-
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<App />);`;
-                sandpackFiles[`/index.${ext}`] = { code: indexContent };
-            }
-            
-            // Check if there's an App file and mark it active
-            const appPath = Object.keys(sandpackFiles).find(p => p.match(/\/App\.(tsx|jsx|ts|js)$/i));
-            if (appPath) {
-                sandpackFiles[appPath] = { ...sandpackFiles[appPath], active: true };
-            }
-        }
-        
-        // For Vue or HTML stack, ensure index.html exists and is active
-        if (stack === 'vue' || stack === 'html') {
-            const hasHtml = Object.keys(sandpackFiles).some(p => p.endsWith('.html'));
-            if (!hasHtml) {
-                sandpackFiles['/index.html'] = { code: '<!DOCTYPE html>\n<html>\n<head>\n  <title>Preview</title>\n  <script src="https://cdn.tailwindcss.com"></script>\n</head>\n<body class="bg-slate-950 min-h-screen">\n  <h1 class="text-white text-center pt-20">Hello World</h1>\n</body>\n</html>' };
-            }
-            // Mark index.html as active for static template
-            if (sandpackFiles['/index.html']) {
-                sandpackFiles['/index.html'].active = true;
-            }
-        }
-        
-        return sandpackFiles;
-    };
-
-    const getSandpackTemplate = (): 'react' | 'react-ts' | 'vanilla' | 'vanilla-ts' | 'static' | 'vue' | undefined => {
-        // Return appropriate template for each stack
-        if (stack === 'react' || stack === 'nextjs') return 'react';
-        if (stack === 'react-ts') return 'react-ts';
-        if (stack === 'vue' || stack === 'html') return 'static'; // Static HTML template for Vue CDN and plain HTML/JS
-        return 'react'; // Default fallback
-    };
-
-    const getSandpackDependencies = () => {
-        const pkgFile = files.find(f => f.name === 'package.json');
-        
-        // Base dependencies differ by stack
-        let baseDeps: Record<string, string> = {};
-        
-        if (stack === 'react' || stack === 'react-ts' || stack === 'nextjs') {
-            baseDeps = {
-                'react': '^18.2.0',
-                'react-dom': '^18.2.0',
-                'lucide-react': 'latest',
-                ...dependencies
-            };
-            if (stack === 'nextjs') {
-                baseDeps['next'] = '^14.0.0';
-            }
-        }
-        // For vue/html with CDN, no deps needed - return empty object
-        if (stack === 'vue' || stack === 'html') {
-            return {};
-        }
-        
-        if (pkgFile) {
-            try {
-                const pkg = JSON.parse(pkgFile.content);
-                return { ...baseDeps, ...pkg.dependencies };
-            } catch (e) {
-                return baseDeps;
-            }
-        }
-        return baseDeps;
-    };
-
-    // Check if stack can use Sandpack
-    const canUseSandpack = ['react', 'react-ts', 'vue', 'nextjs', 'html'].includes(stack) && files.length > 0;
+    // Check if stack can use WebContainer (StackBlitz)
+    const canUseWebContainer = ['react', 'react-ts', 'vue', 'nextjs', 'html'].includes(stack) && files.length > 0;
 
     // Inlined Panels
     const renderPreviewPanel = (fullScreen = false) => (
@@ -2005,67 +1904,11 @@ root.render(<App />);`;
                             </button>
                         </div>
                     </div>
-                    {(() => {
-                        // Get Flutter code from main.dart file
-                        const mainDart = files.find(f => f.name === 'lib/main.dart' || f.name === 'main.dart');
-                        const code = mainDart?.content || `import 'package:flutter/material.dart';
-
-void main() => runApp(const MyApp());
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-  
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: Scaffold(
-        appBar: AppBar(title: const Text('Zee Flutter')),
-        body: const Center(child: Text('Hello World')),
-      ),
-    );
-  }
-}`;
-                        // Encode code for DartPad embed URL
-                        const encodedCode = encodeURIComponent(code);
-                        return (
-                            <iframe 
-                                key={previewKey}
-                                src={`https://dartpad.dev/embed-flutter.html?theme=dark&run=true&split=0&code=${encodedCode}`}
-                                className="flex-1 w-full border-none"
-                                title="Flutter Preview"
-                                allow="clipboard-read; clipboard-write"
-                                sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
-                            />
-                        );
-                    })()}
+                    <DartPadPreview files={files} className="flex-1 w-full" />
                 </div>
-            ) : canUseSandpack ? (
+            ) : canUseWebContainer ? (
                 <div className="flex-1 w-full" key={previewKey} style={{ height: 'calc(100% - 40px)', minHeight: '400px' }}>
-                    <SandpackProvider
-                        template={getSandpackTemplate()}
-                        files={getSandpackFiles()}
-                        theme="light"
-                        customSetup={{
-                            dependencies: getSandpackDependencies()
-                        }}
-                        options={{
-                            externalResources: ["https://cdn.tailwindcss.com"],
-                            bundlerURL: "https://sandpack-bundler.codesandbox.io",
-                            classes: {
-                                'sp-wrapper': 'h-full',
-                                'sp-preview': 'h-full',
-                                'sp-preview-container': 'h-full',
-                                'sp-preview-iframe': 'h-full'
-                            }
-                        }}
-                    >
-                        <SandpackPreview 
-                            style={{ height: '100%', width: '100%' }}
-                            showNavigator={false}
-                            showRefreshButton={false}
-                        />
-                    </SandpackProvider>
+                    <StackBlitzPreview files={files} stack={stack} />
                 </div>
             ) : (
                 <iframe key={previewKey} src={iframeSrc} className="flex-1 w-full border-none bg-white" title="Preview" />

@@ -42,10 +42,6 @@ export default defineConfig(({ mode }) => {
                 if (id.includes('@codemirror') || id.includes('@lezer')) {
                   return 'vendor-codemirror';
                 }
-                // Sandpack - code preview
-                if (id.includes('sandpack') || id.includes('codesandbox')) {
-                  return 'vendor-sandpack';
-                }
                 // Supabase
                 if (id.includes('supabase')) {
                   return 'vendor-supabase';
