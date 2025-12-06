@@ -22,6 +22,8 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Email and password are required' });
   }
 
+  const cleanEmail = email.trim();
+
   try {
     // Check for super admin (from environment variables)
     // Use non-VITE prefixed vars for serverless, fallback to VITE_ for compatibility
@@ -39,7 +41,7 @@ export default async function handler(req, res) {
       return hash.toString();
     };
 
-    if (adminEmail && email === adminEmail && simpleHash(password) === adminPasswordHash) {
+    if (adminEmail && cleanEmail === adminEmail && simpleHash(password) === adminPasswordHash) {
       const token = jwt.sign(
         { id: 'admin', email: adminEmail, isAdmin: true },
         process.env.JWT_SECRET,
@@ -66,7 +68,7 @@ export default async function handler(req, res) {
     const { data: user, error } = await supabaseAdmin
       .from('users')
       .select('*')
-      .eq('email', email)
+      .eq('email', cleanEmail)
       .single();
 
     if (error || !user) {

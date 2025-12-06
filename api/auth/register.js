@@ -27,12 +27,15 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Email, password, and username are required' });
   }
 
+  const cleanEmail = email.trim();
+  const cleanUsername = username.trim();
+
   try {
     // Check if user already exists
     const { data: existingUser } = await supabaseAdmin
       .from('users')
       .select('id')
-      .eq('email', email)
+      .eq('email', cleanEmail)
       .single();
 
     if (existingUser) {
@@ -47,9 +50,9 @@ export default async function handler(req, res) {
     const { data: newUser, error } = await supabaseAdmin
       .from('users')
       .insert({
-        email,
+        email: cleanEmail,
         password_hash: passwordHash,
-        username,
+        username: cleanUsername,
         plan: 'free',
         requests: 0,
         avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`,
