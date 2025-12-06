@@ -12,7 +12,9 @@ const isProduction = typeof window !== 'undefined' &&
     !window.location.hostname.includes('127.0.0.1') &&
     !window.location.hostname.includes('0.0.0.0');
 
-const USE_REAL_API = isProduction; // Auto-switches based on environment
+// Force mock API for now to ensure consistent behavior in dev/preview environments
+// where the backend API might not be running or reachable.
+const USE_REAL_API = false; // was: isProduction;
 
 // Simple mock hash for "security" (not real crypto but better than plain text for demo)
 const hash = (str: string) => {

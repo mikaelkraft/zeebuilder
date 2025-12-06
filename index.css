@@ -45,6 +45,11 @@ body {
 }
 
 /* Dark mode background for body */
+html.dark body {
+  background-color: #020617;
+  color: #f8fafc;
+}
+
 .dark body,
 body.dark,
 .dark {
