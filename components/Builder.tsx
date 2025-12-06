@@ -693,7 +693,7 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
         setMessages([{ id: 'init', role: 'model', text: `Initialized ${type} project.`, timestamp: Date.now() }]);
         let initialFiles: ProjectFile[] = [];
         
-        const pkgJson = { name: "app", version: "1.0.0", dependencies: { "react": "^18.2.0", "react-dom": "^18.2.0", "lucide-react": "latest" } };
+        const pkgJson = { name: "app", version: "1.0.0", dependencies: { "react": "^19.2.1", "react-dom": "^19.2.1", "lucide-react": "latest" } };
         const tsConfig = { compilerOptions: { jsx: "react-jsx", target: "ES2020", moduleResolution: "node", esModuleInterop: true, strict: true } };
 
         if (type === 'react' || type === 'react-ts') {
@@ -813,7 +813,7 @@ if __name__ == "__main__":
              ];
              setActiveFile('main.py');
         } else if (type === 'nextjs') {
-            const nextPkgJson = { name: "nextjs-app", version: "1.0.0", scripts: { dev: "next dev", build: "next build", start: "next start" }, dependencies: { "next": "^14.0.0", "react": "^18.2.0", "react-dom": "^18.2.0" } };
+            const nextPkgJson = { name: "nextjs-app", version: "1.0.0", scripts: { dev: "next dev", build: "next build", start: "next start" }, dependencies: { "next": "^15.0.0", "react": "^19.2.1", "react-dom": "^19.2.1" } };
             initialFiles = [
                 { name: 'package.json', content: JSON.stringify(nextPkgJson, null, 2), language: 'json' },
                 { name: 'app/page.tsx', content: `export default function Home() {
@@ -1705,8 +1705,8 @@ body {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdn.tailwindcss.com"><\\/script>
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"><\\/script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"><\\/script>
+    <script crossorigin src="https://unpkg.com/react@19/umd/react.development.js"><\\/script>
+    <script crossorigin src="https://unpkg.com/react-dom@19/umd/react-dom.development.js"><\\/script>
     <script src="https://unpkg.com/@babel/standalone@7.23.5/babel.min.js"><\\/script>
     <style>
         body { background-color: #ffffff; margin: 0; font-family: system-ui, -apple-system, sans-serif; }

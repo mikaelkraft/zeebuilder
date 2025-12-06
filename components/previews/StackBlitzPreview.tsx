@@ -72,8 +72,8 @@ const StackBlitzPreview: React.FC<StackBlitzPreviewProps> = ({ files, stack, cla
                     version: "0.0.0",
                     scripts: { "start": "react-scripts start", "build": "react-scripts build" },
                     dependencies: { 
-                        "react": "^18.2.0", 
-                        "react-dom": "^18.2.0", 
+                        "react": "^19.2.1", 
+                        "react-dom": "^19.2.1", 
                         "react-scripts": "5.0.1" 
                     }
                 };
