@@ -1706,13 +1706,25 @@ body {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdn.tailwindcss.com"><\\/script>
     <script type="module">
-        import React from "https://esm.sh/react@19.0.0?dev";
+        import React, { useState, useEffect, useRef, useCallback, useMemo, useContext, useReducer, useLayoutEffect, createContext, Fragment, memo, forwardRef } from "https://esm.sh/react@19.0.0?dev";
         import * as ReactDOM from "https://esm.sh/react-dom@19.0.0/client?dev";
+        
         window.React = React;
         window.ReactDOM = ReactDOM;
-        // Expose hooks to global scope for the user code
-        const hooks = ['useState', 'useEffect', 'useRef', 'useCallback', 'useMemo', 'useContext', 'useReducer', 'useLayoutEffect', 'createContext', 'Fragment', 'memo', 'forwardRef'];
-        hooks.forEach(h => window[h] = React[h]);
+        
+        // Expose hooks to global scope
+        window.useState = useState;
+        window.useEffect = useEffect;
+        window.useRef = useRef;
+        window.useCallback = useCallback;
+        window.useMemo = useMemo;
+        window.useContext = useContext;
+        window.useReducer = useReducer;
+        window.useLayoutEffect = useLayoutEffect;
+        window.createContext = createContext;
+        window.Fragment = Fragment;
+        window.memo = memo;
+        window.forwardRef = forwardRef;
 
         // Load Babel after React is ready to prevent race conditions
         const babelScript = document.createElement('script');
