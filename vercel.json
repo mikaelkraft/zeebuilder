@@ -8,6 +8,15 @@
           "value": "public, max-age=31536000, immutable"
         }
       ]
+    },
+    {
+      "source": "/(index.html|.*\\.json|.*\\.ico)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
     }
   ],
   "rewrites": [
@@ -16,7 +25,7 @@
       "destination": "/api/:path*"
     },
     {
-      "source": "/:path((?!api|assets).*)",
+      "source": "/((?!api/|assets/|.*\\..*).*)",
       "destination": "/index.html"
     }
   ]
