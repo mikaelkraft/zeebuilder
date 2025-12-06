@@ -1713,8 +1713,17 @@ body {
         // Expose hooks to global scope for the user code
         const hooks = ['useState', 'useEffect', 'useRef', 'useCallback', 'useMemo', 'useContext', 'useReducer', 'useLayoutEffect', 'createContext', 'Fragment', 'memo', 'forwardRef'];
         hooks.forEach(h => window[h] = React[h]);
+
+        // Load Babel after React is ready to prevent race conditions
+        const babelScript = document.createElement('script');
+        babelScript.src = "https://unpkg.com/@babel/standalone@7.23.5/babel.min.js";
+        babelScript.onload = () => {
+            if (window.Babel) {
+                window.Babel.transformScriptTags();
+            }
+        };
+        document.head.appendChild(babelScript);
     <\\/script>
-    <script src="https://unpkg.com/@babel/standalone@7.23.5/babel.min.js"><\\/script>
     <style>
         body { background-color: #ffffff; margin: 0; font-family: system-ui, -apple-system, sans-serif; }
         #root { min-height: 100vh; }

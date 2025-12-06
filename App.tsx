@@ -89,7 +89,7 @@ const ZeeLogo = () => (
   <svg viewBox="0 0 100 100" className="w-10 h-10 text-slate-900 dark:text-white transition-colors duration-300" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path 
         d="M 25 32 C 25 28 28 25 32 25 L 75 25 C 82 25 85 30 80 35 L 45 70" 
-        stroke="#3b82f6" 
+        stroke="#0936faff" 
         strokeWidth="8" 
         strokeLinecap="round" 
         strokeLinejoin="round"
@@ -130,6 +130,9 @@ const App: React.FC = () => {
     return window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
   const [pendingView, setPendingView] = useState<View | null>(null);
+
+  // Standalone views (no sidebar, full width)
+  const isStandalone = [View.POLICY, View.TERMS, View.DOCS].includes(currentView);
 
   // Sync view with URL changes (browser back/forward)
   useEffect(() => {
@@ -305,13 +308,14 @@ const App: React.FC = () => {
         />
       )}
 
-      {isSidebarOpen && (
+      {isSidebarOpen && !isStandalone && (
         <div 
           className="fixed inset-0 bg-black/50 z-40 lg:hidden backdrop-blur-sm"
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
 
+      {!isStandalone && (
       <aside 
         className={`fixed lg:static inset-y-0 left-0 z-50 w-64 bg-white/80 dark:bg-slate-900/50 border-r border-gray-200 dark:border-slate-800 transform transition-transform duration-300 ease-in-out backdrop-blur-xl ${
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
@@ -394,9 +398,11 @@ const App: React.FC = () => {
             )}
         </div>
       </aside>
+      )}
 
       <main className="flex-1 flex flex-col min-h-screen overflow-hidden relative bg-gray-50 dark:bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] dark:from-slate-900 dark:via-slate-950 dark:to-slate-950">
         {/* Desktop Header - Sticky */}
+        {!isStandalone && (
         <div className="hidden lg:flex items-center justify-between px-8 py-4 border-b border-gray-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md z-30 shrink-0 sticky top-0">
             <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigateToView(View.HOME)}>
                 <ZeeLogo />
@@ -418,6 +424,7 @@ const App: React.FC = () => {
                 )}
             </div>
         </div>
+        )}
 
         {/* Mobile Header - Sticky */}
         <header className="lg:hidden h-16 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-gray-200 dark:border-slate-800 flex items-center justify-between px-4 z-30 shrink-0 sticky top-0">
