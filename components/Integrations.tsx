@@ -334,8 +334,8 @@ const Integrations: React.FC<IntegrationsProps> = ({ user, onNavigate }) => {
             color: 'text-green-500',
             integrations: [
                 { name: 'Stripe', color: 'bg-indigo-600', desc: 'Global Payments Infrastructure', docsUrl: 'https://stripe.com/docs' },
-                { name: 'Flutterwave', color: 'bg-orange-500', desc: 'African Payments Gateway', docsUrl: 'https://developer.flutterwave.com/docs' },
-                { name: 'Paystack', color: 'bg-cyan-500', desc: 'African Payment Solutions', docsUrl: 'https://paystack.com/docs' },
+                { name: 'Flutterwave', color: 'bg-orange-500', desc: 'African Payments Gateway', docsUrl: 'https://developer.flutterwave.com/' },
+                { name: 'Paystack', color: 'bg-cyan-500', desc: 'African Payment Solutions', docsUrl: 'https://paystack.com/docs/' },
                 { name: 'Opay', color: 'bg-green-500', desc: 'Mobile Money & Payments', docsUrl: 'https://documentation.opayweb.com' },
                 { name: 'LemonSqueezy', color: 'bg-yellow-500', desc: 'Digital Product Sales', docsUrl: 'https://docs.lemonsqueezy.com' },
                 { name: 'Paddle', color: 'bg-blue-500', desc: 'SaaS Billing & Checkout', docsUrl: 'https://developer.paddle.com' },

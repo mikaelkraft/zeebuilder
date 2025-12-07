@@ -1,5 +1,5 @@
 {
-  "name": "zee-builder—imagine-app-and-images",
+  "name": "zee-builder--imagine-app-and-images",
   "private": true,
   "version": "0.0.1",
   "type": "module",
@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@google/genai": "^1.30.0",
+    "@huggingface/inference": "^4.13.4",
     "@octokit/rest": "^20.0.0",
     "@stackblitz/sdk": "^1.11.0",
     "@supabase/supabase-js": "^2.84.0",
