@@ -576,9 +576,17 @@ const ChatInterface: React.FC = () => {
 
                 mediaRecorder.start();
                 setIsRecording(true);
-            } catch (error) {
+            } catch (error: any) {
                 console.error("Error accessing microphone:", error);
-                alertService.error('Microphone Error', 'Could not access microphone. Please check permissions.');
+                let errorMessage = 'Could not access microphone.';
+                if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+                    errorMessage = 'Microphone access denied. Please allow microphone access in your browser settings.';
+                } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+                    errorMessage = 'No microphone found. Please ensure a microphone is connected.';
+                } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+                    errorMessage = 'Microphone is already in use by another application.';
+                }
+                alertService.error('Microphone Error', errorMessage);
             }
         }
     };

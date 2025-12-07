@@ -1,6 +1,6 @@
 
 import React, { useState, useRef } from 'react';
-import { geminiService } from '../services/geminiService';
+import * as geminiService from '../services/geminiService';
 import { Volume2, Loader2, FileText, Download, Activity, Copy, Check, Mic, MicOff, FolderPlus, Cloud, AlertCircle, RefreshCcw } from 'lucide-react';
 import { View, SavedProject, CloudProviderConfig } from '../types';
 import { alertService } from '../services/alertService';
@@ -132,9 +132,19 @@ const AudioStudio: React.FC<AudioStudioProps> = ({ onNavigate }) => {
 
                 mediaRecorder.start();
                 setIsRecording(true);
-            } catch (error) {
+            } catch (error: any) {
                 console.error("Error accessing microphone:", error);
-                alertService.error('Microphone Error', 'Could not access microphone. Please check permissions.');
+                let errorMessage = 'Could not access microphone.';
+                
+                if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+                    errorMessage = 'Microphone access denied. Please allow microphone access in your browser settings or check if the app has permission.';
+                } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+                    errorMessage = 'No microphone found. Please ensure a microphone is connected.';
+                } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+                    errorMessage = 'Microphone is already in use by another application.';
+                }
+
+                alertService.error('Microphone Error', errorMessage);
             }
         }
     };
