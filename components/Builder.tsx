@@ -2484,7 +2484,7 @@ body {
                                             disabled={ghLoading || !ghToken}
                                             className="w-full bg-slate-800 text-white text-xs py-2 rounded hover:bg-slate-700 disabled:opacity-50 flex items-center justify-center gap-2"
                                         >
-                                            {ghLoading ? <Loader2 className="w-3 h-3 animate-spin"/> : <Github className="w-3 h-3"/>}
+                                            {ghLoading ? <Loader2 className="w-3 h-3 animate-spin"/> : <GithubIcon className="w-3 h-3"/>}
                                             Connect GitHub
                                         </button>
                                         <p className="text-[10px] text-slate-600 text-center">Need a token? <a href="https://github.com/settings/tokens/new?scopes=repo" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">Create one here</a></p>
