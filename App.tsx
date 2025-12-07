@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { View, User } from './types';
 import { 
@@ -130,6 +130,7 @@ const App: React.FC = () => {
     return window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
   const [pendingView, setPendingView] = useState<View | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Standalone views (no sidebar, full width)
   const isStandalone = [View.POLICY, View.TERMS, View.DOCS].includes(currentView);
@@ -150,6 +151,10 @@ const App: React.FC = () => {
     }
     setCurrentView(view);
     localStorage.setItem('zee_current_view', view);
+    // Reset scroll position on view change
+    if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTo({ top: 0, behavior: 'instant' });
+    }
   };
 
   // Apply dark mode class on mount and when it changes
@@ -400,51 +405,60 @@ const App: React.FC = () => {
       </aside>
       )}
 
-      <main className="flex-1 flex flex-col min-h-screen overflow-hidden relative bg-gray-50 dark:bg-slate-950">
-        {/* Desktop Header - Sticky */}
-        {!isStandalone && (
-        <div className="hidden lg:flex items-center justify-between px-8 py-4 border-b border-gray-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md z-30 shrink-0 sticky top-0">
-            <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigateToView(View.HOME)}>
-                <ZeeLogo />
-                <span className="text-lg font-black tracking-tight text-slate-900 dark:text-white">Zee<span className="text-blue-600">Builder</span></span>
+      <main className="flex-1 flex flex-col h-[100dvh] overflow-hidden relative bg-gray-50 dark:bg-slate-950">
+        
+        {/* View Content & Footer Wrapper - Now includes Headers for better scrolling */}
+        <div 
+            ref={scrollContainerRef}
+            className="flex-1 overflow-y-auto flex flex-col w-full relative scroll-smooth"
+            style={{ WebkitOverflowScrolling: 'touch' }}
+        >
+            {/* Desktop Header - Sticky */}
+            {!isStandalone && (
+            <div className="hidden lg:flex items-center justify-between px-8 py-4 border-b border-gray-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md z-30 shrink-0 sticky top-0">
+                <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigateToView(View.HOME)}>
+                    <ZeeLogo />
+                    <span className="text-lg font-black tracking-tight text-slate-900 dark:text-white">Zee<span className="text-blue-600">Builder</span></span>
+                </div>
+                <div className="flex items-center gap-4">
+                    <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 rounded-lg text-slate-500 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors">
+                        {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                    </button>
+                    {user ? (
+                        <div className="flex items-center gap-3">
+                            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Hi, {user.username}</span>
+                            <img src={user.avatar} alt="Profile" className="w-8 h-8 rounded-full border border-slate-300 dark:border-slate-700" />
+                        </div>
+                    ) : (
+                        <button onClick={() => setShowAuth(true)} className="px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-sm font-bold rounded-lg hover:opacity-90 transition-opacity">
+                            Get Started
+                        </button>
+                    )}
+                </div>
             </div>
-            <div className="flex items-center gap-4">
-                <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 rounded-lg text-slate-500 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors">
+            )}
+
+            {/* Mobile Header - Sticky */}
+            <header className="lg:hidden h-16 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-gray-200 dark:border-slate-800 flex items-center justify-between px-4 z-40 shrink-0 sticky top-0">
+                <button 
+                    onClick={(e) => { e.stopPropagation(); setIsSidebarOpen(true); }} 
+                    className="text-slate-900 dark:text-white p-3 -ml-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors active:scale-95"
+                    aria-label="Open Menu"
+                >
+                    <Menu className="w-6 h-6" />
+                </button>
+                <div className="flex items-center space-x-2 cursor-pointer" onClick={() => navigateToView(View.HOME)}>
+                    <ZeeLogo />
+                    <span className="font-black text-lg text-slate-900 dark:text-white">Zee<span className="text-blue-600">Builder</span></span>
+                </div>
+                <button 
+                    onClick={() => setIsDarkMode(!isDarkMode)}
+                    className="p-2 text-slate-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-full transition-colors"
+                >
                     {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
                 </button>
-                {user ? (
-                    <div className="flex items-center gap-3">
-                        <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Hi, {user.username}</span>
-                        <img src={user.avatar} alt="Profile" className="w-8 h-8 rounded-full border border-slate-300 dark:border-slate-700" />
-                    </div>
-                ) : (
-                    <button onClick={() => setShowAuth(true)} className="px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-sm font-bold rounded-lg hover:opacity-90 transition-opacity">
-                        Get Started
-                    </button>
-                )}
-            </div>
-        </div>
-        )}
+            </header>
 
-        {/* Mobile Header - Sticky */}
-        <header className="lg:hidden h-16 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-gray-200 dark:border-slate-800 flex items-center justify-between px-4 z-30 shrink-0 sticky top-0">
-            <button onClick={() => setIsSidebarOpen(true)} className="text-slate-900 dark:text-white p-3 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
-                <Menu className="w-6 h-6" />
-            </button>
-            <div className="flex items-center space-x-2 cursor-pointer" onClick={() => navigateToView(View.HOME)}>
-                <ZeeLogo />
-                <span className="font-black text-lg text-slate-900 dark:text-white">Zee<span className="text-blue-600">Builder</span></span>
-            </div>
-            <button 
-                onClick={() => setIsDarkMode(!isDarkMode)}
-                className="p-2 text-slate-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-full transition-colors"
-            >
-                {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-            </button>
-        </header>
-
-        {/* View Content & Footer Wrapper */}
-        <div className="flex-1 overflow-y-auto flex flex-col w-full relative">
             <div className="flex-1 p-4 sm:p-6 lg:p-8 xl:px-12 w-full min-h-full">
                 {currentView === View.HOME && <Home user={user} onNavigate={handleNavigation} />}
                 {currentView === View.DASHBOARD && <Dashboard user={user} onNavigate={handleNavigation} />}
