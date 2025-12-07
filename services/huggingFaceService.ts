@@ -5,7 +5,7 @@ import { BuilderChatMessage, ProjectFile, Stack, DatabaseConfig, ModelType } fro
 // Use a free model that is good at coding
 const MODEL = "meta-llama/Llama-3.1-8B-Instruct"; 
 
-const getClient = (apiKey?: string) => new InferenceClient(apiKey);
+const getClient = (apiKey?: string) => new InferenceClient(apiKey || process.env.HUGGING_FACE_API_KEY);
 
 export const huggingFaceService = {
   chat: async (
@@ -94,22 +94,81 @@ export const huggingFaceService = {
     }
   },
 
-  generateImage: async (prompt: string, aspectRatio: string, size: string, model: ModelType): Promise<any> => {
-      return {
-          candidates: [{
-              content: {
-                  parts: [{
-                      inlineData: {
-                          data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==" 
-                      }
-                  }]
-              }
-          }]
-      };
+  generateImage: async (prompt: string, aspectRatio: string, size: string, model: ModelType): Promise<Blob> => {
+    const client = getClient();
+    try {
+      // Map aspect ratio to dimensions (approximate for SDXL)
+      let width = 1024;
+      let height = 1024;
+      
+      if (aspectRatio === '16:9') { width = 1024; height = 576; }
+      else if (aspectRatio === '9:16') { width = 576; height = 1024; }
+      else if (aspectRatio === '4:3') { width = 1024; height = 768; }
+      else if (aspectRatio === '3:4') { width = 768; height = 1024; }
+
+      const response = await client.textToImage({
+        model: "stabilityai/stable-diffusion-xl-base-1.0",
+        inputs: prompt,
+        parameters: {
+          width,
+          height,
+        }
+      });
+      
+      if (typeof response === 'string') {
+        // Handle case where response is a string (URL or base64)
+        const url = (response as string).startsWith('http') || (response as string).startsWith('data:') 
+          ? response 
+          : `data:image/png;base64,${response}`;
+        const res = await fetch(url);
+        return await res.blob();
+      }
+
+      return response as Blob;
+    } catch (error) {
+      console.error("Hugging Face Image Gen Error:", error);
+      throw error;
+    }
   },
 
-  transcribeAudio: async (base64Audio: string, mimeType: string): Promise<string> => {
-      return "Audio transcription is not yet implemented with Hugging Face.";
+  generateSpeech: async (text: string, voice: string = "default"): Promise<Blob> => {
+    const client = getClient();
+    try {
+      const response = await client.textToSpeech({
+        model: "microsoft/speecht5_tts",
+        inputs: text,
+        // Note: speecht5 requires speaker embeddings, but the inference API might handle defaults or we might need a different model for simple usage
+        // Using facebook/mms-tts-eng for simpler API usage if speecht5 fails or needs embeddings
+      });
+      return response;
+    } catch (error) {
+      // Fallback to a simpler model if the first one fails
+      try {
+        const client2 = getClient();
+        const response = await client2.textToSpeech({
+            model: "facebook/mms-tts-eng",
+            inputs: text
+        });
+        return response;
+      } catch (e) {
+        console.error("Hugging Face TTS Error:", error);
+        throw error;
+      }
+    }
+  },
+
+  transcribeAudio: async (audioBlob: Blob): Promise<string> => {
+    const client = getClient();
+    try {
+      const response = await client.automaticSpeechRecognition({
+        model: "openai/whisper-large-v3",
+        data: audioBlob
+      });
+      return response.text;
+    } catch (error) {
+      console.error("Hugging Face Transcription Error:", error);
+      throw error;
+    }
   },
   
   ensureApiKey: async () => {

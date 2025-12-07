@@ -17,7 +17,10 @@ import JSZip from 'jszip';
 import CustomPreview from './previews/CustomPreview';
 import DartPadPreview from './previews/DartPadPreview';
 
+// Use Hugging Face for code generation and media
 const { generateProject, blobToBase64, generateImage, transcribeAudio, ensureApiKey } = huggingFaceService;
+
+
 
 // Simple Github Icon Component to replace deprecated Lucide icon
 const GithubIcon = ({ className }: { className?: string }) => (
@@ -1369,10 +1372,10 @@ body {
             if (result.toolCall === 'generateLogo' || result.toolCall === 'generateImage') {
                 setGenerationStatus('🎨 Generating asset...');
                 const imgPrompt = result.explanation || userMsg.text;
-                const response = await generateImage(imgPrompt, '1:1', '1K', ModelType.PRO_IMAGE);
-                const parts = response?.candidates?.[0]?.content?.parts;
-                if (parts && parts[0].inlineData) {
-                    const base64 = parts[0].inlineData.data;
+                try {
+                    const blob = await generateImage(imgPrompt, '1:1', '1K', ModelType.PRO_IMAGE);
+                    const base64 = await blobToBase64(blob);
+                    
                     const fileName = `src/assets/${result.toolCall === 'generateLogo' ? 'logo' : 'image'}-${Date.now()}.png`;
                     const imageFile: ProjectFile = { name: fileName, content: `data:image/png;base64,${base64}`, language: 'image' };
                     setFiles([...files, imageFile]);
@@ -1381,6 +1384,9 @@ body {
                         id: Date.now().toString(), role: 'model', text: `Generated asset: ${fileName}.`,
                         attachment: { name: fileName, mimeType: 'image/png', data: base64 }, timestamp: Date.now() 
                     }]);
+                } catch (e) {
+                    console.error("Image generation failed", e);
+                    setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: "Failed to generate image.", timestamp: Date.now() }]);
                 }
             } else if (result.files && result.files.length > 0) {
                 // Show files being worked on
@@ -1447,8 +1453,8 @@ body {
                     const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
                     stream.getTracks().forEach(track => track.stop());
                     try {
-                        const base64 = await blobToBase64(audioBlob);
-                        const transcript = await transcribeAudio(base64, 'audio/webm');
+                        // Hugging Face transcription takes a Blob directly
+                        const transcript = await transcribeAudio(audioBlob);
                         if (transcript) setChatInput(prev => prev + (prev ? ' ' : '') + transcript);
                     } catch (error) { console.error(error); } finally { setIsTranscribingAudio(false); }
                 };
@@ -2243,7 +2249,7 @@ body {
                 {/* Left Sidebar */}
                 <div className={`${isSidebarCollapsed ? 'w-0 opacity-0' : 'w-64'} absolute md:relative z-20 h-full bg-slate-900 border-r border-slate-800 flex flex-col transition-all duration-300 flex-shrink-0 overflow-hidden shadow-2xl md:shadow-none`}>
                     <div className="flex border-b border-slate-800 overflow-x-auto custom-scrollbar">
-                        {[{id:'files',icon:File,label:'Files'}, {id:'code',icon:CodeIcon,label:'Code'}, {id:'term',icon:TerminalIcon,label:'Terminal'}, {id:'git',icon:Github,label:'Git'}, {id:'db',icon:Database,label:'DB'}, {id:'services',icon:Zap,label:'Services'}, {id:'pkg',icon:PackageIcon,label:'Packages'}, {id:'snaps', icon:History,label:'Snaps'}].map((t:any) => (
+                        {[{id:'files',icon:File,label:'Files'}, {id:'code',icon:CodeIcon,label:'Code'}, {id:'term',icon:TerminalIcon,label:'Terminal'}, {id:'git',icon:GithubIcon,label:'Git'}, {id:'db',icon:Database,label:'DB'}, {id:'services',icon:Zap,label:'Services'}, {id:'pkg',icon:PackageIcon,label:'Packages'}, {id:'snaps', icon:History,label:'Snaps'}].map((t:any) => (
                             <button key={t.id} onClick={() => setSidebarTab(t.id)} className={`flex-shrink-0 px-3 py-3 flex flex-col items-center border-b-2 transition-colors ${sidebarTab === t.id ? 'border-blue-500 text-blue-500 bg-slate-800/50' : 'border-transparent text-slate-500 hover:text-slate-300'}`} title={t.label}>
                                 <t.icon className="w-4 h-4"/>
                                 <span className="text-[9px] mt-0.5 hidden md:block">{t.label}</span>

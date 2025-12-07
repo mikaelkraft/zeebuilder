@@ -183,6 +183,99 @@ AI: I'll create a Navbar component with those features..."
                         </p>
                     </section>
 
+                    {/* Voice & Audio */}
+                    <section id="audio" className="scroll-mt-24">
+                        <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-3">
+                            <Mic className="w-6 h-6 text-pink-500" />
+                            Voice & Audio
+                        </h2>
+                        <p className="text-slate-600 dark:text-slate-300 mb-4">
+                            Convert text to lifelike speech or transcribe audio files with high accuracy.
+                        </p>
+                        <div className="grid md:grid-cols-2 gap-4">
+                            <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
+                                <h3 className="font-bold text-slate-900 dark:text-white mb-2">Text to Speech</h3>
+                                <p className="text-sm text-slate-600 dark:text-slate-400">
+                                    Generate speech in multiple voices and languages.
+                                </p>
+                            </div>
+                            <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
+                                <h3 className="font-bold text-slate-900 dark:text-white mb-2">Transcription</h3>
+                                <p className="text-sm text-slate-600 dark:text-slate-400">
+                                    Convert uploaded audio files or recordings into text.
+                                </p>
+                            </div>
+                        </div>
+                    </section>
+
+                    {/* Projects */}
+                    <section id="projects" className="scroll-mt-24">
+                        <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-3">
+                            <Layers className="w-6 h-6 text-indigo-500" />
+                            Projects
+                        </h2>
+                        <p className="text-slate-600 dark:text-slate-300 mb-4">
+                            Manage your applications, view deployment status, and organize your work.
+                        </p>
+                    </section>
+
+                    {/* Community */}
+                    <section id="community" className="scroll-mt-24">
+                        <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-3">
+                            <Users className="w-6 h-6 text-orange-500" />
+                            Community
+                        </h2>
+                        <p className="text-slate-600 dark:text-slate-300 mb-4">
+                            Connect with other developers, share your projects, and get help from the community.
+                        </p>
+                    </section>
+
+                    {/* Integrations */}
+                    <section id="integrations" className="scroll-mt-24">
+                        <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-3">
+                            <GitBranch className="w-6 h-6 text-slate-500" />
+                            Integrations
+                        </h2>
+                        <p className="text-slate-600 dark:text-slate-300 mb-4">
+                            Connect Zee Builder with your favorite tools and services.
+                        </p>
+                        <ul className="space-y-2 text-slate-600 dark:text-slate-300">
+                            <li className="flex items-center gap-2">
+                                <CheckCircle className="w-4 h-4 text-green-500" />
+                                GitHub - Sync repositories and manage version control
+                            </li>
+                            <li className="flex items-center gap-2">
+                                <CheckCircle className="w-4 h-4 text-green-500" />
+                                Vercel - Deploy your applications with one click
+                            </li>
+                            <li className="flex items-center gap-2">
+                                <CheckCircle className="w-4 h-4 text-green-500" />
+                                Supabase - Add authentication and database features
+                            </li>
+                        </ul>
+                    </section>
+
+                    {/* API Reference */}
+                    <section id="api" className="scroll-mt-24">
+                        <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-3">
+                            <Terminal className="w-6 h-6 text-red-500" />
+                            API Reference
+                        </h2>
+                        <p className="text-slate-600 dark:text-slate-300 mb-4">
+                            Access Zee Builder features programmatically using our REST API.
+                        </p>
+                        <CodeBlock 
+                            id="api-example"
+                            language="bash"
+                            code="curl -X POST https://api.zee.ai/v1/generate \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  -d '{
+    'prompt': 'Create a landing page',
+    'framework': 'react'
+  }'"
+                        />
+                    </section>
+
                     {/* Navigation Footer */}
                     <div className="flex flex-col sm:flex-row gap-4 pt-8 border-t border-gray-200 dark:border-slate-800">
                         <button

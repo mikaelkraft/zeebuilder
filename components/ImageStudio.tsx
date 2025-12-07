@@ -1,6 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { generateImage, editImage } from '../services/geminiService';
+import { huggingFaceService } from '../services/huggingFaceService';
+import { editImage } from '../services/geminiService'; // Keep editImage from Gemini for now if needed, or remove
 import { Image, Wand2, Loader2, Upload, ZoomIn, ZoomOut, RefreshCcw, Download, Stamp, FolderPlus, Check } from 'lucide-react';
 import { ModelType, SavedProject } from '../types';
 
@@ -60,51 +61,22 @@ const ImageStudio: React.FC = () => {
         
         try {
             if (mode === 'generate') {
-                const response = await generateImage(prompt, aspectRatio, imageSize, selectedModel);
-                const parts = response?.candidates?.[0]?.content?.parts;
-                if (parts && parts.length > 0) {
-                    for (const part of parts) {
-                        if (part.inlineData) {
-                            setResultUrl(`data:image/png;base64,${part.inlineData.data}`);
-                            break;
-                        }
-                    }
-                } else {
-                    (window as any).swal("Generation Failed", "No content was generated. Please try a different prompt.", "error");
-                }
+                const imageBlob = await huggingFaceService.generateImage(prompt, aspectRatio, imageSize, selectedModel);
+                const url = URL.createObjectURL(imageBlob);
+                setResultUrl(url);
             } else if (mode === 'logo') {
                 const logoPrompt = `Design a ${logoStyle.toLowerCase()} logo for an application named "${appName}". Context/Description: ${prompt}. The logo should be high-quality, professional, iconic, and suitable for an app icon. Ensure a clean background.`;
-                // Force Pro Image for quality logos
-                const response = await generateImage(logoPrompt, aspectRatio, imageSize, ModelType.PRO_IMAGE);
-                const parts = response?.candidates?.[0]?.content?.parts;
-                 if (parts && parts.length > 0) {
-                    for (const part of parts) {
-                        if (part.inlineData) {
-                            setResultUrl(`data:image/png;base64,${part.inlineData.data}`);
-                            break;
-                        }
-                    }
-                } else {
-                    (window as any).swal("Logo Generation Failed", "Could not generate logo. Please try again.", "error");
-                }
+                const imageBlob = await huggingFaceService.generateImage(logoPrompt, aspectRatio, imageSize, ModelType.PRO_IMAGE);
+                const url = URL.createObjectURL(imageBlob);
+                setResultUrl(url);
             } else if (mode === 'edit') {
                 if (!uploadedImage) return;
-                const response = await editImage(uploadedImage.data, uploadedImage.mimeType, prompt);
-                 const parts = response?.candidates?.[0]?.content?.parts;
-                if (parts && parts.length > 0) {
-                    for (const part of parts) {
-                        if (part.inlineData) {
-                            setResultUrl(`data:image/png;base64,${part.inlineData.data}`);
-                            break;
-                        }
-                    }
-                } else {
-                    (window as any).swal("Edit Failed", "Image editing failed. Please try again.", "error");
-                }
+                // Edit not yet implemented in HF service
+                (window as any).swal("Not Supported", "Image editing is not currently supported with this model.", "info");
             }
-        } catch (error) {
-            console.error(error);
-            (window as any).swal("Error", "An error occurred while generating content.", "error");
+        } catch (error: any) {
+            console.error("Image Generation Error:", error);
+            (window as any).swal("Error", error.message || "Failed to generate image", "error");
         } finally {
             setIsLoading(false);
         }

@@ -1,6 +1,6 @@
 
 import React, { useState, useRef } from 'react';
-import { generateSpeech, transcribeAudio, decodeAudio, arrayBufferToAudioBuffer, pcm16ToWavBlob, ensureApiKey, blobToBase64 } from '../services/geminiService';
+import { huggingFaceService } from '../services/huggingFaceService';
 import { Volume2, Loader2, FileText, Download, Activity, Copy, Check, Mic, MicOff, FolderPlus, Cloud, AlertCircle } from 'lucide-react';
 import { View, SavedProject, CloudProviderConfig } from '../types';
 import { alertService } from '../services/alertService';
@@ -17,7 +17,7 @@ const AudioStudio: React.FC<AudioStudioProps> = ({ onNavigate }) => {
     const [isGeneratingTTS, setIsGeneratingTTS] = useState(false);
     const [audioDownloadUrl, setAudioDownloadUrl] = useState<string | null>(null);
     const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
-    const [ttsVoice, setTtsVoice] = useState('Kore');
+    const [ttsVoice, setTtsVoice] = useState('default');
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
     const [saveMessage, setSaveMessage] = useState('');
 
@@ -37,19 +37,14 @@ const AudioStudio: React.FC<AudioStudioProps> = ({ onNavigate }) => {
         setIsGeneratingTTS(true);
         setAudioDownloadUrl(null);
         try {
-            const base64 = await generateSpeech(ttsText, ttsVoice);
-            if (base64) {
-                 const audioBytes = decodeAudio(base64);
-                 const ctx = new (window.AudioContext || (window as any).webkitAudioContext)({sampleRate: 24000});
-                 const buffer = await arrayBufferToAudioBuffer(audioBytes, ctx);
-                 const source = ctx.createBufferSource();
-                 source.buffer = buffer;
-                 source.connect(ctx.destination);
-                 source.start();
-                 const wavBlob = pcm16ToWavBlob(audioBytes);
-                 const url = URL.createObjectURL(wavBlob);
+            const audioBlob = await huggingFaceService.generateSpeech(ttsText, ttsVoice);
+            if (audioBlob) {
+                 const url = URL.createObjectURL(audioBlob);
+                 const audio = new Audio(url);
+                 audio.play();
+                 
                  setAudioDownloadUrl(url);
-                 setAudioBlob(wavBlob);
+                 setAudioBlob(audioBlob);
                  setSaveStatus('idle');
             } else {
                 alertService.error('Generation Failed', 'Failed to generate speech. Please try again.');
@@ -72,16 +67,9 @@ const AudioStudio: React.FC<AudioStudioProps> = ({ onNavigate }) => {
         setTranscription('');
         
         try {
-             const reader = new FileReader();
-             reader.readAsDataURL(file);
-             reader.onloadend = async () => {
-                 if (typeof reader.result === 'string') {
-                    const base64 = reader.result.split(',')[1];
-                    const text = await transcribeAudio(base64, file.type);
-                    setTranscription(text || "No speech detected.");
-                 }
-                 setIsTranscribing(false);
-             }
+             const text = await huggingFaceService.transcribeAudio(file);
+             setTranscription(text || "No speech detected.");
+             setIsTranscribing(false);
         } catch (e: any) {
             setTranscription("Error: " + (e.message || e));
             setIsTranscribing(false);
@@ -97,7 +85,6 @@ const AudioStudio: React.FC<AudioStudioProps> = ({ onNavigate }) => {
             }
         } else {
             try {
-                await ensureApiKey();
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 const mediaRecorder = new MediaRecorder(stream);
                 mediaRecorderRef.current = mediaRecorder;
@@ -116,8 +103,7 @@ const AudioStudio: React.FC<AudioStudioProps> = ({ onNavigate }) => {
                     stream.getTracks().forEach(track => track.stop());
 
                     try {
-                        const base64 = await blobToBase64(audioBlob);
-                        const transcript = await transcribeAudio(base64, 'audio/webm');
+                        const transcript = await huggingFaceService.transcribeAudio(audioBlob);
                         setTranscription(transcript || "No speech detected.");
                     } catch (error: any) {
                         console.error("Transcription failed:", error);

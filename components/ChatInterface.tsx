@@ -1,6 +1,8 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { createChatSession, transcribeAudio, blobToBase64, ensureApiKey } from '../services/geminiService';
+import { createChatSession, blobToBase64, ensureApiKey } from '../services/geminiService';
+import { huggingFaceService } from '../services/huggingFaceService';
+const { transcribeAudio } = huggingFaceService;
 import { ChatMessage, ModelType, ChatSession, FileAttachment, Task } from '../types';
 import { alertService } from '../services/alertService';
 import { 
@@ -559,8 +561,8 @@ const ChatInterface: React.FC = () => {
                     stream.getTracks().forEach(track => track.stop());
 
                     try {
-                        const base64 = await blobToBase64(audioBlob);
-                        const transcript = await transcribeAudio(base64, 'audio/webm');
+                        // Hugging Face transcription takes a Blob directly
+                        const transcript = await transcribeAudio(audioBlob);
                         if (transcript) {
                             setInput(prev => prev + (prev ? ' ' : '') + transcript);
                         }
