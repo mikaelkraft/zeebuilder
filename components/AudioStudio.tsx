@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
-import { huggingFaceService } from '../services/huggingFaceService';
-import { Volume2, Loader2, FileText, Download, Activity, Copy, Check, Mic, MicOff, FolderPlus, Cloud, AlertCircle } from 'lucide-react';
+import { geminiService } from '../services/geminiService';
+import { Volume2, Loader2, FileText, Download, Activity, Copy, Check, Mic, MicOff, FolderPlus, Cloud, AlertCircle, RefreshCcw } from 'lucide-react';
 import { View, SavedProject, CloudProviderConfig } from '../types';
 import { alertService } from '../services/alertService';
 
@@ -32,13 +32,28 @@ const AudioStudio: React.FC<AudioStudioProps> = ({ onNavigate }) => {
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const audioChunksRef = useRef<Blob[]>([]);
 
+    const blobToBase64 = (blob: Blob): Promise<string> => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const result = reader.result as string;
+                const base64 = result.split(',')[1];
+                resolve(base64);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+    };
+
     const handleTTS = async () => {
         if (!ttsText) return;
         setIsGeneratingTTS(true);
         setAudioDownloadUrl(null);
         try {
-            const audioBlob = await huggingFaceService.generateSpeech(ttsText, ttsVoice);
-            if (audioBlob) {
+            const base64Audio = await geminiService.generateSpeech(ttsText, ttsVoice);
+            if (base64Audio) {
+                 const res = await fetch(`data:audio/mp3;base64,${base64Audio}`);
+                 const audioBlob = await res.blob();
                  const url = URL.createObjectURL(audioBlob);
                  const audio = new Audio(url);
                  audio.play();
@@ -67,7 +82,8 @@ const AudioStudio: React.FC<AudioStudioProps> = ({ onNavigate }) => {
         setTranscription('');
         
         try {
-             const text = await huggingFaceService.transcribeAudio(file);
+             const base64 = await blobToBase64(file);
+             const text = await geminiService.transcribeAudio(base64, file.type);
              setTranscription(text || "No speech detected.");
              setIsTranscribing(false);
         } catch (e: any) {
@@ -103,7 +119,8 @@ const AudioStudio: React.FC<AudioStudioProps> = ({ onNavigate }) => {
                     stream.getTracks().forEach(track => track.stop());
 
                     try {
-                        const transcript = await huggingFaceService.transcribeAudio(audioBlob);
+                        const base64 = await blobToBase64(audioBlob);
+                        const transcript = await geminiService.transcribeAudio(base64, 'audio/webm');
                         setTranscription(transcript || "No speech detected.");
                     } catch (error: any) {
                         console.error("Transcription failed:", error);
@@ -248,6 +265,13 @@ const AudioStudio: React.FC<AudioStudioProps> = ({ onNavigate }) => {
                             </button>
                             {audioDownloadUrl && (
                                 <>
+                                    <button 
+                                        onClick={handleTTS}
+                                        className="px-3 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-bold text-xs flex items-center justify-center"
+                                        title="Remix / Regenerate"
+                                    >
+                                        <RefreshCcw className="w-3 h-3" />
+                                    </button>
                                     <button 
                                         onClick={handleAddToProject}
                                         disabled={saveStatus === 'saving'}

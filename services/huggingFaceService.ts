@@ -68,17 +68,25 @@ export const huggingFaceService = {
 
     const systemPrompt = `You are an expert full-stack developer specializing in ${stack}.
     Your task is to generate or modify code based on the user's request.
-    If the user asks to generate images or audio, do not generate code. Instead, simply reply with: "Please use the Image Studio or Audio Studio for media generation."
+    Today is ${new Date().toDateString()}.
+    
+    MEDIA HANDLING RULES:
+    1. If the user asks to GENERATE new images or audio, refuse and reply: "Please use the Image Studio or Audio Studio for media generation."
+    2. If the user provides an image for analysis (OCR, design to code), you SHOULD analyze it and generate code based on it.
+    3. You can help users add/import existing image assets into their project.
     
     Current File Structure:
     ${currentFiles.map(f => `- ${f.name} (${f.language})`).join('\n')}
     
-    Return ONLY a JSON array of file objects. Each object must have "name", "content", and "language".
-    Do not include markdown formatting like \`\`\`json. Just the raw JSON array.
-    Example:
-    [
-      { "name": "src/App.tsx", "content": "...", "language": "typescript" }
-    ]
+    Return ONLY a JSON object with the following structure:
+    {
+      "message": "A brief explanation of what you did or an answer to the user's question.",
+      "files": [
+        { "name": "path/to/file", "content": "full file content", "language": "language" }
+      ]
+    }
+    If no code changes are needed, return an empty "files" array.
+    Do not include markdown formatting like \`\`\`json. Just the raw JSON object.
     `;
 
     const makeRequest = async (modelName: string) => {
@@ -109,15 +117,23 @@ export const huggingFaceService = {
       const content = response.choices[0].message.content || "";
       const jsonStr = content.replace(/```json/g, '').replace(/```/g, '').trim();
       
-      let files: ProjectFile[] = [];
+      let parsed: { message: string, files: ProjectFile[] } = { message: "", files: [] };
       try {
-        files = JSON.parse(jsonStr);
+        // Try parsing as the new object format
+        const result = JSON.parse(jsonStr);
+        if (Array.isArray(result)) {
+            // Handle legacy array format just in case
+            parsed = { message: "Generated code based on your request.", files: result };
+        } else {
+            parsed = result;
+        }
       } catch (e) {
         console.error("Failed to parse generated code as JSON:", content);
+        // If parsing fails, assume it's just a message
         return { files: [], explanation: content };
       }
       
-      return { files, explanation: "Generated code based on your request." };
+      return { files: parsed.files || [], explanation: parsed.message || "Generated code based on your request." };
     } catch (error) {
       console.error("Hugging Face Code Gen Error:", error);
       throw error;

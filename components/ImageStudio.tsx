@@ -61,11 +61,13 @@ const ImageStudio: React.FC = () => {
         
         try {
             if (mode === 'generate') {
-                const imageBlob = await huggingFaceService.generateImage(prompt, aspectRatio, imageSize, selectedModel);
+                // Enhance prompt for realism
+                const enhancedPrompt = `${prompt}, realistic, high quality, 8k, highly detailed, photorealistic, masterpiece, sharp focus, professional photography`;
+                const imageBlob = await huggingFaceService.generateImage(enhancedPrompt, aspectRatio, imageSize, selectedModel);
                 const url = URL.createObjectURL(imageBlob);
                 setResultUrl(url);
             } else if (mode === 'logo') {
-                const logoPrompt = `Design a ${logoStyle.toLowerCase()} logo for an application named "${appName}". Context/Description: ${prompt}. The logo should be high-quality, professional, iconic, and suitable for an app icon. Ensure a clean background.`;
+                const logoPrompt = `Design a ${logoStyle.toLowerCase()} logo for an application named "${appName}". Context/Description: ${prompt}. The logo should be high-quality, professional, iconic, and suitable for an app icon. Ensure a clean background. Vector art style.`;
                 const imageBlob = await huggingFaceService.generateImage(logoPrompt, aspectRatio, imageSize, ModelType.PRO_IMAGE);
                 const url = URL.createObjectURL(imageBlob);
                 setResultUrl(url);
@@ -80,6 +82,10 @@ const ImageStudio: React.FC = () => {
         } finally {
             setIsLoading(false);
         }
+    };
+
+    const handleRemix = () => {
+        handleAction();
     };
 
     const handleAddToProject = () => {
@@ -300,6 +306,13 @@ const ImageStudio: React.FC = () => {
                         <div className="w-px h-4 bg-slate-700 mx-1"></div>
                         <button onClick={() => { setZoom(1); setPan({x:0,y:0}); }} className="p-2 hover:bg-slate-700 rounded text-slate-300" title="Reset View"><RefreshCcw className="w-4 h-4" /></button>
                         <div className="w-px h-4 bg-slate-700 mx-1"></div>
+                        <button 
+                            onClick={handleRemix}
+                            className="p-2 hover:bg-slate-700 rounded text-purple-400 hover:text-purple-300 flex items-center"
+                            title="Remix (Regenerate)"
+                        >
+                            <Wand2 className="w-4 h-4" />
+                        </button>
                         <button 
                             onClick={handleAddToProject}
                             className="p-2 hover:bg-slate-700 rounded text-green-400 hover:text-green-300 flex items-center"

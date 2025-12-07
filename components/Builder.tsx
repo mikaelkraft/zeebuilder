@@ -391,7 +391,7 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
     const [serviceCategory, setServiceCategory] = useState<'api' | 'integration'>('api');
     const [isSyncing, setIsSyncing] = useState(false);
     const progressStatusRef = useRef<NodeJS.Timeout | null>(null);
-    const [model, setModel] = useState(ModelType.PRO_PREVIEW);
+    const [model, setModel] = useState(ModelType.FLASH);
     const [useSearch, setUseSearch] = useState(true); // Enable search by default for up-to-date tools/libraries
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -2091,9 +2091,8 @@ body {
                         <Save className="w-3.5 h-3.5" />
                     </button>
                     <select value={model} onChange={e => setModel(e.target.value as ModelType)} className="bg-slate-950 text-xs text-slate-400 border border-slate-800 rounded py-1 px-2 max-w-[100px] focus:outline-none">
-                        <option value={ModelType.PRO_PREVIEW}>Pro</option>
-                        <option value={ModelType.FLASH}>Flash</option>
-                        <option value={ModelType.FLASH_LITE}>Lite</option>
+                        <option value={ModelType.FLASH}>Free (Llama 3)</option>
+                        <option value={ModelType.FLASH_LITE}>Lite (Fast)</option>
                     </select>
                     <button onClick={() => setUseSearch(!useSearch)} className={`p-1.5 rounded ${useSearch ? 'text-blue-500 bg-blue-500/10' : 'text-slate-500 hover:bg-slate-800'}`} title="Search Web">
                         <Globe className="w-3.5 h-3.5" />

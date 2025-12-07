@@ -2,6 +2,15 @@
 import { GoogleGenAI, Type, Modality, FunctionDeclaration } from "@google/genai";
 import { ModelType, ProjectFile, Stack, BuilderChatMessage, DatabaseConfig } from "../types";
 
+declare global {
+  interface Window {
+    aistudio?: {
+      hasSelectedApiKey: () => Promise<boolean>;
+      openSelectKey: () => Promise<void>;
+    };
+  }
+}
+
 // Helper to handle API Key selection for paid models
 export const ensureApiKey = async () => {
   if (window.aistudio && window.aistudio.hasSelectedApiKey && window.aistudio.openSelectKey) {
@@ -125,7 +134,10 @@ CAPABILITIES OF THIS APP (ZEE BUILDER):
 4. **Task Board**: Kanban style project management.
 5. **Developer API**: Generate API keys to use Zee models in external apps.
 
-IMPORTANT: If the user asks to generate an image or audio, explicitly direct them to use the Image Studio or Audio Studio respectively. Do not attempt to generate media here.
+IMPORTANT: 
+- If the user asks to GENERATE an image or audio, explicitly direct them to use the Image Studio or Audio Studio respectively. Do not attempt to generate media here.
+- However, if the user UPLOADS an image or file for analysis (e.g., OCR, design extraction, debugging), you MUST analyze it and assist them.
+- You can also help users add existing image assets to their project code (e.g., importing images, using <img> tags).
 `;
 
         const config: any = { systemInstruction };
@@ -269,6 +281,7 @@ IMPORTANT: When writing connection code, use these EXACT values.`
            - If the user asks to "build", "create", "add", "fix", or "update", GENERATE CODE.
            - If a FILE is provided, analyze it and use its content to inform your response.
            - If the user asks a question, explain it.
+           - If the user asks to GENERATE new images/audio, refuse and direct them to Image/Audio Studio.
         
         2. **Code Generation Rules**:
            - Web (React): Use Tailwind CSS. 'export default function App() {}'.
