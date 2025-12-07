@@ -641,7 +641,10 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
     }, [files, messages, dbConfigs, projectName, stack, currentProjectId, snapshots, user]);
 
     useLayoutEffect(() => {
-        const initTimer = setTimeout(() => {
+        let attempts = 0;
+        const maxAttempts = 50; // 5 seconds max
+
+        const initTerminal = () => {
             if (terminalRef.current && !xtermRef.current) {
                 const Terminal = (window as any).Terminal;
                 const FitAddon = (window as any).FitAddon?.FitAddon;
@@ -674,10 +677,20 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
                     term.write('Welcome to Zee Terminal.\r\n');
                     shell.prompt();
                     try { fitAddon.fit(); } catch (e) {}
+                    return true;
                 }
             }
+            return false;
+        };
+
+        const poll = setInterval(() => {
+            attempts++;
+            if (initTerminal() || attempts >= maxAttempts) {
+                clearInterval(poll);
+            }
         }, 100);
-        return () => clearTimeout(initTimer);
+
+        return () => clearInterval(poll);
     }, []);
 
     useEffect(() => {

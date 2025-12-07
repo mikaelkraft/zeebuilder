@@ -74,6 +74,27 @@ export default async function handler(req, res) {
       { expiresIn: '7d' }
     );
 
+    // Send Welcome Email
+    try {
+      const { sendEmail } = await import('../utils/email.js');
+      await sendEmail({
+        to: cleanEmail,
+        subject: 'Welcome to ZeeBuilder!',
+        html: `
+          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+            <h1>Welcome to ZeeBuilder, ${cleanUsername}! 🚀</h1>
+            <p>We're thrilled to have you on board. ZeeBuilder is your AI-powered development companion.</p>
+            <p>Get started by creating your first project!</p>
+            <br/>
+            <a href="https://zeebuilder.com" style="background: #2563eb; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Go to Dashboard</a>
+          </div>
+        `
+      });
+    } catch (emailError) {
+      console.error('Failed to send welcome email:', emailError);
+      // Don't fail registration if email fails
+    }
+
     res.status(201).json({
       token,
       user: {

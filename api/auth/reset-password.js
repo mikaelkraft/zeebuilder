@@ -1,5 +1,7 @@
 import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import { supabaseAdmin } from '../lib/supabase.js';
+import { sendEmail } from '../utils/email.js';
 
 export default async function handler(req, res) {
   // Handle CORS
@@ -15,21 +17,22 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  const { email, newPassword, resetToken } = req.body;
+  const { newPassword, resetToken } = req.body;
 
-  if (!email || !newPassword) {
-    return res.status(400).json({ error: 'Email and new password are required' });
+  if (!newPassword || !resetToken) {
+    return res.status(400).json({ error: 'New password and reset token are required' });
   }
-
-  // Security Fix: Require a reset token to prevent unauthorized password changes
-  if (!resetToken) {
-      return res.status(403).json({ error: 'Missing reset token. Please request a password reset link.' });
-  }
-  
-  // TODO: Verify resetToken against database
-  // For now, we block requests without it.
 
   try {
+    // Verify Token
+    const decoded = jwt.verify(resetToken, process.env.JWT_SECRET);
+    
+    if (decoded.type !== 'reset') {
+        return res.status(403).json({ error: 'Invalid token type' });
+    }
+
+    const email = decoded.email;
+
     if (!supabaseAdmin) {
       return res.status(503).json({ error: 'Database service unavailable' });
     }
@@ -54,8 +57,24 @@ export default async function handler(req, res) {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    // Send Confirmation Email
+    await sendEmail({
+        to: email,
+        subject: 'Password Changed Successfully',
+        html: `
+          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Password Changed</h2>
+            <p>Your ZeeBuilder password has been successfully updated.</p>
+            <p>If you did not perform this action, please contact support immediately.</p>
+          </div>
+        `
+    });
+
     return res.status(200).json({ message: 'Password updated successfully' });
   } catch (error) {
+    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+        return res.status(403).json({ error: 'Invalid or expired reset token' });
+    }
     console.error('Reset password server error:', error);
     res.status(500).json({ error: 'Server error' });
   }
