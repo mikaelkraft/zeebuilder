@@ -307,7 +307,7 @@ const stream = await zee.audio.stream({ text: '...' });`
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
             <div className="w-full px-4 sm:px-6 lg:px-8 py-8">
                 {/* Header */}
                 <div className="mb-8">
@@ -323,7 +323,7 @@ const stream = await zee.audio.stream({ text: '...' });`
                 </div>
 
                 {/* Tabs */}
-                <div className="flex gap-2 mb-6 bg-white dark:bg-slate-800 p-2 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 w-fit">
+                <div className="flex gap-2 mb-6 bg-white dark:bg-slate-800 p-2 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 w-fit max-w-full overflow-x-auto">
                     {tabs.map(tab => (
                         <button
                             key={tab.id}
@@ -369,12 +369,14 @@ const stream = await zee.audio.stream({ text: '...' });`
                             </h3>
                             <div className="space-y-2">
                                 {endpoints.map((endpoint, i) => (
-                                    <div key={i} className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg">
-                                        <span className={`text-[10px] font-bold px-2 py-1 rounded ${endpoint.method === 'GET' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'}`}>
-                                            {endpoint.method}
-                                        </span>
-                                        <code className="text-sm font-mono text-slate-700 dark:text-slate-300">{baseUrl}{endpoint.path}</code>
-                                        <span className="text-xs text-slate-500 ml-auto">{endpoint.desc}</span>
+                                    <div key={i} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg">
+                                        <div className="flex items-center gap-3 shrink-0">
+                                            <span className={`text-[10px] font-bold px-2 py-1 rounded ${endpoint.method === 'GET' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'}`}>
+                                                {endpoint.method}
+                                            </span>
+                                            <code className="text-sm font-mono text-slate-700 dark:text-slate-300 break-all">{baseUrl}{endpoint.path}</code>
+                                        </div>
+                                        <span className="text-xs text-slate-500 sm:ml-auto">{endpoint.desc}</span>
                                     </div>
                                 ))}
                             </div>
