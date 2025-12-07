@@ -123,6 +123,8 @@ const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
+  const [authInitialView, setAuthInitialView] = useState<any>('LOGIN');
+  const [authInitialToken, setAuthInitialToken] = useState('');
   const [isDarkMode, setIsDarkMode] = useState(() => {
     // Check localStorage first, then system preference
     const savedTheme = localStorage.getItem('zee_theme');
@@ -134,6 +136,19 @@ const App: React.FC = () => {
 
   // Standalone views (no sidebar, full width)
   const isStandalone = [View.POLICY, View.TERMS, View.DOCS].includes(currentView);
+
+  // Check for reset token
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const token = params.get('token');
+    if (token) {
+        setAuthInitialView('RESET_PASSWORD');
+        setAuthInitialToken(token);
+        setShowAuth(true);
+        // Clean URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [location.search]);
 
   // Sync view with URL changes (browser back/forward)
   useEffect(() => {
@@ -294,6 +309,8 @@ const App: React.FC = () => {
       
       {showAuth && (
         <AuthModal 
+          initialView={authInitialView}
+          initialToken={authInitialToken}
           onLogin={(u) => {
             setUser(u);
             localStorage.setItem('zee_user', JSON.stringify(u));
@@ -307,13 +324,13 @@ const App: React.FC = () => {
             }
           }} 
           onClose={() => {
-              setShowAuth(false);
-              setPendingView(null);
-          }}
+            setShowAuth(false);
+            setPendingView(null);
+            setAuthInitialView('LOGIN');
+            setAuthInitialToken('');
+          }} 
         />
-      )}
-
-      {isSidebarOpen && !isStandalone && (
+      )}      {isSidebarOpen && !isStandalone && (
         <div 
           className="fixed inset-0 bg-black/50 z-40 lg:hidden backdrop-blur-sm"
           onClick={() => setIsSidebarOpen(false)}

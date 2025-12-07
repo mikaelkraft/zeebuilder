@@ -179,12 +179,35 @@ export const authService = {
         return !!users[email];
     },
 
-    resetPassword: async (email: string, newPassword: string): Promise<void> => {
+    forgotPassword: async (email: string): Promise<void> => {
+        if (USE_REAL_API) {
+            const res = await fetch('/api/auth/forgot-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
+            });
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                throw new Error(errorData.error || 'Failed to send reset email');
+            }
+            return;
+        }
+        
+        // Mock implementation
+        await new Promise(resolve => setTimeout(resolve, 600));
+        const usersStr = localStorage.getItem(USERS_KEY);
+        const users = usersStr ? JSON.parse(usersStr) : {};
+        if (users[email]) {
+            console.log(`[Mock Auth] Reset link for ${email}: ${window.location.origin}/reset-password?token=mock-token-${email}`);
+        }
+    },
+
+    resetPassword: async (token: string, newPassword: string): Promise<void> => {
         if (USE_REAL_API) {
             const res = await fetch('/api/auth/reset-password', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, newPassword })
+                body: JSON.stringify({ resetToken: token, newPassword })
             });
             
             if (!res.ok) {
@@ -195,6 +218,12 @@ export const authService = {
         }
 
         await new Promise(resolve => setTimeout(resolve, 800));
+        
+        // In mock, we can extract email from the dummy token "mock-token-email"
+        if (!token.startsWith('mock-token-')) {
+            throw new Error('Invalid or expired token');
+        }
+        const email = token.replace('mock-token-', '');
         
         const usersStr = localStorage.getItem(USERS_KEY);
         const users = usersStr ? JSON.parse(usersStr) : {};

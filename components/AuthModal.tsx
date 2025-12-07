@@ -23,12 +23,14 @@ const GithubIcon = ({ className }: { className?: string }) => (
 interface AuthModalProps {
     onLogin: (user: any) => void;
     onClose: () => void;
+    initialView?: AuthView;
+    initialToken?: string;
 }
 
-type AuthView = 'LOGIN' | 'REGISTER' | 'FORGOT_EMAIL' | 'FORGOT_NEW_PASS' | 'SUCCESS';
+type AuthView = 'LOGIN' | 'REGISTER' | 'FORGOT_EMAIL' | 'FORGOT_SENT' | 'RESET_PASSWORD' | 'SUCCESS';
 
-const AuthModal: React.FC<AuthModalProps> = ({ onLogin, onClose }) => {
-    const [view, setView] = useState<AuthView>('LOGIN');
+const AuthModal: React.FC<AuthModalProps> = ({ onLogin, onClose, initialView = 'LOGIN', initialToken = '' }) => {
+    const [view, setView] = useState<AuthView>(initialView);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [username, setUsername] = useState('');
@@ -39,6 +41,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ onLogin, onClose }) => {
     // Reset Flow State
     const [resetEmail, setResetEmail] = useState('');
     const [newPassword, setNewPassword] = useState('');
+    const [resetToken, setResetToken] = useState(initialToken);
 
     // Listen for OAuth callback
     useEffect(() => {
@@ -108,14 +111,10 @@ const AuthModal: React.FC<AuthModalProps> = ({ onLogin, onClose }) => {
         setLoading(true);
         setError(null);
         try {
-            const exists = await authService.checkEmail(resetEmail);
-            if (exists) {
-                setView('FORGOT_NEW_PASS');
-            } else {
-                setError("No account found with this email.");
-            }
-        } catch (err) {
-            setError("Error verifying email.");
+            await authService.forgotPassword(resetEmail);
+            setView('FORGOT_SENT');
+        } catch (err: any) {
+            setError(err.message || "Error sending reset email.");
         } finally {
             setLoading(false);
         }
@@ -126,7 +125,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ onLogin, onClose }) => {
         setLoading(true);
         setError(null);
         try {
-            await authService.resetPassword(resetEmail, newPassword);
+            await authService.resetPassword(resetToken, newPassword);
             setView('SUCCESS');
         } catch (err: any) {
             setError(err.message || "Failed to reset password.");
@@ -312,14 +311,27 @@ const AuthModal: React.FC<AuthModalProps> = ({ onLogin, onClose }) => {
                     </div>
                 )}
 
-                {view === 'FORGOT_NEW_PASS' && (
+                {view === 'FORGOT_SENT' && (
+                     <div className="p-8 text-center">
+                         <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/20 rounded-full flex items-center justify-center mx-auto mb-6 animate-in zoom-in duration-300">
+                             <Mail className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                         </div>
+                         <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Check your email</h2>
+                         <p className="text-slate-500 mb-8">We've sent a password reset link to <strong>{resetEmail}</strong>.</p>
+                         <button onClick={() => setView('LOGIN')} className="w-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white font-bold py-3 rounded-lg transition-colors">
+                             Back to Login
+                         </button>
+                     </div>
+                )}
+
+                {view === 'RESET_PASSWORD' && (
                      <div className="p-8">
                         <div className="text-center mb-8">
                             <div className="w-12 h-12 bg-green-600 rounded-xl mx-auto flex items-center justify-center mb-4 shadow-lg shadow-green-900/50">
                                 <CheckCircle2 className="w-6 h-6 text-white" />
                             </div>
                             <h2 className="text-xl font-bold text-slate-900 dark:text-white">Reset Password</h2>
-                            <p className="text-slate-500 dark:text-slate-400 text-sm mt-2">Account found for {resetEmail}.<br/>Enter a new password.</p>
+                            <p className="text-slate-500 dark:text-slate-400 text-sm mt-2">Enter a new password for your account.</p>
                         </div>
                         {error && <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 rounded-lg flex items-center text-sm"><AlertCircle className="w-4 h-4 mr-2" />{error}</div>}
                         <form onSubmit={handleResetPasswordSubmit} className="space-y-4">
