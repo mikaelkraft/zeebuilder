@@ -317,7 +317,7 @@ const App: React.FC = () => {
 
       {!isStandalone && (
       <aside 
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white/80 dark:bg-slate-900/50 border-r border-gray-200 dark:border-slate-800 transform transition-transform duration-300 ease-in-out backdrop-blur-xl ${
+        className={`fixed lg:static inset-y-0 left-0 z-50 w-64 bg-white/80 dark:bg-slate-900/50 border-r border-gray-200 dark:border-slate-800 transform transition-transform duration-300 ease-in-out backdrop-blur-xl ${
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         } flex flex-col shadow-xl lg:shadow-none`}
       >
@@ -400,7 +400,7 @@ const App: React.FC = () => {
       </aside>
       )}
 
-      <main className="flex-1 flex flex-col min-h-screen relative lg:ml-64 bg-gray-50 dark:bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] dark:from-slate-900 dark:via-slate-950 dark:to-slate-950">
+      <main className="flex-1 flex flex-col min-h-screen overflow-hidden relative bg-gray-50 dark:bg-slate-950">
         {/* Desktop Header - Sticky */}
         {!isStandalone && (
         <div className="hidden lg:flex items-center justify-between px-8 py-4 border-b border-gray-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md z-30 shrink-0 sticky top-0">
@@ -444,7 +444,7 @@ const App: React.FC = () => {
         </header>
 
         {/* View Content & Footer Wrapper */}
-        <div className="flex-1 flex flex-col w-full relative">
+        <div className="flex-1 overflow-y-auto flex flex-col w-full relative">
             <div className="flex-1 p-4 sm:p-6 lg:p-8 xl:px-12 w-full min-h-full">
                 {currentView === View.HOME && <Home user={user} onNavigate={handleNavigation} />}
                 {currentView === View.DASHBOARD && <Dashboard user={user} onNavigate={handleNavigation} />}

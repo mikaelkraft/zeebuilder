@@ -361,7 +361,7 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
     const [sidebarTab, setSidebarTab] = useState<'files' | 'git' | 'db' | 'pkg' | 'snaps' | 'code' | 'term' | 'services'>('files');
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [rightPanelTab, setRightPanelTab] = useState<'chat' | 'preview'>('chat');
-    const [isFullScreenPreview, setIsFullScreenPreview] = useState(true);
+    const [isFullScreenPreview, setIsFullScreenPreview] = useState(false);
     const [mobileCodeView, setMobileCodeView] = useState(false);
     const [terminalCmd, setTerminalCmd] = useState('');
     const [terminalOutput, setTerminalOutput] = useState<string[]>(['ZeeBuilder Shell v1.0', 'Type commands below or use quick buttons.']);
