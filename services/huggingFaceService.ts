@@ -4,6 +4,7 @@ import { BuilderChatMessage, ProjectFile, Stack, DatabaseConfig, ModelType } fro
 
 // Use a free model that is good at coding
 const MODEL = "meta-llama/Llama-3.1-8B-Instruct"; 
+const FALLBACK_MODEL = "microsoft/Phi-3-mini-4k-instruct";
 
 const getClient = (apiKey?: string) => new InferenceClient(apiKey || process.env.HUGGING_FACE_API_KEY);
 
@@ -32,8 +33,22 @@ export const huggingFaceService = {
       });
 
       return response.choices[0].message.content || "";
-    } catch (error) {
-      console.error("Hugging Face Chat Error:", error);
+    } catch (error: any) {
+      console.warn("Primary model failed, trying fallback...", error);
+      if (error.message?.includes("auto-router") || error.message?.includes("401") || error.message?.includes("403")) {
+          try {
+            const response = await client.chatCompletion({
+                model: FALLBACK_MODEL,
+                messages: hfMessages as any,
+                max_tokens: 2000,
+                temperature: 0.7
+            });
+            return response.choices[0].message.content || "";
+          } catch (fallbackError) {
+              console.error("Fallback model also failed:", fallbackError);
+              throw error;
+          }
+      }
       throw error;
     }
   },
@@ -65,16 +80,30 @@ export const huggingFaceService = {
     ]
     `;
 
+    const makeRequest = async (modelName: string) => {
+        return await client.chatCompletion({
+            model: modelName,
+            messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: prompt }
+            ],
+            max_tokens: 4000,
+            temperature: 0.2 
+        });
+    };
+
     try {
-      const response = await client.chatCompletion({
-        model: MODEL,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: prompt }
-        ],
-        max_tokens: 4000,
-        temperature: 0.2 
-      });
+      let response;
+      try {
+          response = await makeRequest(MODEL);
+      } catch (error: any) {
+          console.warn("Primary model failed for code gen, trying fallback...", error);
+          if (error.message?.includes("auto-router") || error.message?.includes("401") || error.message?.includes("403")) {
+              response = await makeRequest(FALLBACK_MODEL);
+          } else {
+              throw error;
+          }
+      }
 
       const content = response.choices[0].message.content || "";
       const jsonStr = content.replace(/```json/g, '').replace(/```/g, '').trim();
