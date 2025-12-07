@@ -465,10 +465,10 @@ const Integrations: React.FC<IntegrationsProps> = ({ user, onNavigate }) => {
                     </div>
 
                     {/* Category Pills */}
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex overflow-x-auto md:flex-wrap gap-2 pb-2 md:pb-0">
                         <button
                             onClick={() => setActiveCategory(null)}
-                            className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                            className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${
                                 !activeCategory 
                                     ? 'bg-blue-600 text-white shadow-lg' 
                                     : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
@@ -480,7 +480,7 @@ const Integrations: React.FC<IntegrationsProps> = ({ user, onNavigate }) => {
                             <button
                                 key={cat.id}
                                 onClick={() => setActiveCategory(cat.id === activeCategory ? null : cat.id)}
-                                className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
+                                className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
                                     activeCategory === cat.id 
                                         ? 'bg-blue-600 text-white shadow-lg' 
                                         : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
