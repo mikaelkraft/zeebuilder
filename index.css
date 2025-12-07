@@ -28,10 +28,14 @@
 html {
   -webkit-text-size-adjust: 100%;
   -moz-text-size-adjust: 100%;
-  -ms-text-size-adjust: 100%;
-  text-size-adjust: 100%;
-  font-size: 16px;
-  min-height: 100%;
+}
+
+body {
+  @apply bg-gray-50 text-slate-900 transition-colors duration-300;
+}
+
+:root.dark body {
+  @apply bg-slate-950 text-slate-200;
 }
 
 body {

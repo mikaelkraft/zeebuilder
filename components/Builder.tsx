@@ -361,7 +361,7 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
     const [sidebarTab, setSidebarTab] = useState<'files' | 'git' | 'db' | 'pkg' | 'snaps' | 'code' | 'term' | 'services'>('files');
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [rightPanelTab, setRightPanelTab] = useState<'chat' | 'preview'>('chat');
-    const [isFullScreenPreview, setIsFullScreenPreview] = useState(false);
+    const [isFullScreenPreview, setIsFullScreenPreview] = useState(true);
     const [mobileCodeView, setMobileCodeView] = useState(false);
     const [terminalCmd, setTerminalCmd] = useState('');
     const [terminalOutput, setTerminalOutput] = useState<string[]>(['ZeeBuilder Shell v1.0', 'Type commands below or use quick buttons.']);
@@ -735,6 +735,31 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
             const ext = isTs ? 'tsx' : 'jsx';
             initialFiles = [
                 { name: 'package.json', content: JSON.stringify(pkgJson, null, 2), language: 'json' },
+                { name: 'index.html', content: `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Zee App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>`, language: 'html' },
+                { name: 'index.css', content: `@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+`, language: 'css' },
                 { name: `App.${ext}`, content: `import React from 'react';
 import { Sparkles } from 'lucide-react';
 
@@ -748,8 +773,8 @@ export default function App() {
   );
 }`, language: isTs ? 'typescript' : 'javascript' },
                 { name: `index.${ext}`, content: isTs 
-                    ? `import React from 'react';\nimport ReactDOM from 'react-dom/client';\nimport App from './App';\n\nconst root = ReactDOM.createRoot(document.getElementById('root')!);\nroot.render(<App />);`
-                    : `import React from 'react';\nimport ReactDOM from 'react-dom/client';\nimport App from './App';\n\nconst root = ReactDOM.createRoot(document.getElementById('root'));\nroot.render(<App />);`, language: isTs ? 'typescript' : 'javascript' }
+                    ? `import React from 'react';\nimport ReactDOM from 'react-dom/client';\nimport App from './App';\nimport './index.css';\n\nconst root = ReactDOM.createRoot(document.getElementById('root')!);\nroot.render(<App />);`
+                    : `import React from 'react';\nimport ReactDOM from 'react-dom/client';\nimport App from './App';\nimport './index.css';\n\nconst root = ReactDOM.createRoot(document.getElementById('root'));\nroot.render(<App />);`, language: isTs ? 'typescript' : 'javascript' }
             ];
             if(isTs) initialFiles.push({ name: 'tsconfig.json', content: JSON.stringify(tsConfig,null,2), language: 'json' });
             setActiveFile(`App.${ext}`);
