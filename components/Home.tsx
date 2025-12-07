@@ -116,7 +116,7 @@ const EngagementChat = ({ onNavigate }: { onNavigate: (view: View) => void }) =>
 };
 
 // Community Showcase Component
-const CommunityShowcase = ({ onNavigate }: { onNavigate: (view: View) => void }) => {
+const CommunityShowcase = ({ onNavigate, user }: { onNavigate: (view: View) => void, user: User | null }) => {
     const [projects, setProjects] = useState<CommunityProject[]>([]);
     const [selectedProject, setSelectedProject] = useState<CommunityProject | null>(null);
     const [projectStats, setProjectStats] = useState<Record<string, { likes: number; views: number; remixes: number; isLiked: boolean }>>({});
@@ -883,7 +883,7 @@ const Home: React.FC<HomeProps> = ({ user, onNavigate }) => {
             `}</style>
 
             {/* Community Showcase Section */}
-            <CommunityShowcase onNavigate={onNavigate} />
+            <CommunityShowcase onNavigate={onNavigate} user={user} />
         </div>
     );
 };

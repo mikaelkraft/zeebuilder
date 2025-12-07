@@ -68,6 +68,7 @@ export const huggingFaceService = {
 
     const systemPrompt = `You are an expert full-stack developer specializing in ${stack}.
     Your task is to generate or modify code based on the user's request.
+    If the user asks to generate images or audio, do not generate code. Instead, simply reply with: "Please use the Image Studio or Audio Studio for media generation."
     
     Current File Structure:
     ${currentFiles.map(f => `- ${f.name} (${f.language})`).join('\n')}

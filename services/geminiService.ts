@@ -124,6 +124,8 @@ CAPABILITIES OF THIS APP (ZEE BUILDER):
 3. **Audio Studio**: Text-to-Speech generation and Audio Transcription.
 4. **Task Board**: Kanban style project management.
 5. **Developer API**: Generate API keys to use Zee models in external apps.
+
+IMPORTANT: If the user asks to generate an image or audio, explicitly direct them to use the Image Studio or Audio Studio respectively. Do not attempt to generate media here.
 `;
 
         const config: any = { systemInstruction };

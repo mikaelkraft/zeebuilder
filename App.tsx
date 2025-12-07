@@ -413,6 +413,7 @@ const App: React.FC = () => {
             className="flex-1 overflow-y-auto flex flex-col w-full relative scroll-smooth"
             style={{ WebkitOverflowScrolling: 'touch' }}
         >
+            <div className="min-h-full flex flex-col">
             {/* Desktop Header - Sticky */}
             {!isStandalone && (
             <div className="hidden lg:flex items-center justify-between px-8 py-4 border-b border-gray-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md z-30 shrink-0 sticky top-0">
@@ -459,7 +460,7 @@ const App: React.FC = () => {
                 </button>
             </header>
 
-            <div className="flex-1 p-4 sm:p-6 lg:p-8 xl:px-12 w-full min-h-full">
+            <div className="flex-1 p-4 sm:p-6 lg:p-8 xl:px-12 w-full">
                 {currentView === View.HOME && <Home user={user} onNavigate={handleNavigation} />}
                 {currentView === View.DASHBOARD && <Dashboard user={user} onNavigate={handleNavigation} />}
                 {currentView === View.BUILDER && <Builder user={user} />}
@@ -532,6 +533,7 @@ const App: React.FC = () => {
                      </div>
                 </div>
             </footer>
+            </div>
         </div>
       </main>
     </div>

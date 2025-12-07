@@ -11,8 +11,9 @@ import {
     RotateCcw, Image, FileCode, ChevronRight, ChevronDown, Database, Package as PackageIcon,
     Smartphone, Layers, Globe, Paperclip, MonitorPlay,
     Undo2, Redo2, Play, FileType, Eye, ArrowLeftRight, Check, AlertCircle, Maximize2, Minimize2, MessageSquare,
-    Mic, MicOff, UploadCloud, Copy, Save, History, GitBranch, GitCommit, ArrowUpFromLine, ArrowDownToLine, FolderGit2, Unlink, Edit, Zap, Cloud, Link
+    Mic, MicOff, UploadCloud, Copy, Save, History, GitBranch, GitCommit, ArrowUpFromLine, ArrowDownToLine, FolderGit2, Unlink, Edit, Zap, Cloud, Link, Share2
 } from 'lucide-react';
+import { isProjectPublished, publishToCommmunity, unpublishFromCommunity } from '../services/communityService';
 import JSZip from 'jszip';
 import CustomPreview from './previews/CustomPreview';
 import DartPadPreview from './previews/DartPadPreview';
@@ -1870,6 +1871,60 @@ body {
         setTimeout(() => setIsRefreshing(false), 500);
     };
 
+    const handlePublish = async () => {
+        if (!currentProjectId) return;
+        
+        const isPublished = isProjectPublished(currentProjectId);
+        
+        if (isPublished) {
+            const confirmed = await alert.confirm({
+                title: "Unpublish Project?",
+                text: "This will remove your project from the Community Showcase.",
+                confirmText: "Unpublish",
+                isDanger: true
+            });
+            
+            if (confirmed) {
+                unpublishFromCommunity(currentProjectId);
+                alert.toast.success("Project unpublished.");
+            }
+        } else {
+            const desc = await alert.prompt({
+                title: "Publish to Community",
+                text: "Enter a short description for your project:",
+                inputPlaceholder: "A cool app built with Zee..."
+            });
+            
+            if (desc) {
+                const user = localStorage.getItem('zee_user');
+                const userData = user ? JSON.parse(user) : { username: 'Anonymous', avatar: '' };
+                
+                try {
+                    const projectToPublish: SavedProject = {
+                        id: currentProjectId,
+                        name: projectName,
+                        stack,
+                        files,
+                        lastModified: Date.now(),
+                        dbConfigs,
+                        messages,
+                        snapshots
+                    };
+                    
+                    publishToCommmunity(
+                        projectToPublish,
+                        desc,
+                        userData.username,
+                        userData.avatar
+                    );
+                    alert.toast.success("Project published to Community Showcase!");
+                } catch (e: any) {
+                    alert.toast.error("Failed to publish: " + e.message);
+                }
+            }
+        }
+    };
+
     const handleDownload = async () => {
         const zip = new JSZip();
         files.forEach(f => zip.file(f.name, f.content));
@@ -2259,6 +2314,9 @@ body {
                         <input type="file" accept=".zip" className="hidden" onChange={handleImportProject} />
                     </label>
 
+                    <button onClick={handlePublish} className={`p-2 hover:bg-slate-700 rounded transition-colors ${currentProjectId && isProjectPublished(currentProjectId) ? 'bg-green-900/30 text-green-400' : 'bg-slate-800 text-slate-300'}`} title={currentProjectId && isProjectPublished(currentProjectId) ? "Unpublish" : "Publish to Community"}>
+                        <Share2 className="w-4 h-4" />
+                    </button>
                     <button onClick={handleDownload} className="p-2 bg-slate-800 hover:bg-slate-700 rounded text-slate-300 transition-colors" title="Export">
                         <Download className="w-4 h-4" />
                     </button>
