@@ -17,6 +17,7 @@ import { isProjectPublished, publishToCommmunity, unpublishFromCommunity } from 
 import JSZip from 'jszip';
 import CustomPreview from './previews/CustomPreview';
 import DartPadPreview from './previews/DartPadPreview';
+import PermissionHelpModal from './PermissionHelpModal';
 
 // Use Hugging Face for code generation and media
 const { generateProject, blobToBase64, generateImage, transcribeAudio, ensureApiKey } = huggingFaceService;
@@ -41,6 +42,7 @@ const GithubIcon = ({ className }: { className?: string }) => (
 
 interface BuilderProps {
     user: User | null;
+    initialPrompt?: string | null;
 }
 
 interface TreeNode {
@@ -355,7 +357,7 @@ const FileTreeNode: React.FC<{
     );
 };
 
-const Builder: React.FC<BuilderProps> = ({ user }) => {
+const Builder: React.FC<BuilderProps> = ({ user, initialPrompt }) => {
     const [stack, setStack] = useState<Stack>('react');
     const [isWizardOpen, setIsWizardOpen] = useState(true);
     
@@ -398,6 +400,7 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
 
     const [isRecording, setIsRecording] = useState(false);
     const [isTranscribingAudio, setIsTranscribingAudio] = useState(false);
+    const [showPermissionHelp, setShowPermissionHelp] = useState(false);
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const audioChunksRef = useRef<Blob[]>([]);
 
@@ -413,6 +416,14 @@ const Builder: React.FC<BuilderProps> = ({ user }) => {
     const [newDbType, setNewDbType] = useState<'firebase' | 'supabase' | 'neon' | 'appwrite' | 'vercel'>('supabase');
     const [newDbConfig, setNewDbConfig] = useState<any>({});
     const [newPackage, setNewPackage] = useState('');
+
+    useEffect(() => {
+        if (initialPrompt) {
+            setChatInput(initialPrompt);
+            setRightPanelTab('chat');
+            setIsWizardOpen(false);
+        }
+    }, [initialPrompt]);
 
     // All available services - API services (require keys) and Integrations (no keys)
     const ALL_SERVICES = {
@@ -1490,7 +1501,8 @@ body {
                 console.error("Error accessing microphone:", error);
                 let errorMessage = 'Could not access microphone.';
                 if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-                    errorMessage = 'Microphone access denied. Please allow microphone access in your browser settings.';
+                    setShowPermissionHelp(true);
+                    return;
                 } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
                     errorMessage = 'No microphone found. Please ensure a microphone is connected.';
                 } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
@@ -3231,6 +3243,12 @@ body {
                     </div>
                 </div>
             )}
+            {/* Permission Help Modal */}
+            <PermissionHelpModal 
+                isOpen={showPermissionHelp}
+                onClose={() => setShowPermissionHelp(false)}
+                onRetry={toggleRecording}
+            />
         </div>
     );
 };

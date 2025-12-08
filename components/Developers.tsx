@@ -6,6 +6,7 @@ import { usageService, UsageStats } from '../services/usageService';
 
 interface DevelopersProps {
     user: User | null;
+    onIntegrate?: (service: string, endpoint: string) => void;
 }
 
 type DeveloperTab = 'overview' | 'keys' | 'playground' | 'sdk';
@@ -34,7 +35,7 @@ const QUOTA_PLANS: Record<string, ApiQuota['limits']> = {
     }
 };
 
-const Developers: React.FC<DevelopersProps> = ({ user }) => {
+const Developers: React.FC<DevelopersProps> = ({ user, onIntegrate }) => {
     const [activeTab, setActiveTab] = useState<DeveloperTab>('overview');
     const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
     const [newKeyName, setNewKeyName] = useState('');
@@ -369,7 +370,7 @@ const stream = await zee.audio.stream({ text: '...' });`
                             </h3>
                             <div className="space-y-2">
                                 {endpoints.map((endpoint, i) => (
-                                    <div key={i} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg">
+                                    <div key={i} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg group hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                                         <div className="flex items-center gap-3 shrink-0">
                                             <span className={`text-[10px] font-bold px-2 py-1 rounded ${endpoint.method === 'GET' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'}`}>
                                                 {endpoint.method}
@@ -377,6 +378,14 @@ const stream = await zee.audio.stream({ text: '...' });`
                                             <code className="text-sm font-mono text-slate-700 dark:text-slate-300 break-all">{baseUrl}{endpoint.path}</code>
                                         </div>
                                         <span className="text-xs text-slate-500 sm:ml-auto">{endpoint.desc}</span>
+                                        {onIntegrate && (
+                                            <button
+                                                onClick={() => onIntegrate(endpoint.desc, endpoint.path)}
+                                                className="opacity-0 group-hover:opacity-100 transition-opacity px-3 py-1.5 bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 rounded-md text-xs font-medium flex items-center gap-1 hover:bg-indigo-200 dark:hover:bg-indigo-900/50 ml-auto sm:ml-0"
+                                            >
+                                                Integrate <ArrowRight className="w-3 h-3" />
+                                            </button>
+                                        )}
                                     </div>
                                 ))}
                             </div>

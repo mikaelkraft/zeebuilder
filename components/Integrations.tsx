@@ -28,6 +28,7 @@ import { User } from '../types';
 interface IntegrationsProps {
     user: User | null;
     onNavigate: (view: View) => void;
+    onIntegrate?: (prompt: string) => void;
 }
 
 interface Integration {
@@ -225,7 +226,7 @@ const ProjectSelectorModal: React.FC<{
     );
 };
 
-const Integrations: React.FC<IntegrationsProps> = ({ user, onNavigate }) => {
+const Integrations: React.FC<IntegrationsProps> = ({ user, onNavigate, onIntegrate }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [activeCategory, setActiveCategory] = useState<string | null>(null);
     const [showProjectModal, setShowProjectModal] = useState(false);
@@ -275,7 +276,12 @@ const Integrations: React.FC<IntegrationsProps> = ({ user, onNavigate }) => {
         }
 
         setShowProjectModal(false);
-        onNavigate(View.BUILDER);
+        
+        if (onIntegrate) {
+            onIntegrate(prompt);
+        } else {
+            onNavigate(View.BUILDER);
+        }
     };
 
     const categories = [

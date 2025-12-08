@@ -132,10 +132,21 @@ const App: React.FC = () => {
     return window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
   const [pendingView, setPendingView] = useState<View | null>(null);
+  const [builderInitialPrompt, setBuilderInitialPrompt] = useState<string | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Standalone views (no sidebar, full width)
   const isStandalone = [View.POLICY, View.TERMS, View.DOCS].includes(currentView);
+
+  const handleIntegration = (serviceOrPrompt: string, endpoint?: string) => {
+    if (endpoint) {
+        setBuilderInitialPrompt(`I want to integrate the ${serviceOrPrompt} (${endpoint}) into my project. Please help me set it up.`);
+    } else {
+        setBuilderInitialPrompt(serviceOrPrompt);
+    }
+    setCurrentView(View.BUILDER);
+    navigate('/builder');
+  };
 
   // Check for reset token
   useEffect(() => {
@@ -493,12 +504,12 @@ const App: React.FC = () => {
                     />
                 )}
                 {currentView === View.TASKS && <TaskBoard user={user} />}
-                {currentView === View.INTEGRATIONS && <Integrations user={user} onNavigate={handleNavigation} />}
+                {currentView === View.INTEGRATIONS && <Integrations user={user} onNavigate={handleNavigation} onIntegrate={handleIntegration} />}
                 {currentView === View.CHAT && <ChatInterface />}
                 {currentView === View.IMAGE_STUDIO && <ImageStudio />}
                 {currentView === View.AUDIO_STUDIO && <AudioStudio onNavigate={handleNavigation} />}
                 {currentView === View.PROFILE && <Profile user={user} onUpdateUser={setUser} />}
-                {currentView === View.DEVELOPERS && <Developers user={user} />}
+                {currentView === View.DEVELOPERS && <Developers user={user} onIntegrate={handleIntegration} />}
                 {currentView === View.ADMIN && user?.isAdmin && <AdminAnalytics />}
                 {currentView === View.POLICY && <PrivacyPolicy onNavigate={handleNavigation} />}
                 {currentView === View.TERMS && <TermsOfService onNavigate={handleNavigation} />}

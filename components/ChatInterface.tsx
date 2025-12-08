@@ -4,6 +4,7 @@ import { huggingFaceService } from '../services/huggingFaceService';
 const { transcribeAudio } = huggingFaceService;
 import { ChatMessage, ModelType, ChatSession, FileAttachment, Task } from '../types';
 import { alertService } from '../services/alertService';
+import PermissionHelpModal from './PermissionHelpModal';
 import { 
     Send, 
     Map, 
@@ -331,6 +332,7 @@ const ChatInterface: React.FC = () => {
     // Audio Recording
     const [isRecording, setIsRecording] = useState(false);
     const [isTranscribingAudio, setIsTranscribingAudio] = useState(false);
+    const [showPermissionHelp, setShowPermissionHelp] = useState(false);
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const audioChunksRef = useRef<Blob[]>([]);
 
@@ -577,7 +579,8 @@ const ChatInterface: React.FC = () => {
                 console.error("Error accessing microphone:", error);
                 let errorMessage = 'Could not access microphone.';
                 if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-                    errorMessage = 'Microphone access denied. Please allow microphone access in your browser settings.';
+                    setShowPermissionHelp(true);
+                    return;
                 } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
                     errorMessage = 'No microphone found. Please ensure a microphone is connected.';
                 } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
@@ -732,6 +735,12 @@ const ChatInterface: React.FC = () => {
                     </div>
                 </div>
             </div>
+            
+            <PermissionHelpModal 
+                isOpen={showPermissionHelp}
+                onClose={() => setShowPermissionHelp(false)}
+                onRetry={toggleRecording}
+            />
         </div>
     );
 };
