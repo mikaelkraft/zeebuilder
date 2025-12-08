@@ -1,7 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { huggingFaceService } from '../services/huggingFaceService';
-import { editImage } from '../services/geminiService'; // Keep editImage from Gemini for now if needed, or remove
 import { Image, Wand2, Loader2, Upload, ZoomIn, ZoomOut, RefreshCcw, Download, Stamp, FolderPlus, Check } from 'lucide-react';
 import { ModelType, SavedProject } from '../types';
 

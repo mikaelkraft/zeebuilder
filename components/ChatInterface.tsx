@@ -1,6 +1,5 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { createChatSession, blobToBase64, ensureApiKey } from '../services/geminiService';
 import { huggingFaceService } from '../services/huggingFaceService';
 const { transcribeAudio } = huggingFaceService;
 import { ChatMessage, ModelType, ChatSession, FileAttachment, Task } from '../types';
@@ -335,7 +334,7 @@ const ChatInterface: React.FC = () => {
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const audioChunksRef = useRef<Blob[]>([]);
 
-    const chatSessionRef = useRef<any>(null);
+    // const chatSessionRef = useRef<any>(null); // Removed for stateless HF
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const messagesContainerRef = useRef<HTMLDivElement>(null);
 
@@ -430,16 +429,6 @@ const ChatInterface: React.FC = () => {
         });
     };
 
-    const initChat = async () => {
-        const history = messages.map(m => {
-            const parts: any[] = [];
-            if (m.attachment) parts.push({ inlineData: { data: m.attachment.data, mimeType: m.attachment.mimeType } });
-            parts.push({ text: m.text });
-            return { role: m.role, parts };
-        });
-        chatSessionRef.current = await createChatSession(model, history, isThinking, useMaps, useSearch);
-    };
-
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
@@ -510,24 +499,32 @@ const ChatInterface: React.FC = () => {
         }
 
         try {
-            const performSend = async (text: string, retry = false): Promise<any> => {
-                try {
-                    if (!chatSessionRef.current || retry) await initChat();
-                    return await chatSessionRef.current.sendMessage({ message: text || ' ' });
-                } catch (error: any) {
-                    if ((error?.toString().includes("403") || error?.toString().includes("404")) && !retry) {
-                        if ((window as any).aistudio && (window as any).aistudio.openSelectKey) {
-                            await (window as any).aistudio.openSelectKey();
-                            return await performSend(text, true);
-                        }
-                    }
-                    throw error;
-                }
-            };
+            // Use Hugging Face Service
+            const systemPrompt = `You are Zee, a helpful AI assistant. 
+            Current Date: ${new Date().toDateString()}
+            ${useSearch ? 'You have access to search results (simulated).' : ''}
+            ${isThinking ? 'Please think step-by-step.' : ''}
+            `;
 
-            let result = await performSend(userMsg.text);
-            const responseText = result?.candidates?.[0]?.content?.parts?.[0]?.text || result?.text || "Processed.";
-            const botMsg: ChatMessage = { id: (Date.now() + 1).toString(), role: 'model', text: responseText, groundingUrls: result?.candidates?.[0]?.groundingMetadata?.groundingChunks, isThinking: isThinking };
+            // Convert messages to BuilderChatMessage format
+            const history = messages.map(m => ({
+                id: m.id,
+                role: m.role === 'user' ? 'user' : 'model',
+                text: m.text,
+                timestamp: parseInt(m.id) || Date.now()
+            })) as any[];
+            
+            // Add current message
+            history.push({
+                id: userMsg.id,
+                role: 'user',
+                text: userMsg.text,
+                timestamp: Date.now()
+            });
+
+            const responseText = await huggingFaceService.chat(history, systemPrompt);
+            
+            const botMsg: ChatMessage = { id: (Date.now() + 1).toString(), role: 'model', text: responseText, isThinking: isThinking };
             setMessages(prev => [...prev, botMsg]);
         } catch (error: any) {
             setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: "Error: " + (error.message || "Connection Failed") }]);

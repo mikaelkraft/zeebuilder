@@ -170,9 +170,12 @@ export const huggingFaceService = {
       else if (aspectRatio === '4:3') { width = 1024; height = 768; }
       else if (aspectRatio === '3:4') { width = 768; height = 1024; }
 
+      // Enhance prompt for vibrancy if not already present
+      const enhancedPrompt = prompt.toLowerCase().includes('vibrant') ? prompt : `${prompt}, vibrant colors, high quality, detailed, 8k resolution, cinematic lighting`;
+
       const response = await client.textToImage({
-        model: "stabilityai/stable-diffusion-xl-base-1.0",
-        inputs: prompt,
+        model: "black-forest-labs/FLUX.1-schnell", // Newer, faster, better quality model
+        inputs: enhancedPrompt,
         parameters: {
           width,
           height,
@@ -190,8 +193,19 @@ export const huggingFaceService = {
 
       return response as Blob;
     } catch (error) {
-      console.error("Hugging Face Image Gen Error:", error);
-      throw error;
+      console.warn("Primary image model failed, trying fallback...", error);
+      try {
+          // Fallback to SDXL if FLUX fails
+          const response = await client.textToImage({
+            model: "stabilityai/stable-diffusion-xl-base-1.0",
+            inputs: prompt + ", vibrant, high quality",
+            parameters: { width: 1024, height: 1024 }
+          });
+          return response as Blob;
+      } catch (e) {
+          console.error("Hugging Face Image Gen Error:", e);
+          throw e;
+      }
     }
   },
 
@@ -250,5 +264,30 @@ export const huggingFaceService = {
       reader.onerror = reject;
       reader.readAsDataURL(blob);
     });
+  },
+
+  simulateApiCall: async (prompt: string) => {
+      const client = getClient();
+      try {
+        const response = await client.chatCompletion({
+            model: MODEL,
+            messages: [{ role: "user", content: prompt }],
+            max_tokens: 500
+        });
+        return {
+            status: 200,
+            model: MODEL,
+            data: {
+                content: response.choices[0].message.content,
+                usage: { totalTokenCount: 100 } // Mock usage as HF doesn't always return it
+            }
+        };
+      } catch (e) {
+          return {
+              status: 500,
+              model: MODEL,
+              data: { content: "Error: " + (e as any).message }
+          };
+      }
   }
 };

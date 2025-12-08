@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, ApiKey, ApiQuota } from '../types';
 import { Terminal, Key, Copy, Plus, Trash2, Book, Server, ShieldCheck, Code, Play, Loader2, Activity, CreditCard, AlertTriangle, Clock, Zap, Image, Mic, FileCode, RefreshCw, ChevronRight, ExternalLink, Rocket, CheckCircle2, ArrowRight, Sparkles, Globe, Shield, Settings, Database, Video, Cpu, Layers, Box, Download } from 'lucide-react';
-import { simulateApiCall } from '../services/geminiService';
+import { huggingFaceService } from '../services/huggingFaceService';
 import { usageService, UsageStats } from '../services/usageService';
 
 interface DevelopersProps {
@@ -221,7 +221,7 @@ const stream = await zee.audio.stream({ text: '...' });`
         setTestResponse(null);
         setQuotaWarning(null);
         try {
-            const result = await simulateApiCall(testPrompt);
+            const result = await huggingFaceService.simulateApiCall(testPrompt);
             setTestResponse(JSON.stringify(result, null, 2));
             incrementUsage(requestType);
             if (user) usageService.trackRequest(user.email, 'code');
