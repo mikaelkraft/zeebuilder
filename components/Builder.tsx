@@ -2314,6 +2314,13 @@ body {
                     <div className="hidden md:flex items-center space-x-1 mr-2">
                         <button onClick={restoreCheckpoint} disabled={historyStack.length===0} className="p-2 hover:bg-slate-800 rounded text-slate-400 disabled:opacity-30" title="Undo"><Undo2 className="w-4 h-4"/></button>
                         <button onClick={() => {}} className="p-2 hover:bg-slate-800 rounded text-slate-400 disabled:opacity-30" title="Redo"><Redo2 className="w-4 h-4"/></button>
+                        <button 
+                            onClick={() => { setSidebarTab('term'); setIsSidebarCollapsed(false); }}
+                            className={`p-2 hover:bg-slate-800 rounded transition-colors ${sidebarTab === 'term' && !isSidebarCollapsed ? 'text-green-400 bg-slate-800' : 'text-slate-400'}`}
+                            title="Open Terminal"
+                        >
+                            <TerminalIcon className="w-4 h-4" />
+                        </button>
                     </div>
                     
                     <div className="h-6 w-px bg-slate-800 hidden md:block"></div>

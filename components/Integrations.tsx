@@ -58,15 +58,23 @@ const IntegrationCard: React.FC<{
 }> = ({ integration, onIntegrate }) => {
     const [copied, setCopied] = useState(false);
 
-    const handleCopyPrompt = () => {
+    const handleCopyPrompt = (e: React.MouseEvent) => {
+        e.stopPropagation();
         const prompt = `Add ${integration.name} integration to my project`;
         navigator.clipboard.writeText(prompt);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
     };
 
+    const handleDocsClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+    };
+
     return (
-        <div className="group p-4 bg-white dark:bg-slate-800/50 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 border border-gray-200 dark:border-slate-700 hover:border-blue-500/50 transition-all">
+        <div 
+            onClick={() => onIntegrate(integration.name)}
+            className="group p-4 bg-white dark:bg-slate-800/50 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 border border-gray-200 dark:border-slate-700 hover:border-blue-500/50 transition-all cursor-pointer"
+        >
             <div className="flex items-start justify-between mb-3">
                 <div className={`w-10 h-10 ${integration.color} rounded-lg flex items-center justify-center text-white text-sm font-bold group-hover:scale-110 transition-transform shadow-lg`}>
                     {integration.name.charAt(0)}
@@ -77,6 +85,7 @@ const IntegrationCard: React.FC<{
                             href={integration.docsUrl} 
                             target="_blank" 
                             rel="noopener noreferrer"
+                            onClick={handleDocsClick}
                             className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
                             title="View Docs"
                         >
@@ -95,7 +104,6 @@ const IntegrationCard: React.FC<{
             <h4 className="font-bold text-slate-900 dark:text-white mb-1">{integration.name}</h4>
             <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">{integration.desc}</p>
             <button
-                onClick={() => onIntegrate(integration.name)}
                 className="w-full py-2 px-3 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-all"
             >
                 <Sparkles className="w-3 h-3" />

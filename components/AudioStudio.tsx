@@ -29,6 +29,7 @@ const AudioStudio: React.FC<AudioStudioProps> = ({ onNavigate }) => {
     
     // Recording State
     const [isRecording, setIsRecording] = useState(false);
+    const [showPermissionHelp, setShowPermissionHelp] = useState(false);
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const audioChunksRef = useRef<Blob[]>([]);
 
@@ -134,17 +135,18 @@ const AudioStudio: React.FC<AudioStudioProps> = ({ onNavigate }) => {
                 setIsRecording(true);
             } catch (error: any) {
                 console.error("Error accessing microphone:", error);
-                let errorMessage = 'Could not access microphone.';
                 
                 if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-                    errorMessage = 'Microphone access denied. Please allow microphone access in your browser settings or check if the app has permission.';
-                } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
-                    errorMessage = 'No microphone found. Please ensure a microphone is connected.';
-                } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
-                    errorMessage = 'Microphone is already in use by another application.';
+                    setShowPermissionHelp(true);
+                } else {
+                    let errorMessage = 'Could not access microphone.';
+                    if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+                        errorMessage = 'No microphone found. Please ensure a microphone is connected.';
+                    } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+                        errorMessage = 'Microphone is already in use by another application.';
+                    }
+                    alertService.error('Microphone Error', errorMessage);
                 }
-
-                alertService.error('Microphone Error', errorMessage);
             }
         }
     };
@@ -371,6 +373,59 @@ const AudioStudio: React.FC<AudioStudioProps> = ({ onNavigate }) => {
                     </div>
                 )}
             </div>
+
+            {/* Permission Help Modal */}
+            {showPermissionHelp && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-md w-full shadow-2xl relative">
+                        <button 
+                            onClick={() => setShowPermissionHelp(false)}
+                            className="absolute top-4 right-4 text-slate-400 hover:text-white"
+                        >
+                            <XCircle className="w-6 h-6" />
+                        </button>
+                        
+                        <div className="flex flex-col items-center text-center">
+                            <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mb-4">
+                                <MicOff className="w-8 h-8 text-red-500" />
+                            </div>
+                            <h3 className="text-xl font-bold text-white mb-2">Microphone Access Denied</h3>
+                            <p className="text-slate-400 text-sm mb-6">
+                                Zee Builder needs access to your microphone to record audio. 
+                                It seems permission was denied or blocked.
+                            </p>
+                            
+                            <div className="bg-slate-800 rounded-xl p-4 text-left w-full mb-6">
+                                <h4 className="text-xs font-bold text-slate-300 uppercase mb-2">How to enable:</h4>
+                                <ul className="space-y-2 text-xs text-slate-400">
+                                    <li className="flex items-start gap-2">
+                                        <span className="bg-slate-700 rounded-full w-4 h-4 flex items-center justify-center text-[10px] shrink-0 mt-0.5">1</span>
+                                        Click the lock/settings icon in your browser address bar.
+                                    </li>
+                                    <li className="flex items-start gap-2">
+                                        <span className="bg-slate-700 rounded-full w-4 h-4 flex items-center justify-center text-[10px] shrink-0 mt-0.5">2</span>
+                                        Find "Microphone" and set it to "Allow".
+                                    </li>
+                                    <li className="flex items-start gap-2">
+                                        <span className="bg-slate-700 rounded-full w-4 h-4 flex items-center justify-center text-[10px] shrink-0 mt-0.5">3</span>
+                                        Refresh the page and try again.
+                                    </li>
+                                </ul>
+                            </div>
+                            
+                            <button 
+                                onClick={() => {
+                                    setShowPermissionHelp(false);
+                                    toggleRecording(); // Try again, might trigger prompt if user reset it
+                                }}
+                                className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold transition-colors"
+                            >
+                                I've Enabled It, Try Again
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

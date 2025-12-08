@@ -115,7 +115,8 @@ export const createChatSession = async (
         if (!isThinking && supportsTools) {
             if (useSearch) {
                 // Only use Google Search, no function calling
-                tools.push({ googleSearch: {} });
+                // Use googleSearchRetrieval for grounding
+                tools.push({ googleSearchRetrieval: {} });
             } else {
                 // Use function calling and optionally maps (maps works with functions)
                 if (useMaps) tools.push({ googleMaps: {} });
