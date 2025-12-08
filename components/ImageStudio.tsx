@@ -299,7 +299,7 @@ const ImageStudio: React.FC = () => {
             <div className="flex-1 bg-slate-950 border border-slate-800 rounded-xl flex flex-col overflow-hidden relative group">
                 {/* Zoom & Download Controls Overlay */}
                 {resultUrl && (
-                    <div className="absolute top-4 right-4 z-20 flex items-center space-x-1 bg-slate-900/80 backdrop-blur p-1 rounded-lg border border-slate-700 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <div className="absolute top-4 right-4 z-20 flex items-center space-x-1 bg-slate-900/90 backdrop-blur p-1.5 rounded-lg border border-slate-700 shadow-xl">
                         <button onClick={() => setZoom(z => Math.max(z - 0.2, 0.5))} className="p-2 hover:bg-slate-700 rounded text-slate-300" title="Zoom Out"><ZoomOut className="w-4 h-4" /></button>
                         <span className="text-xs font-mono text-slate-400 w-12 text-center">{Math.round(zoom * 100)}%</span>
                         <button onClick={() => setZoom(z => Math.min(z + 0.2, 5))} className="p-2 hover:bg-slate-700 rounded text-slate-300" title="Zoom In"><ZoomIn className="w-4 h-4" /></button>

@@ -17,7 +17,7 @@ const AudioStudio: React.FC<AudioStudioProps> = ({ onNavigate }) => {
     const [isGeneratingTTS, setIsGeneratingTTS] = useState(false);
     const [audioDownloadUrl, setAudioDownloadUrl] = useState<string | null>(null);
     const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
-    const [ttsVoice, setTtsVoice] = useState('default');
+    const [ttsVoice, setTtsVoice] = useState('Puck');
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
     const [saveMessage, setSaveMessage] = useState('');
 
@@ -243,7 +243,12 @@ const AudioStudio: React.FC<AudioStudioProps> = ({ onNavigate }) => {
         }
     };
 
-    const voices = ['Zee', 'Puck', 'Charon', 'Kore', 'Fenrir', 'Zephyr'];
+    const voices = [
+        'Puck', 'Charon', 'Kore', 'Fenrir', 'Zephyr', 'Aoede', 'Leda', 'Orus', 'Umbriel',
+        'Achernar', 'Achird', 'Algenib', 'Algieba', 'Alnilam', 'Autonoe', 'Callirrhoe', 
+        'Despina', 'Enceladus', 'Erinome', 'Gacrux', 'Iapetus', 'Laomedeia', 'Pulcherrima', 
+        'Rasalgethi', 'Sadachbia', 'Sadaltager', 'Schedar', 'Sulafat', 'Vindemiatrix', 'Zubenelgenubi'
+    ];
 
     return (
         <div className="h-full flex flex-col p-4 max-w-5xl mx-auto">

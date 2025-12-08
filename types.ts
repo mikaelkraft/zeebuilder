@@ -18,12 +18,12 @@ export enum View {
 }
 
 export enum ModelType {
-  FLASH = 'gemini-2.5-flash',
-  FLASH_LITE = 'gemini-2.5-flash-lite',
-  PRO_PREVIEW = 'gemini-3-pro-preview',
-  PRO_IMAGE = 'gemini-3-pro-image-preview',
-  FLASH_IMAGE = 'gemini-2.5-flash-image',
-  TTS = 'gemini-2.5-flash-preview-tts'
+  FLASH = 'gemini-1.5-flash',
+  FLASH_LITE = 'gemini-1.5-flash-8b',
+  PRO_PREVIEW = 'gemini-1.5-pro',
+  PRO_IMAGE = 'gemini-1.5-pro', // Image generation often handled by specific endpoints or Pro
+  FLASH_IMAGE = 'gemini-1.5-flash',
+  TTS = 'gemini-2.0-flash-exp' // TTS is often available on the newer experimental models
 }
 
 export interface FileAttachment {

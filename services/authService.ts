@@ -12,7 +12,7 @@ const isProduction = typeof window !== 'undefined' &&
     !window.location.hostname.includes('127.0.0.1') &&
     !window.location.hostname.includes('0.0.0.0');
 
-const USE_REAL_API = isProduction; // Auto-switches based on environment
+const USE_REAL_API = true; // Forced to true for production as requested
 
 // Simple mock hash for "security" (not real crypto but better than plain text for demo)
 const hash = (str: string) => {
@@ -198,7 +198,10 @@ export const authService = {
         const usersStr = localStorage.getItem(USERS_KEY);
         const users = usersStr ? JSON.parse(usersStr) : {};
         if (users[email]) {
-            console.log(`[Mock Auth] Reset link for ${email}: ${window.location.origin}/reset-password?token=mock-token-${email}`);
+            const resetLink = `${window.location.origin}/?token=mock-token-${email}`;
+            console.log(`[Mock Auth] Reset link for ${email}: ${resetLink}`);
+            // Alert the user for dev convenience
+            alert(`[DEV MODE] Email simulation.\n\nReset Link (check console for copyable link):\n${resetLink}`);
         }
     },
 
