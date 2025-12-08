@@ -66,9 +66,14 @@ export const huggingFaceService = {
     const lastMessage = history[history.length - 1];
     const prompt = lastMessage.text;
 
+    const dbConfigText = dbConfigs.length > 0 
+        ? `\nACTIVE INTEGRATIONS (Use these credentials/configs in the code):\n${dbConfigs.map(db => `- ${db.name} (${db.type}): ${JSON.stringify(db.config)}`).join('\n')}`
+        : "";
+
     const systemPrompt = `You are an expert full-stack developer specializing in ${stack}.
     Your task is to generate or modify code based on the user's request.
     Today is ${new Date().toDateString()}.
+    ${dbConfigText}
     
     MEDIA HANDLING RULES:
     1. If the user asks to GENERATE new images or audio, refuse and reply: "Please use the Image Studio or Audio Studio for media generation."
@@ -115,19 +120,32 @@ export const huggingFaceService = {
       }
 
       const content = response.choices[0].message.content || "";
-      const jsonStr = content.replace(/```json/g, '').replace(/```/g, '').trim();
       
+      // Robust JSON extraction
+      const extractJson = (text: string) => {
+          // First try cleaning markdown
+          let cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+          try { return JSON.parse(cleanText); } catch (e) {}
+          
+          // Try finding the JSON object boundaries
+          const firstOpen = text.indexOf('{');
+          const lastClose = text.lastIndexOf('}');
+          if (firstOpen !== -1 && lastClose !== -1 && lastClose > firstOpen) {
+              try { return JSON.parse(text.substring(firstOpen, lastClose + 1)); } catch (e) {}
+          }
+          return null;
+      };
+
+      const result = extractJson(content);
       let parsed: { message: string, files: ProjectFile[] } = { message: "", files: [] };
-      try {
-        // Try parsing as the new object format
-        const result = JSON.parse(jsonStr);
+      
+      if (result) {
         if (Array.isArray(result)) {
-            // Handle legacy array format just in case
             parsed = { message: "Generated code based on your request.", files: result };
         } else {
             parsed = result;
         }
-      } catch (e) {
+      } else {
         console.error("Failed to parse generated code as JSON:", content);
         // If parsing fails, assume it's just a message
         return { files: [], explanation: content };

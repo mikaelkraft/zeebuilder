@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import * as geminiService from '../services/geminiService';
-import { Volume2, Loader2, FileText, Download, Activity, Copy, Check, Mic, MicOff, FolderPlus, Cloud, AlertCircle, RefreshCcw } from 'lucide-react';
+import { Volume2, Loader2, FileText, Download, Activity, Copy, Check, Mic, MicOff, FolderPlus, Cloud, AlertCircle, RefreshCcw, XCircle } from 'lucide-react';
 import { View, SavedProject, CloudProviderConfig } from '../types';
 import { alertService } from '../services/alertService';
 
@@ -101,6 +101,19 @@ const AudioStudio: React.FC<AudioStudioProps> = ({ onNavigate }) => {
                 setIsTranscribing(true);
             }
         } else {
+            // Check permissions first if supported
+            try {
+                if (navigator.permissions && navigator.permissions.query) {
+                    const permissionStatus = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+                    if (permissionStatus.state === 'denied') {
+                        setShowPermissionHelp(true);
+                        return;
+                    }
+                }
+            } catch (e) {
+                // Ignore permission query errors
+            }
+
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 const mediaRecorder = new MediaRecorder(stream);
