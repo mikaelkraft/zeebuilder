@@ -324,7 +324,7 @@ const ChatInterface: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [attachment, setAttachment] = useState<FileAttachment | null>(null);
     
-    const [model, setModel] = useState(ModelType.FLASH);
+    const [model, setModel] = useState(ModelType.HF_LLAMA);
     const [isThinking, setIsThinking] = useState(false);
     const [useMaps, setUseMaps] = useState(false);
     const [useSearch, setUseSearch] = useState(false);
@@ -341,7 +341,7 @@ const ChatInterface: React.FC = () => {
     const messagesContainerRef = useRef<HTMLDivElement>(null);
 
     // Determine if tools are supported
-    const supportsTools = model !== ModelType.FLASH_LITE;
+    const supportsTools = model === ModelType.HF_LLAMA;
 
     useEffect(() => {
         const stored = localStorage.getItem('zee_chat_sessions');
@@ -441,6 +441,24 @@ const ChatInterface: React.FC = () => {
         }
     };
 
+    const fetchSearchContext = async (query: string) => {
+        try {
+            const res = await fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_redirect=1&no_html=1`);
+            const data = await res.json();
+            const snippets: string[] = [];
+            if (data.Abstract) snippets.push(data.Abstract);
+            if (Array.isArray(data.RelatedTopics)) {
+                data.RelatedTopics.slice(0, 3).forEach((t: any) => {
+                    if (t?.Text) snippets.push(t.Text);
+                });
+            }
+            return snippets.filter(Boolean).join('\n');
+        } catch (err) {
+            console.warn('Search enrichment failed', err);
+            return '';
+        }
+    };
+
     const handleSend = async (overrideInput?: string) => {
         const textToSend = overrideInput || input;
         if ((!textToSend.trim() && !attachment) || isLoading) return;
@@ -502,29 +520,35 @@ const ChatInterface: React.FC = () => {
 
         try {
             // Use Hugging Face Service
-            const systemPrompt = `You are Zee, a helpful AI assistant. 
-            Current Date: ${new Date().toDateString()}
-            ${useSearch ? 'You have access to search results (simulated).' : ''}
-            ${isThinking ? 'Please think step-by-step.' : ''}
-            `;
+            const systemPrompt = `You are Zee, a helpful AI assistant.
+Current Date: ${new Date().toDateString()}
+- Never attempt paid Gemini models. Use only the free/open Hugging Face models provided.
+- If the user asks for NEW image, video, or audio generation, politely direct them to the Image Studio / Video Studio / Audio Studio.
+- If the user UPLOADS an image or document, analyze it (OCR, layout, design extraction) and incorporate findings into your answer.
+- If there is an attachment, mention key observations before giving guidance.
+- Keep replies concise and actionable.`;
 
-            // Convert messages to BuilderChatMessage format
             const history = messages.map(m => ({
                 id: m.id,
                 role: m.role === 'user' ? 'user' : 'model',
                 text: m.text,
+                attachment: m.attachment,
                 timestamp: parseInt(m.id) || Date.now()
-            })) as any[];
-            
-            // Add current message
+            }));
             history.push({
                 id: userMsg.id,
                 role: 'user',
                 text: userMsg.text,
+                attachment: userMsg.attachment,
                 timestamp: Date.now()
             });
 
-            const responseText = await huggingFaceService.chat(history, systemPrompt);
+            const searchContext = useSearch ? await fetchSearchContext(userMsg.text) : '';
+
+            const responseText = await huggingFaceService.chat(history, systemPrompt, {
+                model,
+                searchContext: searchContext || undefined,
+            });
             
             const botMsg: ChatMessage = { id: (Date.now() + 1).toString(), role: 'model', text: responseText, isThinking: isThinking };
             setMessages(prev => [...prev, botMsg]);
@@ -615,19 +639,15 @@ const ChatInterface: React.FC = () => {
                         <button onClick={() => setIsHistoryOpen(!isHistoryOpen)} className="p-2 hover:bg-gray-200 dark:hover:bg-slate-800 rounded-lg text-slate-500"><History className="w-5 h-5" /></button>
                         <div className="flex items-center gap-2">
                             <select value={model} onChange={(e) => setModel(e.target.value as ModelType)} className="bg-transparent text-xs font-bold text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 focus:outline-none cursor-pointer">
-                                <option value={ModelType.FLASH}>Gemini Flash 2.5</option>
-                                <option value={ModelType.FLASH_LITE}>Gemini Flash Lite</option>
-                                <option value={ModelType.PRO_PREVIEW}>Gemini Pro 3.0</option>
+                                <option value={ModelType.HF_LLAMA}>HF Llama 3.1 (chat/coding)</option>
+                                <option value={ModelType.HF_PHI}>HF Phi 4 (fast/light)</option>
+                                <option value={ModelType.HF_VISION_LITE}>HF Phi 3.5 Vision (images/OCR)</option>
                             </select>
                             
                             {/* Thinking Toggle */}
                             <button 
-                                onClick={() => {
-                                    if(model === ModelType.FLASH_LITE) return; // Lite doesn't support thinking nicely
-                                    setIsThinking(!isThinking);
-                                }}
-                                disabled={model === ModelType.FLASH_LITE}
-                                className={`p-1.5 rounded-lg flex items-center gap-1 transition-colors ${isThinking ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/20' : 'bg-gray-100 dark:bg-slate-800 text-slate-400 hover:text-purple-400'} ${model === ModelType.FLASH_LITE ? 'opacity-30 cursor-not-allowed' : ''}`}
+                                onClick={() => setIsThinking(!isThinking)}
+                                className={`p-1.5 rounded-lg flex items-center gap-1 transition-colors ${isThinking ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/20' : 'bg-gray-100 dark:bg-slate-800 text-slate-400 hover:text-purple-400'}`}
                                 title="Toggle Thinking Mode"
                             >
                                 <BrainCircuit className="w-4 h-4" />

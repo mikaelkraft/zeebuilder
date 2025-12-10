@@ -18,12 +18,12 @@ export enum View {
 }
 
 export enum ModelType {
-  FLASH = 'gemini-1.5-flash',
-  FLASH_LITE = 'gemini-1.5-flash-8b',
-  PRO_PREVIEW = 'gemini-1.5-pro',
-  PRO_IMAGE = 'gemini-1.5-pro', // Image generation often handled by specific endpoints or Pro
-  FLASH_IMAGE = 'gemini-1.5-flash',
-  TTS = 'gemini-2.0-flash-exp' // TTS is often available on the newer experimental models
+  HF_LLAMA = 'meta-llama/Llama-3.2-11B-Vision-Instruct',
+  HF_PHI = 'microsoft/Phi-3-mini-4k-instruct',
+  HF_VISION_LITE = 'meta-llama/Llama-3.2-3B-Instruct',
+  PRO_IMAGE = 'black-forest-labs/FLUX.1-schnell',
+  FLASH_IMAGE = 'stabilityai/stable-diffusion-xl-base-1.0',
+  TTS = 'facebook/mms-tts-eng'
 }
 
 export interface FileAttachment {

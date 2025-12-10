@@ -1,32 +1,52 @@
 
 import { InferenceClient } from "@huggingface/inference";
-import { BuilderChatMessage, ProjectFile, Stack, DatabaseConfig, ModelType } from "../types";
+import { BuilderChatMessage, ProjectFile, Stack, DatabaseConfig, ModelType, FileAttachment } from "../types";
 
-// Use a free model that is good at coding
-const MODEL = "meta-llama/Llama-3.1-8B-Instruct"; 
-const FALLBACK_MODEL = "microsoft/Phi-3-mini-4k-instruct";
+// Default free/open models
+const DEFAULT_MODEL = ModelType.HF_LLAMA;
+const FALLBACK_MODEL = ModelType.HF_PHI;
 
 const getClient = (apiKey?: string) => new InferenceClient(apiKey || process.env.HUGGING_FACE_API_KEY);
 
 export const huggingFaceService = {
   chat: async (
-    messages: BuilderChatMessage[], 
+    messages: Array<{ role: 'user' | 'model'; text: string; attachment?: FileAttachment }>, 
     systemPrompt: string,
-    apiKey?: string
+    options?: { apiKey?: string; model?: ModelType; searchContext?: string }
   ): Promise<string> => {
-    const client = getClient(apiKey);
-    
+    const client = getClient(options?.apiKey);
+
+    const modelToUse = options?.model || DEFAULT_MODEL;
+
     const hfMessages = [
-      { role: "system", content: systemPrompt },
-      ...messages.map(m => ({
-        role: m.role === 'model' ? 'assistant' : 'user',
-        content: m.text
-      }))
+      { role: "system", content: options?.searchContext ? `${systemPrompt}\n\nLive data context:\n${options.searchContext}` : systemPrompt },
+      ...messages.map(m => {
+        const role = m.role === 'model' ? 'assistant' : 'user';
+        const contentParts: any[] = [];
+
+        // If there's an image attachment, send as vision content; otherwise include textual attachment summary
+        if (m.attachment && m.attachment.mimeType?.startsWith('image/')) {
+          const dataUrl = `data:${m.attachment.mimeType};base64,${m.attachment.data}`;
+          if (m.text) contentParts.push({ type: 'text', text: m.text });
+          contentParts.push({ type: 'image_url', image_url: dataUrl });
+        } else {
+          const baseText = m.text || (m.attachment ? 'Please analyze the attached file.' : '');
+          contentParts.push({ type: 'text', text: baseText });
+          if (m.attachment) {
+            contentParts.push({ 
+              type: 'text', 
+              text: `[Attachment: ${m.attachment.name} | ${m.attachment.mimeType}] Base64 (truncated): ${m.attachment.data.slice(0, 1200)}`
+            });
+          }
+        }
+
+        return { role, content: contentParts } as any;
+      })
     ];
 
     try {
       const response = await client.chatCompletion({
-        model: MODEL,
+        model: modelToUse,
         messages: hfMessages as any,
         max_tokens: 2000,
         temperature: 0.7
@@ -109,11 +129,11 @@ export const huggingFaceService = {
     try {
       let response;
       try {
-          response = await makeRequest(MODEL);
+        response = await makeRequest(model || DEFAULT_MODEL);
       } catch (error: any) {
           console.warn("Primary model failed for code gen, trying fallback...", error);
           if (error.message?.includes("auto-router") || error.message?.includes("401") || error.message?.includes("403")) {
-              response = await makeRequest(FALLBACK_MODEL);
+          response = await makeRequest(FALLBACK_MODEL);
           } else {
               throw error;
           }
@@ -183,15 +203,20 @@ export const huggingFaceService = {
       });
       
       if (typeof response === 'string') {
-        // Handle case where response is a string (URL or base64)
-        const url = (response as string).startsWith('http') || (response as string).startsWith('data:') 
+        const url = response.startsWith('http') || response.startsWith('data:') 
           ? response 
           : `data:image/png;base64,${response}`;
         const res = await fetch(url);
         return await res.blob();
       }
 
-      return response as Blob;
+      const maybeBlob: any = response;
+      if (maybeBlob && typeof maybeBlob === 'object' && 'size' in maybeBlob) {
+        return maybeBlob as Blob;
+      }
+
+      // Fallback: wrap unknown response into a Blob to avoid type issues
+      return new Blob([maybeBlob as any]);
     } catch (error) {
       console.warn("Primary image model failed, trying fallback...", error);
       try {
@@ -201,7 +226,13 @@ export const huggingFaceService = {
             inputs: prompt + ", vibrant, high quality",
             parameters: { width: 1024, height: 1024 }
           });
-          return response as Blob;
+          const fallbackBlob: any = response;
+          if (typeof fallbackBlob === 'string') {
+            const url = fallbackBlob.startsWith('http') || fallbackBlob.startsWith('data:') ? fallbackBlob : `data:image/png;base64,${fallbackBlob}`;
+            const res = await fetch(url);
+            return await res.blob();
+          }
+          return fallbackBlob as Blob;
       } catch (e) {
           console.error("Hugging Face Image Gen Error:", e);
           throw e;
@@ -270,13 +301,13 @@ export const huggingFaceService = {
       const client = getClient();
       try {
         const response = await client.chatCompletion({
-            model: MODEL,
+        model: DEFAULT_MODEL,
             messages: [{ role: "user", content: prompt }],
             max_tokens: 500
         });
         return {
             status: 200,
-            model: MODEL,
+        model: DEFAULT_MODEL,
             data: {
                 content: response.choices[0].message.content,
                 usage: { totalTokenCount: 100 } // Mock usage as HF doesn't always return it
@@ -285,7 +316,7 @@ export const huggingFaceService = {
       } catch (e) {
           return {
               status: 500,
-              model: MODEL,
+          model: DEFAULT_MODEL,
               data: { content: "Error: " + (e as any).message }
           };
       }
