@@ -1,5 +1,5 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { huggingFaceService } from '../services/huggingFaceService';
 import { Volume2, Loader2, FileText, Download, Activity, Copy, Check, Mic, MicOff, FolderPlus, Cloud, AlertCircle, RefreshCcw, XCircle } from 'lucide-react';
 import { View, SavedProject, CloudProviderConfig } from '../types';
@@ -31,8 +31,28 @@ const AudioStudio: React.FC<AudioStudioProps> = ({ onNavigate }) => {
     // Recording State
     const [isRecording, setIsRecording] = useState(false);
     const [showPermissionHelp, setShowPermissionHelp] = useState(false);
+    const [micPermission, setMicPermission] = useState<'unknown' | 'granted' | 'denied' | 'prompt'>('unknown');
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const audioChunksRef = useRef<Blob[]>([]);
+
+    // Keep microphone permission state in sync and respond when users change it in browser UI
+    useEffect(() => {
+        let permissionStatus: PermissionStatus | null = null;
+        const queryPermission = async () => {
+            if (!navigator.permissions?.query) return;
+            try {
+                permissionStatus = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+                setMicPermission(permissionStatus.state as any);
+                permissionStatus.onchange = () => setMicPermission(permissionStatus?.state as any);
+            } catch (err) {
+                // Permission API may be unsupported; ignore
+            }
+        };
+        queryPermission();
+        return () => {
+            if (permissionStatus) permissionStatus.onchange = null;
+        };
+    }, []);
 
     const blobToBase64 = (blob: Blob): Promise<string> => {
         return new Promise((resolve, reject) => {
@@ -91,6 +111,33 @@ const AudioStudio: React.FC<AudioStudioProps> = ({ onNavigate }) => {
         }
     };
 
+    const requestMicStream = async (): Promise<MediaStream | null> => {
+        if (!navigator.mediaDevices?.getUserMedia) {
+            alertService.error('Microphone Error', 'Browser does not support audio capture or is in an insecure context (https required).');
+            return null;
+        }
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            setMicPermission('granted');
+            return stream;
+        } catch (error: any) {
+            console.error('Error accessing microphone:', error);
+            if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+                setMicPermission('denied');
+                setShowPermissionHelp(true);
+            } else {
+                let errorMessage = 'Could not access microphone.';
+                if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+                    errorMessage = 'No microphone found. Please ensure a microphone is connected.';
+                } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+                    errorMessage = 'Microphone is already in use by another application.';
+                }
+                alertService.error('Microphone Error', errorMessage);
+            }
+            return null;
+        }
+    };
+
     const toggleRecording = async () => {
         if (isRecording) {
             if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
@@ -98,66 +145,52 @@ const AudioStudio: React.FC<AudioStudioProps> = ({ onNavigate }) => {
                 setIsRecording(false);
                 setIsTranscribing(true);
             }
-        } else {
-            // Check permissions first if supported
-            try {
-                if (navigator.permissions && navigator.permissions.query) {
-                    const permissionStatus = await navigator.permissions.query({ name: 'microphone' as PermissionName });
-                    if (permissionStatus.state === 'denied') {
-                        setShowPermissionHelp(true);
-                        return;
-                    }
+            return;
+        }
+
+        if (micPermission === 'denied') {
+            setShowPermissionHelp(true);
+            return;
+        }
+
+        const stream = await requestMicStream();
+        if (!stream) return;
+
+        try {
+            const mediaRecorder = new MediaRecorder(stream);
+            mediaRecorderRef.current = mediaRecorder;
+            audioChunksRef.current = [];
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    audioChunksRef.current.push(event.data);
                 }
-            } catch (e) {
-                // Ignore permission query errors
-            }
+            };
 
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                const mediaRecorder = new MediaRecorder(stream);
-                mediaRecorderRef.current = mediaRecorder;
-                audioChunksRef.current = [];
+            mediaRecorder.onstop = async () => {
+                const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+                const url = URL.createObjectURL(audioBlob);
+                setUploadedAudioUrl(url);
+                stream.getTracks().forEach(track => track.stop());
 
-                mediaRecorder.ondataavailable = (event) => {
-                    if (event.data.size > 0) {
-                        audioChunksRef.current.push(event.data);
-                    }
-                };
-
-                mediaRecorder.onstop = async () => {
-                    const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-                    const url = URL.createObjectURL(audioBlob);
-                    setUploadedAudioUrl(url);
-                    stream.getTracks().forEach(track => track.stop());
-
-                    try {
-                        const transcript = await huggingFaceService.transcribeAudio(audioBlob);
-                        setTranscription(transcript || "No speech detected.");
-                    } catch (error: any) {
-                        console.error("Transcription failed:", error);
-                        setTranscription("Error: " + error.message);
-                    } finally {
-                        setIsTranscribing(false);
-                    }
-                };
-
-                mediaRecorder.start();
-                setIsRecording(true);
-            } catch (error: any) {
-                console.error("Error accessing microphone:", error);
-                
-                if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-                    setShowPermissionHelp(true);
-                } else {
-                    let errorMessage = 'Could not access microphone.';
-                    if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
-                        errorMessage = 'No microphone found. Please ensure a microphone is connected.';
-                    } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
-                        errorMessage = 'Microphone is already in use by another application.';
-                    }
-                    alertService.error('Microphone Error', errorMessage);
+                try {
+                    const transcript = await huggingFaceService.transcribeAudio(audioBlob);
+                    setTranscription(transcript || "No speech detected.");
+                } catch (error: any) {
+                    console.error("Transcription failed:", error);
+                    setTranscription("Error: " + error.message);
+                } finally {
+                    setIsTranscribing(false);
                 }
-            }
+            };
+
+            mediaRecorder.start();
+            setIsRecording(true);
+            setIsTranscribing(true);
+        } catch (error: any) {
+            console.error('Error starting recorder:', error);
+            alertService.error('Microphone Error', 'Unable to start recording.');
+            stream.getTracks().forEach(track => track.stop());
         }
     };
 
@@ -270,13 +303,22 @@ const AudioStudio: React.FC<AudioStudioProps> = ({ onNavigate }) => {
             </div>
 
             <div className="flex-1 bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-2xl relative overflow-hidden flex flex-col">
-                
+                <div className="absolute top-3 right-4 flex items-center gap-2 text-[10px] uppercase font-bold">
+                    <span className="text-slate-500">Mic</span>
+                    <span className={`px-2 py-1 rounded-full ${micPermission === 'granted' ? 'bg-green-900/40 text-green-300 border border-green-700' : micPermission === 'denied' ? 'bg-red-900/40 text-red-300 border border-red-700' : 'bg-slate-800 text-slate-300 border border-slate-700'}`}>
+                        {micPermission === 'granted' ? 'Granted' : micPermission === 'denied' ? 'Blocked' : 'Ask to use'}
+                    </span>
+                    {micPermission === 'denied' && (
+                        <button className="text-red-300 underline" onClick={() => setShowPermissionHelp(true)}>Fix</button>
+                    )}
+                </div>
+
                 {activeTab === 'tts' && (
                     <div className="max-w-lg mx-auto w-full space-y-4 h-full flex flex-col justify-center">
-                        <div className="text-center">
-                             <h2 className="text-lg font-bold text-white">Neural Text-to-Speech</h2>
-                             <p className="text-slate-400 text-xs mt-1">Convert text into lifelike audio using Gemini models.</p>
-                        </div>
+                            <div className="text-center">
+                                <h2 className="text-lg font-bold text-white">Neural Text-to-Speech</h2>
+                                <p className="text-slate-400 text-xs mt-1">Convert text into audio with free Hugging Face voices.</p>
+                            </div>
                         <div className="bg-slate-950 border border-slate-800 rounded-xl p-1">
                             <div className="flex border-b border-slate-800 px-3 py-2 items-center justify-between bg-slate-900/50 rounded-t-lg">
                                 <span className="text-[10px] font-bold text-slate-500 uppercase">Input</span>
