@@ -6,7 +6,51 @@ import { BuilderChatMessage, ProjectFile, Stack, DatabaseConfig, ModelType, File
 const DEFAULT_MODEL = ModelType.HF_LLAMA;
 const FALLBACK_MODEL = ModelType.HF_PHI;
 
-const getClient = (apiKey?: string) => new InferenceClient(apiKey || process.env.HUGGING_FACE_API_KEY);
+const HF_TOKEN_STORAGE_KEY = "zee_hf_token";
+
+const getEnvToken = (): string | undefined => {
+  try {
+    const env: any = (import.meta as any)?.env;
+    return (
+      env?.VITE_HF_TOKEN ||
+      env?.VITE_HUGGINGFACE_API_KEY ||
+      env?.VITE_HUGGING_FACE_API_KEY ||
+      undefined
+    );
+  } catch {
+    return undefined;
+  }
+};
+
+const getStoredToken = (): string | undefined => {
+  try {
+    if (typeof window === "undefined") return undefined;
+    const token = window.localStorage.getItem(HF_TOKEN_STORAGE_KEY);
+    return token || undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+const getProcessToken = (): string | undefined => {
+  try {
+    return (
+      process.env.HF_TOKEN ||
+      process.env.HUGGINGFACE_API_KEY ||
+      process.env.HUGGING_FACE_API_KEY ||
+      process.env.HUGGING_FACE_ACCESS_TOKEN ||
+      undefined
+    );
+  } catch {
+    return undefined;
+  }
+};
+
+const resolveToken = (explicit?: string): string | undefined => {
+  return explicit || getEnvToken() || getStoredToken() || getProcessToken();
+};
+
+const getClient = (apiKey?: string) => new InferenceClient(resolveToken(apiKey));
 
 export const huggingFaceService = {
   chat: async (
@@ -47,6 +91,7 @@ export const huggingFaceService = {
     try {
       const response = await client.chatCompletion({
         model: modelToUse,
+        provider: "hf-inference",
         messages: hfMessages as any,
         max_tokens: 2000,
         temperature: 0.7
@@ -59,6 +104,7 @@ export const huggingFaceService = {
           try {
             const response = await client.chatCompletion({
                 model: FALLBACK_MODEL,
+                provider: "hf-inference",
                 messages: hfMessages as any,
                 max_tokens: 2000,
                 temperature: 0.7
@@ -117,6 +163,7 @@ export const huggingFaceService = {
     const makeRequest = async (modelName: string) => {
         return await client.chatCompletion({
             model: modelName,
+        provider: "hf-inference",
             messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: prompt }
@@ -199,6 +246,7 @@ export const huggingFaceService = {
 
       const response = await client.textToImage({
         model: model || "black-forest-labs/FLUX.1-schnell",
+        provider: "hf-inference",
         inputs: enhancedPrompt,
         parameters: {
           width,
@@ -227,6 +275,7 @@ export const huggingFaceService = {
           // Fallback to SDXL if FLUX fails
           const response = await client.textToImage({
             model: "stabilityai/stable-diffusion-xl-base-1.0",
+            provider: "hf-inference",
             inputs: prompt + ", vibrant, high quality",
             parameters: { width: 1024, height: 1024 }
           });
@@ -249,6 +298,7 @@ export const huggingFaceService = {
     try {
       const response: any = await client.imageToImage({
         model: "stabilityai/stable-diffusion-xl-base-1.0",
+        provider: "hf-inference",
         // image_to_image expects an object with image + prompt; cast to any to satisfy types
         inputs: {
           image: `data:${mimeType};base64,${base64Image}`,
@@ -285,6 +335,7 @@ export const huggingFaceService = {
     try {
       const response = await client.textToSpeech({
         model: "facebook/mms-tts-eng",
+        provider: "hf-inference",
         inputs: text
       });
       return await toBlob(response);
@@ -292,6 +343,7 @@ export const huggingFaceService = {
       try {
         const fallback = await client.textToSpeech({
           model: "espnet/kan-bayashi-ljspeech-vits",
+          provider: "hf-inference",
           inputs: text
         });
         return await toBlob(fallback);
@@ -307,6 +359,7 @@ export const huggingFaceService = {
     try {
       const response = await client.automaticSpeechRecognition({
         model: "openai/whisper-large-v3",
+        provider: "hf-inference",
         data: audioBlob
       });
       return response.text;
@@ -317,7 +370,25 @@ export const huggingFaceService = {
   },
   
   ensureApiKey: async () => {
-      return true; 
+      const existing = resolveToken();
+      if (existing) return true;
+
+      // In the browser, prompt once and persist to localStorage.
+      if (typeof window !== "undefined") {
+        try {
+          const entered = window.prompt(
+            "Hugging Face token required for chat/audio. Paste your HF token (starts with hf_)"
+          );
+          const token = (entered || "").trim();
+          if (!token) return false;
+          window.localStorage.setItem(HF_TOKEN_STORAGE_KEY, token);
+          return true;
+        } catch {
+          return false;
+        }
+      }
+
+      return false;
   },
   
   blobToBase64: (blob: Blob): Promise<string> => {
@@ -338,6 +409,7 @@ export const huggingFaceService = {
       try {
         const response = await client.chatCompletion({
         model: DEFAULT_MODEL,
+      provider: "hf-inference",
             messages: [{ role: "user", content: prompt }],
             max_tokens: 500
         });

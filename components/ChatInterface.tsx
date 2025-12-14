@@ -527,6 +527,12 @@ const ChatInterface: React.FC = () => {
             const chosenModel = attachment?.mimeType?.startsWith('image/') ? ModelType.HF_VISION_LITE : ModelType.HF_LLAMA;
             setModel(chosenModel);
 
+            const ok = await huggingFaceService.ensureApiKey();
+            if (!ok) {
+                setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: 'Hugging Face token is required to run chat in this environment. Add it when prompted and try again.' }]);
+                return;
+            }
+
             const systemPrompt = `You are Zee, a helpful AI assistant.
 Current Date: ${new Date().toDateString()}
 - Never attempt paid Gemini models. Use only the free/open Hugging Face models provided.

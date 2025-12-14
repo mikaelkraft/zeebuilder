@@ -69,6 +69,11 @@ const AudioStudio: React.FC<AudioStudioProps> = ({ onNavigate }) => {
         setIsGeneratingTTS(true);
         setAudioDownloadUrl(null);
         try {
+            const ok = await huggingFaceService.ensureApiKey();
+            if (!ok) {
+                alertService.error('Missing Hugging Face Token', 'Add your Hugging Face token when prompted, then try again.');
+                return;
+            }
             const audioBlob = await huggingFaceService.generateSpeech(ttsText, ttsVoice);
             if (audioBlob) {
                  const url = URL.createObjectURL(audioBlob);
@@ -104,6 +109,12 @@ const AudioStudio: React.FC<AudioStudioProps> = ({ onNavigate }) => {
         setTranscription('');
         
         try {
+             const ok = await huggingFaceService.ensureApiKey();
+             if (!ok) {
+                 setTranscription('Error: Hugging Face token required. Add it when prompted and try again.');
+                 setIsTranscribing(false);
+                 return;
+             }
              const text = await huggingFaceService.transcribeAudio(file);
              setTranscription(text || "No speech detected.");
              setIsTranscribing(false);
@@ -177,6 +188,11 @@ const AudioStudio: React.FC<AudioStudioProps> = ({ onNavigate }) => {
                 stream.getTracks().forEach(track => track.stop());
 
                 try {
+                    const ok = await huggingFaceService.ensureApiKey();
+                    if (!ok) {
+                        setTranscription('Error: Hugging Face token required. Add it when prompted and try again.');
+                        return;
+                    }
                     const transcript = await huggingFaceService.transcribeAudio(audioBlob);
                     setTranscription(transcript || "No speech detected.");
                 } catch (error: any) {
