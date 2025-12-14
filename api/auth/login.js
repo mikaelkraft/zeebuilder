@@ -16,6 +16,10 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
+  if (!process.env.JWT_SECRET) {
+    return res.status(503).json({ error: 'Auth not configured. Missing JWT_SECRET.' });
+  }
+
   const { email, password } = req.body;
 
   if (!email || !password) {
@@ -61,7 +65,7 @@ export default async function handler(req, res) {
 
     // Check if Supabase is configured
     if (!supabaseAdmin) {
-      return res.status(500).json({ error: 'Database not configured. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.' });
+      return res.status(503).json({ error: 'Database not configured. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.' });
     }
 
     // Find user in Supabase

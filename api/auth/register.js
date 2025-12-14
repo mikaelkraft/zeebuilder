@@ -16,6 +16,14 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
+  if (!process.env.JWT_SECRET) {
+    return res.status(503).json({ error: 'Auth not configured. Missing JWT_SECRET.' });
+  }
+
+  if (!supabaseAdmin) {
+    return res.status(503).json({ error: 'Database service temporarily unavailable. Please try again later.' });
+  }
+
   // Check if Supabase is configured
   if (!supabaseAdmin) {
     return res.status(503).json({ error: 'Database service temporarily unavailable. Please try again later.' });
@@ -29,6 +37,11 @@ export default async function handler(req, res) {
 
   const cleanEmail = email.trim();
   const cleanUsername = username.trim();
+
+  const strongPassword = password.length >= 8 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /[0-9]/.test(password);
+  if (!strongPassword) {
+    return res.status(400).json({ error: 'Password must be at least 8 characters and include upper, lower, and a number.' });
+  }
 
   try {
     // Check if user already exists

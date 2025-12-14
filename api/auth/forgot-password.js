@@ -17,6 +17,14 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
+  if (!process.env.JWT_SECRET) {
+    return res.status(503).json({ error: 'Auth not configured. Missing JWT_SECRET.' });
+  }
+
+  if (!supabaseAdmin) {
+    return res.status(503).json({ error: 'Database service temporarily unavailable. Please try again later.' });
+  }
+
   const { email } = req.body;
 
   if (!email) {
@@ -36,20 +44,19 @@ export default async function handler(req, res) {
       return res.status(200).json({ message: 'If an account exists, a reset link has been sent.' });
     }
 
-    // Generate Reset Token (valid for 1 hour)
+    // Generate Reset Token (valid for 30 minutes)
     const resetToken = jwt.sign(
       { id: user.id, email: user.email, type: 'reset' },
       process.env.JWT_SECRET,
-      { expiresIn: '1h' }
+      { expiresIn: '30m' }
     );
 
-    // Construct Reset Link
-    // In a real app, use the actual frontend URL from env or headers
-    const origin = req.headers.origin || 'http://localhost:5173';
-    const resetLink = `${origin}/reset-password?token=${resetToken}`;
+    // Construct Reset Link using trusted origin if provided
+    const origin = process.env.APP_ORIGIN || process.env.PUBLIC_APP_URL || req.headers.origin || 'http://localhost:5173';
+    const resetLink = `${origin.replace(/\/$/, '')}/reset-password?token=${resetToken}`;
 
     // Send Email
-    await sendEmail({
+    const emailResult = await sendEmail({
       to: email,
       subject: 'Reset your ZeeBuilder Password',
       html: `
@@ -60,10 +67,14 @@ export default async function handler(req, res) {
           <br/>
           <a href="${resetLink}" style="background: #2563eb; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Reset Password</a>
           <br/><br/>
-          <p>If you didn't request this, you can safely ignore this email. The link expires in 1 hour.</p>
+          <p>If you didn't request this, you can safely ignore this email. The link expires in 30 minutes.</p>
         </div>
       `
     });
+
+    if (!emailResult?.success) {
+      console.error('Reset email failed to send', emailResult?.error);
+    }
 
     res.status(200).json({ message: 'If an account exists, a reset link has been sent.' });
 
