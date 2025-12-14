@@ -31,27 +31,24 @@ const AudioStudio: React.FC<AudioStudioProps> = ({ onNavigate }) => {
     // Recording State
     const [isRecording, setIsRecording] = useState(false);
     const [showPermissionHelp, setShowPermissionHelp] = useState(false);
-    const [micPermission, setMicPermission] = useState<'unknown' | 'granted' | 'denied' | 'prompt'>('unknown');
+    const [micPermission, setMicPermission] = useState<'unknown' | 'granted' | 'denied' | 'prompt'>('prompt');
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const audioChunksRef = useRef<Blob[]>([]);
 
-    // Keep microphone permission state in sync and respond when users change it in browser UI
+    const refreshMicStatus = async () => {
+        if (!navigator.permissions?.query) return;
+        try {
+            const permissionStatus = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+            const state = permissionStatus.state as any;
+            setMicPermission(state === 'granted' ? 'granted' : state === 'denied' ? 'denied' : 'prompt');
+            permissionStatus.onchange = () => setMicPermission(permissionStatus.state as any);
+        } catch (err) {
+            // Permission API may be unsupported; ignore
+        }
+    };
+
     useEffect(() => {
-        let permissionStatus: PermissionStatus | null = null;
-        const queryPermission = async () => {
-            if (!navigator.permissions?.query) return;
-            try {
-                permissionStatus = await navigator.permissions.query({ name: 'microphone' as PermissionName });
-                setMicPermission(permissionStatus.state as any);
-                permissionStatus.onchange = () => setMicPermission(permissionStatus?.state as any);
-            } catch (err) {
-                // Permission API may be unsupported; ignore
-            }
-        };
-        queryPermission();
-        return () => {
-            if (permissionStatus) permissionStatus.onchange = null;
-        };
+        refreshMicStatus();
     }, []);
 
     const blobToBase64 = (blob: Blob): Promise<string> => {
@@ -85,7 +82,12 @@ const AudioStudio: React.FC<AudioStudioProps> = ({ onNavigate }) => {
                 alertService.error('Generation Failed', 'Failed to generate speech. Please try again.');
             }
         } catch (e: any) {
-            alertService.error('TTS Error', (e as any).message);
+            const message = (e as any).message || '';
+            if (message.toLowerCase().includes('inference provider') || message.includes('401') || message.includes('403')) {
+                alertService.error('TTS Error', 'Speech model unavailable. Please ensure HUGGING_FACE_API_KEY is set and try again.');
+            } else {
+                alertService.error('TTS Error', message || 'Unable to generate speech.');
+            }
         } finally {
             setIsGeneratingTTS(false);
         }
@@ -119,6 +121,7 @@ const AudioStudio: React.FC<AudioStudioProps> = ({ onNavigate }) => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             setMicPermission('granted');
+            setShowPermissionHelp(false);
             return stream;
         } catch (error: any) {
             console.error('Error accessing microphone:', error);
@@ -308,6 +311,7 @@ const AudioStudio: React.FC<AudioStudioProps> = ({ onNavigate }) => {
                     <span className={`px-2 py-1 rounded-full ${micPermission === 'granted' ? 'bg-green-900/40 text-green-300 border border-green-700' : micPermission === 'denied' ? 'bg-red-900/40 text-red-300 border border-red-700' : 'bg-slate-800 text-slate-300 border border-slate-700'}`}>
                         {micPermission === 'granted' ? 'Granted' : micPermission === 'denied' ? 'Blocked' : 'Ask to use'}
                     </span>
+                    <button className="text-slate-300 underline" onClick={refreshMicStatus}>Refresh</button>
                     {micPermission === 'denied' && (
                         <button className="text-red-300 underline" onClick={() => setShowPermissionHelp(true)}>Fix</button>
                     )}

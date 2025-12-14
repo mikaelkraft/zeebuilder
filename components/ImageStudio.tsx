@@ -71,9 +71,14 @@ const ImageStudio: React.FC = () => {
                 const url = URL.createObjectURL(imageBlob);
                 setResultUrl(url);
             } else if (mode === 'edit') {
-                if (!uploadedImage) return;
-                // Edit not yet implemented in HF service
-                (window as any).swal("Not Supported", "Image editing is not currently supported with this model.", "info");
+                if (!uploadedImage) {
+                    (window as any).swal("Upload Required", "Please upload a source image to edit.", "warning");
+                    return;
+                }
+                const editPrompt = prompt || 'Enhance this image with better lighting, detail, and clarity.';
+                const imageBlob = await huggingFaceService.editImage(uploadedImage.data, uploadedImage.mimeType, editPrompt, 0.6);
+                const url = URL.createObjectURL(imageBlob);
+                setResultUrl(url);
             }
         } catch (error: any) {
             console.error("Image Generation Error:", error);

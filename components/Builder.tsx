@@ -393,7 +393,8 @@ const Builder: React.FC<BuilderProps> = ({ user, initialPrompt }) => {
     const [serviceCategory, setServiceCategory] = useState<'api' | 'integration'>('api');
     const [isSyncing, setIsSyncing] = useState(false);
     const progressStatusRef = useRef<NodeJS.Timeout | null>(null);
-    const [model, setModel] = useState(ModelType.FLASH);
+    // Auto-select best free chat model (HF Llama)
+    const model = ModelType.HF_LLAMA;
     const [useSearch, setUseSearch] = useState(true); // Enable search by default for up-to-date tools/libraries
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -2109,14 +2110,10 @@ body {
                     <Bot className="w-4 h-4 mr-2 text-blue-500" />
                     <span className="text-xs font-bold text-white">Zee Builder</span>
                 </div>
-                <div className="flex items-center space-x-1">
+                <div className="flex items-center space-x-1 flex-wrap justify-end">
                     <button onClick={createSnapshot} className="p-1.5 rounded hover:bg-slate-800 text-slate-400 hover:text-green-400" title="Create Checkpoint">
                         <Save className="w-3.5 h-3.5" />
                     </button>
-                    <select value={model} onChange={e => setModel(e.target.value as ModelType)} className="bg-slate-950 text-xs text-slate-400 border border-slate-800 rounded py-1 px-2 max-w-[100px] focus:outline-none">
-                        <option value={ModelType.FLASH}>Free (Llama 3)</option>
-                        <option value={ModelType.FLASH_LITE}>Lite (Fast)</option>
-                    </select>
                     <button onClick={() => setUseSearch(!useSearch)} className={`p-1.5 rounded ${useSearch ? 'text-blue-500 bg-blue-500/10' : 'text-slate-500 hover:bg-slate-800'}`} title="Search Web">
                         <Globe className="w-3.5 h-3.5" />
                     </button>

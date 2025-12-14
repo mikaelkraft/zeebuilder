@@ -181,20 +181,24 @@ export const huggingFaceService = {
   generateImage: async (prompt: string, aspectRatio: string, size: string, model: ModelType): Promise<Blob> => {
     const client = getClient();
     try {
-      // Map aspect ratio to dimensions (approximate for SDXL)
+      // Map aspect ratio to dimensions (approximate for SDXL/FLUX)
       let width = 1024;
       let height = 1024;
-      
-      if (aspectRatio === '16:9') { width = 1024; height = 576; }
-      else if (aspectRatio === '9:16') { width = 576; height = 1024; }
-      else if (aspectRatio === '4:3') { width = 1024; height = 768; }
-      else if (aspectRatio === '3:4') { width = 768; height = 1024; }
+      if (aspectRatio === '16:9') { width = 1280; height = 720; }
+      else if (aspectRatio === '9:16') { width = 720; height = 1280; }
+      else if (aspectRatio === '4:3') { width = 1344; height = 1008; }
+      else if (aspectRatio === '3:4') { width = 1008; height = 1344; }
+
+      // Scale dimensions based on requested size
+      const sizeLower = (size || '').toLowerCase();
+      if (sizeLower.includes('4k')) { width = Math.min(width * 2, 2048); height = Math.min(height * 2, 2048); }
+      else if (sizeLower.includes('2k')) { width = Math.min(Math.floor(width * 1.5), 1536); height = Math.min(Math.floor(height * 1.5), 1536); }
 
       // Enhance prompt for vibrancy if not already present
       const enhancedPrompt = prompt.toLowerCase().includes('vibrant') ? prompt : `${prompt}, vibrant colors, high quality, detailed, 8k resolution, cinematic lighting`;
 
       const response = await client.textToImage({
-        model: "black-forest-labs/FLUX.1-schnell", // Newer, faster, better quality model
+        model: model || "black-forest-labs/FLUX.1-schnell",
         inputs: enhancedPrompt,
         parameters: {
           width,
@@ -240,28 +244,60 @@ export const huggingFaceService = {
     }
   },
 
-  generateSpeech: async (text: string, voice: string = "default"): Promise<Blob> => {
+  editImage: async (base64Image: string, mimeType: string, prompt: string, strength: number = 0.55): Promise<Blob> => {
     const client = getClient();
     try {
-      const response = await client.textToSpeech({
-        model: "microsoft/speecht5_tts",
-        inputs: text,
-        // Note: speecht5 requires speaker embeddings, but the inference API might handle defaults or we might need a different model for simple usage
-        // Using facebook/mms-tts-eng for simpler API usage if speecht5 fails or needs embeddings
-      });
-      return response;
+      const response: any = await client.imageToImage({
+        model: "stabilityai/stable-diffusion-xl-base-1.0",
+        // image_to_image expects an object with image + prompt; cast to any to satisfy types
+        inputs: {
+          image: `data:${mimeType};base64,${base64Image}`,
+          prompt,
+          strength
+        } as any
+      } as any);
+
+      if (response instanceof Blob) return response;
+      if (typeof response === 'string') {
+        const url = response.startsWith('http') || response.startsWith('data:') ? response : `data:image/png;base64,${response}`;
+        const res = await fetch(url);
+        return await res.blob();
+      }
+      return new Blob([response as any]);
     } catch (error) {
-      // Fallback to a simpler model if the first one fails
+      console.error("Hugging Face Image Edit Error:", error);
+      throw error;
+    }
+  },
+
+  generateSpeech: async (text: string, voice: string = "default"): Promise<Blob> => {
+    const client = getClient();
+    const toBlob = async (resp: any) => {
+      if (resp instanceof Blob) return resp;
+      if (typeof resp === 'string') {
+        const url = resp.startsWith('http') || resp.startsWith('data:') ? resp : `data:audio/wav;base64,${resp}`;
+        const res = await fetch(url);
+        return await res.blob();
+      }
+      return new Blob([resp as any]);
+    };
+
+    try {
+      const response = await client.textToSpeech({
+        model: "facebook/mms-tts-eng",
+        inputs: text
+      });
+      return await toBlob(response);
+    } catch (primaryError) {
       try {
-        const client2 = getClient();
-        const response = await client2.textToSpeech({
-            model: "facebook/mms-tts-eng",
-            inputs: text
+        const fallback = await client.textToSpeech({
+          model: "espnet/kan-bayashi-ljspeech-vits",
+          inputs: text
         });
-        return response;
-      } catch (e) {
-        console.error("Hugging Face TTS Error:", error);
-        throw error;
+        return await toBlob(fallback);
+      } catch (fallbackError) {
+        console.error("Hugging Face TTS Error:", primaryError, fallbackError);
+        throw fallbackError;
       }
     }
   },

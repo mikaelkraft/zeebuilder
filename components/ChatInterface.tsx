@@ -324,7 +324,7 @@ const ChatInterface: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [attachment, setAttachment] = useState<FileAttachment | null>(null);
     
-    const [model, setModel] = useState(ModelType.HF_LLAMA);
+    const [model, setModel] = useState(ModelType.HF_LLAMA); // auto-selected per message (not user-facing)
     const [isThinking, setIsThinking] = useState(false);
     const [useMaps, setUseMaps] = useState(false);
     const [useSearch, setUseSearch] = useState(false);
@@ -336,9 +336,12 @@ const ChatInterface: React.FC = () => {
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const audioChunksRef = useRef<Blob[]>([]);
 
-    // const chatSessionRef = useRef<any>(null); // Removed for stateless HF
+    const chatSessionRef = useRef<any>(null); // kept for legacy compatibility (cleared on new session)
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const messagesContainerRef = useRef<HTMLDivElement>(null);
+
+    // No-op init placeholder to keep lifecycle stable (legacy sessions used Gemini runtime)
+    const initChat = async () => Promise.resolve();
 
     // Determine if tools are supported
     const supportsTools = model === ModelType.HF_LLAMA;
@@ -520,6 +523,10 @@ const ChatInterface: React.FC = () => {
 
         try {
             // Use Hugging Face Service
+            // Auto-select best free model per message
+            const chosenModel = attachment?.mimeType?.startsWith('image/') ? ModelType.HF_VISION_LITE : ModelType.HF_LLAMA;
+            setModel(chosenModel);
+
             const systemPrompt = `You are Zee, a helpful AI assistant.
 Current Date: ${new Date().toDateString()}
 - Never attempt paid Gemini models. Use only the free/open Hugging Face models provided.
@@ -546,7 +553,7 @@ Current Date: ${new Date().toDateString()}
             const searchContext = useSearch ? await fetchSearchContext(userMsg.text) : '';
 
             const responseText = await huggingFaceService.chat(history, systemPrompt, {
-                model,
+                model: chosenModel,
                 searchContext: searchContext || undefined,
             });
             
@@ -635,29 +642,21 @@ Current Date: ${new Date().toDateString()}
 
             <div className="flex-1 flex flex-col bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl shadow-2xl overflow-hidden relative">
                 <div className="px-4 py-3 border-b border-gray-200 dark:border-slate-800 flex items-center justify-between bg-gray-50/80 dark:bg-slate-900/80 backdrop-blur">
-                    <div className="flex items-center space-x-3">
+                    <div className="flex items-center space-x-2 flex-wrap">
                         <button onClick={() => setIsHistoryOpen(!isHistoryOpen)} className="p-2 hover:bg-gray-200 dark:hover:bg-slate-800 rounded-lg text-slate-500"><History className="w-5 h-5" /></button>
-                        <div className="flex items-center gap-2">
-                            <select value={model} onChange={(e) => setModel(e.target.value as ModelType)} className="bg-transparent text-xs font-bold text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 focus:outline-none cursor-pointer">
-                                <option value={ModelType.HF_LLAMA}>HF Llama 3.1 (chat/coding)</option>
-                                <option value={ModelType.HF_PHI}>HF Phi 4 (fast/light)</option>
-                                <option value={ModelType.HF_VISION_LITE}>HF Phi 3.5 Vision (images/OCR)</option>
-                            </select>
-                            
-                            {/* Thinking Toggle */}
-                            <button 
-                                onClick={() => setIsThinking(!isThinking)}
-                                className={`p-1.5 rounded-lg flex items-center gap-1 transition-colors ${isThinking ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/20' : 'bg-gray-100 dark:bg-slate-800 text-slate-400 hover:text-purple-400'}`}
-                                title="Toggle Thinking Mode"
-                            >
-                                <BrainCircuit className="w-4 h-4" />
-                                <span className="text-[10px] font-bold uppercase hidden sm:inline">Think</span>
-                            </button>
-                        </div>
+                        {/* Thinking Toggle */}
+                        <button 
+                            onClick={() => setIsThinking(!isThinking)}
+                            className={`p-1.5 rounded-lg flex items-center gap-1 transition-colors ${isThinking ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/20' : 'bg-gray-100 dark:bg-slate-800 text-slate-400 hover:text-purple-400'}`}
+                            title="Toggle Thinking Mode"
+                        >
+                            <BrainCircuit className="w-4 h-4" />
+                            <span className="text-[10px] font-bold uppercase hidden sm:inline">Think</span>
+                        </button>
                     </div>
                     
                     {/* Tools Toolbar */}
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-2 flex-wrap justify-end">
                         <div className="flex items-center space-x-1 bg-gray-100 dark:bg-slate-800 rounded-lg p-1">
                              <button 
                                 onClick={() => setUseMaps(!useMaps)} 
