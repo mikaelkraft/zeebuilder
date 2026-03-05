@@ -116,6 +116,29 @@ const App: React.FC = () => {
     return ROUTES[pathname.toLowerCase()] || View.HOME;
   };
 
+  const getSafeAvatar = (user: User | null): string | undefined => {
+    if (!user) return undefined;
+
+    const fallback = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(
+      user.username || user.email || 'user'
+    )}`;
+
+    if (!user.avatar) {
+      return fallback;
+    }
+
+    try {
+      const url = new URL(user.avatar, window.location.origin);
+      if (url.protocol === 'http:' || url.protocol === 'https:') {
+        return url.toString();
+      }
+    } catch {
+      // Ignore parsing errors and fall through to fallback
+    }
+
+    return fallback;
+  };
+
   // Initialize view from URL
   const [currentView, setCurrentView] = useState<View>(() => {
     return getViewFromPath(location.pathname);
@@ -456,7 +479,16 @@ const App: React.FC = () => {
                     {user ? (
                         <div className="flex items-center gap-3">
                             <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Hi, {user.username}</span>
-                            <img src={user.avatar} alt="Profile" className="w-8 h-8 rounded-full border border-slate-300 dark:border-slate-700" />
+                            {(() => {
+                                const safeAvatar = getSafeAvatar(user);
+                                return safeAvatar ? (
+                                    <img
+                                        src={safeAvatar}
+                                        alt="Profile"
+                                        className="w-8 h-8 rounded-full border border-slate-300 dark:border-slate-700"
+                                    />
+                                ) : null;
+                            })()}
                         </div>
                     ) : (
                         <button onClick={() => setShowAuth(true)} className="px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-sm font-bold rounded-lg hover:opacity-90 transition-opacity">
